@@ -7,38 +7,44 @@ import Footer from "@/components/layout/Footer";
 import { motion } from "framer-motion";
 import { ChevronRight, ChevronDown, Share2 } from "lucide-react";
 
-// Sample categories
+// Sample categories - Siemens Electrical Products
 const categories = [
-    { name: "Arsitektural", subcategories: [] },
     {
-        name: "Struktural",
-        subcategories: []
+        name: "Low Voltage Product",
+        subcategories: ["MCB", "MCCB", "ACB", "RCCB", "SPD", "Fuse"]
     },
-    { name: "Semen & Sejenisnya", subcategories: [] },
-    { name: "Produk Teknikal & Kimia", subcategories: [] },
-    { name: "Produk K3", subcategories: [] },
-    { name: "Perlengkapan", subcategories: [] },
-    { name: "Bekisting", subcategories: [] },
     {
-        name: "Besi Beton & Wiremesh",
-        subcategories: ["Kolom Praktis", "Kawat Bendrat", "Wire Rod", "Besi Nako", "Besi Hollow", "Besi Siku"]
+        name: "Control Product",
+        subcategories: ["Contactor", "Motor Starter", "Thermal Relay", "Timer", "Push Button"]
+    },
+    {
+        name: "Portable Lighting",
+        subcategories: ["LED Floodlight", "LED High Bay", "LED Panel", "Emergency Light"]
+    },
+    {
+        name: "Cable & Accessories",
+        subcategories: ["Power Cable", "Control Cable", "Cable Gland", "Cable Lug"]
+    },
+    {
+        name: "Panel & Enclosure",
+        subcategories: ["Distribution Board", "Enclosure", "Din Rail", "Terminal Block"]
     },
 ];
 
-// Sample products
+// Sample products - Siemens Electrical
 const products = [
-    { id: 1, brand: "Lautan Steel (LS)", name: "Besi Beton Lautan Steel (LS) 22mm Ulir TS420", price: 363627, stock: true, ppn: true },
-    { id: 2, brand: "BPS", name: "Besi Beton BPS 10 mm Polos TP 280", price: 72338, stock: false, ppn: true },
-    { id: 3, brand: "Lautan Steel (LS)", name: "Besi Beton Lautan Steel (LS) 10mm Ulir TS420", price: 180405, stock: false, ppn: false },
-    { id: 4, brand: "BPS", name: "Besi Beton BPS 19mm Ulir TS420", price: 251063, stock: false, ppn: true },
-    { id: 5, brand: "BPS", name: "Besi Beton BPS 16mm Ulir TS420", price: 198500, stock: true, ppn: true },
-    { id: 6, brand: "Lautan Steel (LS)", name: "Besi Beton Lautan Steel (LS) 13mm Ulir TS420", price: 142800, stock: true, ppn: false },
-    { id: 7, brand: "BPS", name: "Besi Beton BPS 8mm Polos TP 280", price: 45200, stock: true, ppn: true },
-    { id: 8, brand: "Lautan Steel (LS)", name: "Besi Beton Lautan Steel (LS) 25mm Ulir TS420", price: 485000, stock: false, ppn: true },
+    { id: 1, brand: "Siemens", name: "Siemens 5SL6 MCB 1P 16A 6kA", price: 125000, stock: true, ppn: true },
+    { id: 2, brand: "Siemens", name: "Siemens 3VA MCCB 3P 100A 25kA", price: 2850000, stock: true, ppn: true },
+    { id: 3, brand: "Siemens", name: "Siemens SIRIUS 3RT2 Contactor 3P 9A", price: 485000, stock: false, ppn: true },
+    { id: 4, brand: "Siemens", name: "Siemens 3RV2 Motor Starter 1.1-1.6A", price: 720000, stock: true, ppn: false },
+    { id: 5, brand: "Siemens", name: "Siemens 3SU1 Push Button Green 22mm", price: 185000, stock: true, ppn: true },
+    { id: 6, brand: "Siemens", name: "Siemens LED Floodlight 50W IP65", price: 450000, stock: true, ppn: true },
+    { id: 7, brand: "Siemens", name: "Siemens 5SP3 SPD Type 2 40kA", price: 980000, stock: false, ppn: true },
+    { id: 8, brand: "Siemens", name: "Siemens 5SQ3 Fuse Holder 3P 32A", price: 245000, stock: true, ppn: true },
 ];
 
 export default function SearchPage() {
-    const [expandedCategory, setExpandedCategory] = useState<string | null>("Besi Beton & Wiremesh");
+    const [expandedCategory, setExpandedCategory] = useState<string | null>("Low Voltage Product");
     const [currentPage, setCurrentPage] = useState(1);
     const [sortBy, setSortBy] = useState("newest");
     const totalPages = 4;
@@ -144,33 +150,36 @@ export default function SearchPage() {
                             {/* Products */}
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
                                 {products.map((product, index) => (
-                                    <motion.a
+                                    <motion.div
                                         key={product.id}
-                                        href="#"
                                         initial={{ opacity: 0, y: 20 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ duration: 0.3, delay: index * 0.05 }}
                                         className="group bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
                                     >
                                         {/* Product Image */}
-                                        <div className="aspect-square bg-gray-100 relative">
-                                            <div className="absolute inset-0 flex items-center justify-center">
-                                                <div className="w-3/4 h-3/4 bg-gray-200 rounded-lg" />
+                                        <a href={`/produk/${product.name.toLowerCase().replace(/\s+/g, '-')}`} className="block">
+                                            <div className="aspect-square bg-gray-100 relative">
+                                                <div className="absolute inset-0 flex items-center justify-center">
+                                                    <div className="w-3/4 h-3/4 bg-gray-200 rounded-lg" />
+                                                </div>
                                             </div>
-                                        </div>
+                                        </a>
 
                                         {/* Product Info */}
                                         <div className="p-3">
                                             <p className="text-xs text-gray-500 mb-1">{product.brand}</p>
-                                            <h3 className="text-sm font-medium text-gray-900 line-clamp-2 mb-2 group-hover:text-teal-600 transition-colors">
-                                                {product.name}
-                                            </h3>
+                                            <a href={`/produk/${product.name.toLowerCase().replace(/\s+/g, '-')}`}>
+                                                <h3 className="text-sm font-medium text-gray-900 line-clamp-2 mb-2 group-hover:text-red-600 transition-colors">
+                                                    {product.name}
+                                                </h3>
+                                            </a>
                                             <p className="text-sm font-bold text-red-600 mb-2">
                                                 Rp {formatPrice(product.price)}
                                             </p>
 
                                             {/* Badges */}
-                                            <div className="flex flex-wrap gap-1">
+                                            <div className="flex flex-wrap gap-1 mb-3">
                                                 <span className={`text-[10px] px-2 py-0.5 rounded-full ${product.stock
                                                     ? "bg-green-50 text-green-600 border border-green-200"
                                                     : "bg-orange-50 text-orange-600 border border-orange-200"
@@ -183,8 +192,19 @@ export default function SearchPage() {
                                                     </span>
                                                 )}
                                             </div>
+
+                                            {/* Add Button */}
+                                            <button
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    // Add to cart logic here
+                                                }}
+                                                className="w-full py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
+                                            >
+                                                Tambahkan
+                                            </button>
                                         </div>
-                                    </motion.a>
+                                    </motion.div>
                                 ))}
                             </div>
 

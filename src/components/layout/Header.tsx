@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -18,14 +18,14 @@ import { Input } from "@/components/ui/input";
 
 const navCategories = [
     { name: "Kategori", hasDropdown: true },
-    { name: "Besi Beton", hasDropdown: false },
-    { name: "Bata Ringan", hasDropdown: false },
-    { name: "Keramik", hasDropdown: false },
-    { name: "Granite Tile", hasDropdown: false },
-    { name: "Pipa PVC", hasDropdown: false },
-    { name: "Triplek", hasDropdown: false },
-    { name: "Kloset Duduk", hasDropdown: false },
-    { name: "Cat Dinding", hasDropdown: false },
+    { name: "MCB & MCCB", hasDropdown: false },
+    { name: "Contactor", hasDropdown: false },
+    { name: "Motor Starter", hasDropdown: false },
+    { name: "Push Button", hasDropdown: false },
+    { name: "LED Lighting", hasDropdown: false },
+    { name: "Cable & Gland", hasDropdown: false },
+    { name: "Panel Board", hasDropdown: false },
+    { name: "Surge Protection", hasDropdown: false },
 ];
 
 // Mega menu categories with subcategories and icons
@@ -156,7 +156,7 @@ export default function Header() {
                                 placeholder="Cari produk..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full h-10 pl-9 pr-3 rounded-full border border-gray-200 focus:border-gray-300 focus:ring-0 bg-white text-sm"
+                                className="w-full h-10 pl-9 pr-3 rounded-full border border-gray-200 focus:border-red-500 focus:ring-0 focus:outline-none bg-white text-sm"
                             />
                         </form>
                     </div>
@@ -171,7 +171,7 @@ export default function Header() {
                                 placeholder="Apa kebutuhan proyek Anda?"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full h-11 pl-4 pr-14 rounded-xl border border-gray-200 focus:border-gray-300 focus:ring-0 transition-all duration-300 bg-white"
+                                className="w-full h-11 pl-4 pr-14 rounded-xl border border-gray-200 focus:border-red-500 focus:ring-0 focus:outline-none bg-white"
                             />
                             <Button
                                 type="submit"
@@ -253,7 +253,7 @@ export default function Header() {
                         {/* Categories */}
                         <div className="flex items-center gap-1">
                             {navCategories.map((category, index) => (
-                                <>
+                                <React.Fragment key={category.name}>
                                     {index === 1 && (
                                         <div className="flex items-center gap-2 ml-2 mr-1">
                                             <div className="h-4 w-px bg-gray-200" />
@@ -262,7 +262,6 @@ export default function Header() {
                                     )}
                                     {index === 0 ? (
                                         <motion.button
-                                            key={category.name}
                                             whileHover={{ y: -1 }}
                                             onClick={() => {
                                                 setIsMegaMenuOpen(!isMegaMenuOpen);
@@ -279,7 +278,7 @@ export default function Header() {
                                             <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${isMegaMenuOpen ? "rotate-180" : ""}`} />
                                         </motion.button>
                                     ) : (
-                                        <Link href={`/pencarian?q=${encodeURIComponent(category.name)}`} key={category.name}>
+                                        <Link href={`/pencarian?q=${encodeURIComponent(category.name)}`}>
                                             <motion.button
                                                 whileHover={{ y: -1 }}
                                                 className={`
@@ -291,7 +290,7 @@ export default function Header() {
                                             </motion.button>
                                         </Link>
                                     )}
-                                </>
+                                </React.Fragment>
                             ))}
                         </div>
 
@@ -306,78 +305,80 @@ export default function Header() {
                 </div>
 
                 {/* Mega Menu Dropdown - Modern Design */}
-                <AnimatePresence>
-                    {isMegaMenuOpen && (
-                        <motion.div
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            transition={{ duration: 0.2 }}
-                            className="absolute left-1/2 -translate-x-1/2 top-full bg-white shadow-2xl border border-gray-100 z-50 rounded-b-2xl overflow-hidden"
-                            style={{ width: "calc(100% - 2rem)", maxWidth: "900px" }}
-                        >
-                            <div className="flex">
-                                {/* Left Sidebar - Categories */}
-                                <div className="w-64 bg-gradient-to-b from-gray-50 to-gray-100/50 py-3 border-r border-gray-100">
-                                    <div className="px-4 mb-3">
-                                        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Kategori Produk</h3>
-                                    </div>
-                                    {megaMenuCategories.map((cat, catIndex) => (
-                                        <button
-                                            key={cat.name}
-                                            onMouseEnter={() => setActiveCategory(catIndex)}
-                                            onClick={() => setActiveCategory(catIndex)}
-                                            className={`
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+                    <AnimatePresence>
+                        {isMegaMenuOpen && (
+                            <motion.div
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                transition={{ duration: 0.2 }}
+                                className="absolute left-4 sm:left-6 lg:left-8 right-4 sm:right-6 lg:right-8 top-0 bg-white shadow-2xl border border-gray-100 z-50 rounded-b-2xl overflow-hidden"
+                                style={{ maxWidth: "900px" }}
+                            >
+                                <div className="flex">
+                                    {/* Left Sidebar - Categories */}
+                                    <div className="w-64 bg-gradient-to-b from-gray-50 to-gray-100/50 py-3 border-r border-gray-100">
+                                        <div className="px-4 mb-3">
+                                            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Kategori Produk</h3>
+                                        </div>
+                                        {megaMenuCategories.map((cat, catIndex) => (
+                                            <button
+                                                key={cat.name}
+                                                onMouseEnter={() => setActiveCategory(catIndex)}
+                                                onClick={() => setActiveCategory(catIndex)}
+                                                className={`
                                                 w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-medium transition-all duration-200
                                                 ${activeCategory === catIndex
-                                                    ? "bg-red-500 text-white shadow-md"
-                                                    : "text-gray-700 hover:bg-white hover:shadow-sm"
-                                                }
+                                                        ? "bg-red-500 text-white shadow-md"
+                                                        : "text-gray-700 hover:bg-white hover:shadow-sm"
+                                                    }
                                             `}
-                                        >
-                                            <span className="text-lg">{cat.icon}</span>
-                                            <span className="flex-1">{cat.name}</span>
-                                            <ChevronRight className={`h-4 w-4 transition-transform ${activeCategory === catIndex ? "text-white translate-x-1" : "text-gray-400"}`} />
-                                        </button>
-                                    ))}
-
-                                    {/* View All Link */}
-                                    <div className="px-4 pt-4 mt-2 border-t border-gray-200">
-                                        <Link
-                                            href="/kategori"
-                                            className="flex items-center gap-2 text-sm font-medium text-red-600 hover:text-red-700 transition-colors"
-                                            onClick={() => setIsMegaMenuOpen(false)}
-                                        >
-                                            <LayoutGrid className="h-4 w-4" />
-                                            <span>Lihat Semua Kategori</span>
-                                        </Link>
-                                    </div>
-                                </div>
-
-                                {/* Right Content - Subcategories */}
-                                <div className="flex-1 p-6 bg-white">
-                                    <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-100">
-                                        <span className="text-2xl">{megaMenuCategories[activeCategory]?.icon}</span>
-                                        <h3 className="text-lg font-bold text-gray-900">{megaMenuCategories[activeCategory]?.name}</h3>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {megaMenuCategories[activeCategory]?.subcategories.map((subcat) => (
-                                            <Link
-                                                key={subcat.name}
-                                                href={`/pencarian?q=${encodeURIComponent(subcat.name)}`}
-                                                onClick={() => setIsMegaMenuOpen(false)}
-                                                className="group flex items-center justify-between p-3 rounded-xl hover:bg-red-50 transition-all duration-200"
                                             >
-                                                <span className="text-sm text-gray-700 group-hover:text-red-600 font-medium">{subcat.name}</span>
-                                                <span className="text-xs text-gray-400 bg-gray-100 group-hover:bg-red-100 group-hover:text-red-600 px-2 py-0.5 rounded-full transition-colors">{subcat.count}</span>
-                                            </Link>
+                                                <span className="text-lg">{cat.icon}</span>
+                                                <span className="flex-1">{cat.name}</span>
+                                                <ChevronRight className={`h-4 w-4 transition-transform ${activeCategory === catIndex ? "text-white translate-x-1" : "text-gray-400"}`} />
+                                            </button>
                                         ))}
+
+                                        {/* View All Link */}
+                                        <div className="px-4 pt-4 mt-2 border-t border-gray-200">
+                                            <Link
+                                                href="/kategori"
+                                                className="flex items-center gap-2 text-sm font-medium text-red-600 hover:text-red-700 transition-colors"
+                                                onClick={() => setIsMegaMenuOpen(false)}
+                                            >
+                                                <LayoutGrid className="h-4 w-4" />
+                                                <span>Lihat Semua Kategori</span>
+                                            </Link>
+                                        </div>
+                                    </div>
+
+                                    {/* Right Content - Subcategories */}
+                                    <div className="flex-1 p-6 bg-white">
+                                        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-100">
+                                            <span className="text-2xl">{megaMenuCategories[activeCategory]?.icon}</span>
+                                            <h3 className="text-lg font-bold text-gray-900">{megaMenuCategories[activeCategory]?.name}</h3>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {megaMenuCategories[activeCategory]?.subcategories.map((subcat) => (
+                                                <Link
+                                                    key={subcat.name}
+                                                    href={`/produk/${subcat.name.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '')}`}
+                                                    onClick={() => setIsMegaMenuOpen(false)}
+                                                    className="group flex items-center justify-between p-3 rounded-xl hover:bg-red-50 transition-all duration-200"
+                                                >
+                                                    <span className="text-sm text-gray-700 group-hover:text-red-600 font-medium">{subcat.name}</span>
+                                                    <span className="text-xs text-gray-400 bg-gray-100 group-hover:bg-red-100 group-hover:text-red-600 px-2 py-0.5 rounded-full transition-colors">{subcat.count}</span>
+                                                </Link>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
             </nav>
 
             {/* Mobile Menu */}

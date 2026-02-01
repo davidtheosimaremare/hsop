@@ -16,11 +16,6 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Shop Hokiindo - Distributor Siemens Electrical Indonesia",
   description: "Shop Hokiindo adalah distributor resmi produk Siemens Electrical di Indonesia. Temukan berbagai produk electrical berkualitas tinggi untuk kebutuhan proyek Anda.",
-  icons: {
-    icon: "/logo-H.png",
-    shortcut: "/logo-H.png",
-    apple: "/logo-H.png",
-  },
 };
 
 export default function RootLayout({
