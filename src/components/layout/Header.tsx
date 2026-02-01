@@ -116,9 +116,11 @@ export default function Header() {
                         </a>
                     </motion.div>
 
-                    {/* Search Bar - Mobile (inline with logo) */}
                     <div className="md:hidden flex-1 mx-2">
-                        <div className="relative w-full">
+                        <form onSubmit={(e) => {
+                            e.preventDefault();
+                            window.location.href = `/pencarian?q=${encodeURIComponent(searchQuery)}`;
+                        }} className="relative w-full">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                             <Input
                                 type="text"
@@ -127,12 +129,14 @@ export default function Header() {
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="w-full h-10 pl-9 pr-3 rounded-full border border-gray-200 focus:border-gray-300 focus:ring-0 bg-white text-sm"
                             />
-                        </div>
+                        </form>
                     </div>
 
-                    {/* Search Bar - Desktop */}
                     <div className="hidden md:flex flex-1 max-w-3xl mx-8">
-                        <div className="relative w-full group">
+                        <form onSubmit={(e) => {
+                            e.preventDefault();
+                            window.location.href = `/pencarian?q=${encodeURIComponent(searchQuery)}`;
+                        }} className="relative w-full group">
                             <Input
                                 type="text"
                                 placeholder="Apa kebutuhan proyek Anda?"
@@ -141,34 +145,37 @@ export default function Header() {
                                 className="w-full h-11 pl-4 pr-14 rounded-xl border border-gray-200 focus:border-gray-300 focus:ring-0 transition-all duration-300 bg-white"
                             />
                             <Button
+                                type="submit"
                                 variant="red"
                                 size="sm"
                                 className="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-11 rounded-lg transition-all duration-300"
                             >
                                 <Search className="h-4 w-4 text-white" />
                             </Button>
-                        </div>
+                        </form>
                     </div>
 
                     {/* Right Actions */}
                     <div className="flex items-center">
                         {/* Cart/Bag */}
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            className="group relative p-2 mr-2 rounded-xl hover:bg-gray-100 transition-colors duration-200"
-                        >
-                            <Image
-                                src="/bag.png"
-                                alt="Keranjang"
-                                width={24}
-                                height={24}
-                                className="h-6 w-6 object-contain grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-200"
-                            />
-                            <span className="absolute -top-1 -right-1.5 h-[14px] min-w-[18px] px-1 bg-[#FF0000] border border-white rounded-sm text-[9px] text-white flex items-center justify-center font-semibold">
-                                0
-                            </span>
-                        </motion.button>
+                        <a href="/keranjang">
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                className="group relative p-2 mr-2 rounded-xl hover:bg-gray-100 transition-colors duration-200"
+                            >
+                                <Image
+                                    src="/bag.png"
+                                    alt="Keranjang"
+                                    width={24}
+                                    height={24}
+                                    className="h-6 w-6 object-contain grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-200"
+                                />
+                                <span className="absolute -top-1 -right-1.5 h-[14px] min-w-[18px] px-1 bg-[#FF0000] border border-white rounded-sm text-[9px] text-white flex items-center justify-center font-semibold">
+                                    0
+                                </span>
+                            </motion.button>
+                        </a>
 
                         {/* Separator */}
                         <div className="hidden sm:block h-8 w-px bg-gray-200 mx-4" />
@@ -224,34 +231,37 @@ export default function Header() {
                                             <span className="text-[11px] text-gray-400 font-medium whitespace-nowrap">Rekomendasi:</span>
                                         </div>
                                     )}
-                                    <motion.button
-                                        key={category.name}
-                                        whileHover={{ y: -1 }}
-                                        onClick={() => {
-                                            if (index === 0) {
+                                    {index === 0 ? (
+                                        <motion.button
+                                            key={category.name}
+                                            whileHover={{ y: -1 }}
+                                            onClick={() => {
                                                 setIsMegaMenuOpen(!isMegaMenuOpen);
                                                 setActiveCategory(0);
-                                            }
-                                        }}
-                                        className={`
-                                            flex items-center gap-1 px-3 py-1.5 rounded-lg font-medium transition-all duration-200
-                                            ${index === 0 ? "text-sm" : "text-xs"}
-                                            ${index === 0 && isMegaMenuOpen
-                                                ? "text-red-600 bg-red-50"
-                                                : index === 0
-                                                    ? "text-gray-700 hover:text-red-600 hover:bg-red-50"
-                                                    : "text-gray-600 hover:text-red-600 hover:bg-red-50"
-                                            }
-                                        `}
-                                    >
-                                        {index === 0 && (
+                                            }}
+                                            className={`
+                                                flex items-center gap-1 px-3 py-1.5 rounded-lg font-medium transition-all duration-200
+                                                text-sm text-gray-700 hover:text-red-600 hover:bg-red-50
+                                                ${isMegaMenuOpen ? "text-red-600 bg-red-50" : ""}
+                                            `}
+                                        >
                                             <LayoutGrid className="h-4 w-4" />
-                                        )}
-                                        <span>{category.name}</span>
-                                        {category.hasDropdown && (
+                                            <span>{category.name}</span>
                                             <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${isMegaMenuOpen ? "rotate-180" : ""}`} />
-                                        )}
-                                    </motion.button>
+                                        </motion.button>
+                                    ) : (
+                                        <a href={`/pencarian?q=${encodeURIComponent(category.name)}`} key={category.name}>
+                                            <motion.button
+                                                whileHover={{ y: -1 }}
+                                                className={`
+                                                    flex items-center gap-1 px-3 py-1.5 rounded-lg font-medium transition-all duration-200
+                                                    text-xs text-gray-600 hover:text-red-600 hover:bg-red-50
+                                                `}
+                                            >
+                                                <span>{category.name}</span>
+                                            </motion.button>
+                                        </a>
+                                    )}
                                 </>
                             ))}
                         </div>
@@ -306,7 +316,7 @@ export default function Header() {
                                             {megaMenuCategories[activeCategory]?.subcategories.map((subcat) => (
                                                 <a
                                                     key={subcat}
-                                                    href="#"
+                                                    href={`/pencarian?q=${encodeURIComponent(subcat)}`}
                                                     className="text-sm text-gray-600 hover:text-red-600 transition-colors duration-200 py-1"
                                                 >
                                                     {subcat}
