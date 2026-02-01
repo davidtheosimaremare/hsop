@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { Phone, Mail, MapPin } from "lucide-react";
 
 const footerLinks = {
@@ -90,9 +91,9 @@ export default function Footer() {
                         <ul className="space-y-2.5">
                             {footerLinks.umum.map((link) => (
                                 <li key={link.name}>
-                                    <a href={link.href} className="text-sm text-gray-600 hover:text-teal-600 transition-colors">
+                                    <Link href={link.href} className="text-sm text-gray-600 hover:text-teal-600 transition-colors">
                                         {link.name}
-                                    </a>
+                                    </Link>
                                 </li>
                             ))}
                         </ul>
@@ -104,9 +105,9 @@ export default function Footer() {
                         <ul className="space-y-2.5">
                             {footerLinks.informasi.map((link) => (
                                 <li key={link.name}>
-                                    <a href={link.href} className="text-sm text-gray-600 hover:text-teal-600 transition-colors">
+                                    <Link href={link.href} className="text-sm text-gray-600 hover:text-teal-600 transition-colors">
                                         {link.name}
-                                    </a>
+                                    </Link>
                                 </li>
                             ))}
                         </ul>
@@ -118,9 +119,9 @@ export default function Footer() {
                         <ul className="space-y-2.5">
                             {footerLinks.ketentuan.map((link) => (
                                 <li key={link.name}>
-                                    <a href={link.href} className="text-sm text-gray-600 hover:text-teal-600 transition-colors">
+                                    <Link href={link.href} className="text-sm text-gray-600 hover:text-teal-600 transition-colors">
                                         {link.name}
-                                    </a>
+                                    </Link>
                                 </li>
                             ))}
                         </ul>
