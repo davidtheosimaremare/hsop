@@ -7,7 +7,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import { ProductVisibilityToggle } from "@/components/admin/ProductVisibilityToggle";
-import { ScrapeButton } from "@/components/admin/ScrapeButton";
 
 export const dynamic = "force-dynamic";
 
@@ -42,8 +41,6 @@ export default async function AdminProductDetailPage({ params }: { params: { id:
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    <ScrapeButton productId={product.id} sku={product.sku} />
-
                     {product.datasheet && (
                         <Button variant="outline" asChild>
                             <a href={product.datasheet} target="_blank" rel="noopener noreferrer">

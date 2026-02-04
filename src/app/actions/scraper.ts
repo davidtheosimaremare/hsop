@@ -41,11 +41,15 @@ export async function scrapeSiemensProduct(sku: string): Promise<ScrapedData> {
         const metaDesc = $('meta[name="description"]').attr("content");
         if (metaDesc) description = metaDesc;
 
-        // Attempt 2: Product Description Table/Div
-        // Often under a "Product Description" header
-        // For now, let's rely on Meta Desc as it's usually clean, or look for specific block provided in UI often
-        const productDescBlock = $(".product-description-text").first().text().trim();
-        if (productDescBlock) description = productDescBlock;
+        // Attempt 2: Product Description Table/Div (User specific request)
+        const productMetadataDesc = $(".product-metadata-description").first().text().trim();
+        if (productMetadataDesc) {
+            description = productMetadataDesc;
+        } else {
+            // Fallback to previous methods if specific class not found
+            const productDescBlock = $(".product-description-text").first().text().trim();
+            if (productDescBlock) description = productDescBlock;
+        }
 
         // 2. Scrape Technical Data
         const specs: Record<string, string> = {};
