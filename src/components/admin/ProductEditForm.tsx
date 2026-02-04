@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Plus, Trash2, Upload, FileText, X } from "lucide-react";
 import { uploadFile } from "@/app/actions/upload";
 import { updateProductDetails } from "@/app/actions/product";
+import { scrapeSiemensProduct } from "@/app/actions/scraper";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
@@ -19,6 +20,7 @@ import "react-quill-new/dist/quill.snow.css";
 interface ProductEditFormProps {
     product: {
         id: string;
+        sku: string;
         description: string | null;
         specifications: any;
         datasheet: string | null;
@@ -30,6 +32,7 @@ interface ProductEditFormProps {
 export function ProductEditForm({ product, onSuccess }: ProductEditFormProps) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
+    const [isScraping, setIsScraping] = useState(false);
 
     // Form State
     const [description, setDescription] = useState(product.description || "");
@@ -96,8 +99,69 @@ export function ProductEditForm({ product, onSuccess }: ProductEditFormProps) {
         });
     };
 
+    const handleScrape = async () => {
+        if (!confirm("Ini akan menimpa Deskripsi dan Spesifikasi yang ada. Lanjutkan?")) return;
+
+        setIsScraping(true);
+        try {
+            const result = await scrapeSiemensProduct(product.sku);
+            if (result.success && result.data) {
+                // Update Description
+                if (result.data.description && !description) {
+                    setDescription(result.data.description);
+                }
+
+                // Update Image if empty
+                if (result.data.image && !image) {
+                    setImage(result.data.image);
+                }
+
+                // Update Specs
+                if (result.data.specifications) {
+                    const newSpecs = Object.entries(result.data.specifications).map(([key, value]) => ({
+                        key,
+                        value: String(value)
+                    }));
+                    if (newSpecs.length > 0) {
+                        setSpecs(newSpecs);
+                    }
+                }
+                alert("Data berhasil diambil dari Siemens!");
+            } else {
+                alert(result.error || "Gagal mengambil data.");
+            }
+        } catch (error) {
+            console.error(error);
+            alert("Terjadi kesalahan saat scraping.");
+        } finally {
+            setIsScraping(false);
+        }
+    };
+
     return (
         <div className="space-y-6 max-h-[80vh] overflow-y-auto p-1">
+            <div className="flex justify-end">
+                <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleScrape}
+                    disabled={isScraping || isPending}
+                    className="border-blue-200 text-blue-700 hover:bg-blue-50"
+                >
+                    {isScraping ? (
+                        <>
+                            <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                            Sedang Mengambil Data...
+                        </>
+                    ) : (
+                        <>
+                            <Upload className="mr-2 h-4 w-4" />
+                            Auto-Fill dari Siemens
+                        </>
+                    )}
+                </Button>
+            </div>
+
             {/* Image Upload */}
             <div className="space-y-2">
                 <Label>Gambar Produk</Label>
