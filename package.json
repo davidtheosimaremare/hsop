@@ -23,6 +23,7 @@
     "jose": "^6.1.3",
     "lucide-react": "^0.563.0",
     "next": "16.1.6",
+    "nextjs-toploader": "^3.9.17",
     "radix-ui": "^1.4.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -30,6 +31,7 @@
     "react-quill-new": "^3.8.3",
     "tailwind-merge": "^3.4.0",
     "uuid": "^13.0.0",
+    "xlsx": "^0.18.5",
     "zod": "^4.3.6"
   },
   "devDependencies": {

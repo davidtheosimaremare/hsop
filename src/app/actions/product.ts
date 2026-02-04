@@ -110,3 +110,75 @@ export async function updateProductDetails(
         return { success: false, error: "Failed to update details" };
     }
 }
+
+export async function getProductExportData(filters: {
+    query?: string;
+    brand?: string;
+    category?: string;
+    stockStatus?: string;
+}) {
+    try {
+        const { query, brand, category, stockStatus } = filters;
+        // const Prisma = await import("@prisma/client").then(m => m.Prisma);
+
+        const where: any = {};
+
+        if (query) {
+            const terms = query.split(/\s+/).filter(Boolean);
+            if (terms.length > 0) {
+                where.AND = terms.map((term: string) => ({
+                    OR: [
+                        { name: { contains: term, mode: "insensitive" } },
+                        { sku: { contains: term, mode: "insensitive" } },
+                    ]
+                }));
+            }
+        }
+        if (brand && brand !== "all") {
+            where.brand = brand;
+        }
+        if (category && category !== "all") {
+            where.category = category;
+        }
+        if (stockStatus === "available") {
+            where.availableToSell = { gt: 0 };
+        } else if (stockStatus === "out_of_stock") {
+            where.availableToSell = { lte: 0 };
+        }
+
+        const products = await db.product.findMany({
+            where,
+            orderBy: { name: "asc" },
+            select: {
+                sku: true,
+                name: true,
+                brand: true,
+                category: true,
+                itemType: true,
+                availableToSell: true,
+                price: true,
+                description: true,
+                isVisible: true,
+                createdAt: true,
+            }
+        });
+
+        // Format for Excel
+        return products.map(p => ({
+            "SKU": p.sku,
+            "Nama Produk": p.name,
+            "Merk": p.brand || "-",
+            "Kategori": p.category || "-",
+            "Tipe": p.itemType || "-",
+            "Stok": p.availableToSell,
+            "Harga": p.price,
+            "Deskripsi": p.description || "-",
+            "Status": p.isVisible ? "Aktif" : "Sembunyi",
+            "Terdaftar": p.createdAt.toISOString().split("T")[0],
+        }));
+
+    } catch (error) {
+        console.error("Failed to fetch export data:", error);
+        throw new Error("Failed to fetch data for export");
+    }
+}

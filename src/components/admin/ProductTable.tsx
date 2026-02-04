@@ -1,19 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ArrowUp, ArrowDown, Settings, Check } from "lucide-react";
+import { ArrowUp, ArrowDown, Settings, Check, FileDown, Loader2 } from "lucide-react";
 import Link from "next/link";
 import {
     DropdownMenu,
     DropdownMenuCheckboxItem,
     DropdownMenuContent,
+    DropdownMenuItem,
     DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
+import * as XLSX from "xlsx";
+import { getProductExportData } from "@/app/actions/product";
 
 interface Product {
     id: string;
@@ -24,7 +28,9 @@ interface Product {
     itemType: string | null;
     availableToSell: number;
     price: number;
+    description?: string | null;
     isVisible?: boolean;
+    createdAt?: Date;
 }
 
 interface ProductTableProps {
@@ -64,6 +70,8 @@ export default function ProductTable({
     const router = useRouter();
     // Default visible columns: SKU, Name, Category, Stock, Price (Hidden: Brand, Type)
     const [visibleColumns, setVisibleColumns] = useState<string[]>(["sku", "name", "category", "availableToSell", "price"]);
+    const [selectedRows, setSelectedRows] = useState<string[]>([]);
+    const [isExporting, startExportTransition] = useTransition();
 
     const toggleColumn = (columnId: string) => {
         setVisibleColumns((prev) =>
@@ -71,6 +79,64 @@ export default function ProductTable({
                 ? prev.filter((id) => id !== columnId)
                 : [...prev, columnId]
         );
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedRows.length === products.length) {
+            setSelectedRows([]);
+        } else {
+            setSelectedRows(products.map(p => p.id));
+        }
+    };
+
+    const toggleSelectRow = (id: string) => {
+        setSelectedRows(prev =>
+            prev.includes(id) ? prev.filter(rowId => rowId !== id) : [...prev, id]
+        );
+    };
+
+    const handleExport = async (type: "all" | "selected") => {
+        startExportTransition(async () => {
+            try {
+                let dataToExport;
+
+                if (type === "selected") {
+                    // Export only selected rows from current view client-side data
+                    const selectedProducts = products.filter(p => selectedRows.includes(p.id));
+                    dataToExport = selectedProducts.map(p => ({
+                        "SKU": p.sku,
+                        "Nama Produk": p.name,
+                        "Merk": p.brand || "-",
+                        "Kategori": p.category || "-",
+                        "Tipe": p.itemType || "-",
+                        "Stok": p.availableToSell,
+                        "Harga": p.price,
+                        "Deskripsi": p.description || "-",
+                        "Status": p.isVisible ? "Aktif" : "Sembunyi",
+                    }));
+                } else {
+                    // Fetch ALL data from server respecting current filters
+                    const params = new URLSearchParams(queryParams);
+                    const filters = {
+                        query: params.get("q") || undefined,
+                        brand: params.get("brand") || undefined,
+                        category: params.get("category") || undefined,
+                        stockStatus: params.get("stockStatus") || undefined,
+                    };
+                    dataToExport = await getProductExportData(filters);
+                }
+
+                // Generate Excel
+                const ws = XLSX.utils.json_to_sheet(dataToExport);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Products");
+                XLSX.writeFile(wb, `Products_Export_${new Date().toISOString().slice(0, 10)}.xlsx`);
+
+            } catch (error) {
+                console.error("Export failed:", error);
+                alert("Gagal melakukan export data. Silakan coba lagi.");
+            }
+        });
     };
 
     const getSortLink = (field: string) => {
@@ -85,10 +151,29 @@ export default function ProductTable({
 
     return (
         <div className="space-y-4 relative mt-8">
-            <div className="absolute right-0 -top-10 z-10">
+            <div className="absolute right-0 -top-12 z-10 flex gap-2">
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted">
+                        <Button variant="outline" size="sm" className="h-9 gap-2" disabled={isExporting}>
+                            {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+                            Export Excel
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Pilih Opsi Export</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => handleExport("all")}>
+                            Export Semua (Sesuai Filter)
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleExport("selected")} disabled={selectedRows.length === 0}>
+                            Export Terpilih ({selectedRows.length})
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-muted border">
                             <Settings className="h-4 w-4" />
                         </Button>
                     </DropdownMenuTrigger>
@@ -112,6 +197,13 @@ export default function ProductTable({
                 <Table>
                     <TableHeader>
                         <TableRow>
+                            <TableHead className="w-[40px]">
+                                <Checkbox
+                                    checked={products.length > 0 && selectedRows.length === products.length}
+                                    onCheckedChange={toggleSelectAll}
+                                    aria-label="Select all"
+                                />
+                            </TableHead>
                             {ALL_COLUMNS.filter(col => visibleColumns.includes(col.id)).map((col) => (
                                 <TableHead key={col.id} className={col.align === "right" ? "text-right" : ""}>
                                     {col.sortable ? (
@@ -128,7 +220,7 @@ export default function ProductTable({
                     <TableBody>
                         {products.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={visibleColumns.length} className="text-center py-10 text-gray-500">
+                                <TableCell colSpan={visibleColumns.length + 1} className="text-center py-10 text-gray-500">
                                     Tidak ada produk yang ditemukan.
                                 </TableCell>
                             </TableRow>
@@ -136,10 +228,22 @@ export default function ProductTable({
                             products.map((product) => (
                                 <TableRow
                                     key={product.id}
-                                    className="cursor-pointer hover:bg-muted/50 transition-colors group"
-                                    onClick={() => router.push(`/admin/products/${product.id}`)}
+                                    className={`hover:bg-muted/50 transition-colors group ${selectedRows.includes(product.id) ? "bg-muted" : ""}`}
+                                    onClick={(e) => {
+                                        // Prevent navigation if clicking checkbox
+                                        if ((e.target as HTMLElement).closest('[role="checkbox"]')) return;
+                                        router.push(`/admin/products/${product.id}`);
+                                    }}
                                 >
-                                    {visibleColumns.includes("sku") && <TableCell className="font-medium text-gray-600">{product.sku}</TableCell>}
+                                    <TableCell>
+                                        <Checkbox
+                                            checked={selectedRows.includes(product.id)}
+                                            onCheckedChange={() => toggleSelectRow(product.id)}
+                                            aria-label="Select row"
+                                            onClick={(e) => e.stopPropagation()}
+                                        />
+                                    </TableCell>
+                                    {visibleColumns.includes("sku") && <TableCell className="font-medium text-gray-600 cursor-pointer">{product.sku}</TableCell>}
                                     {visibleColumns.includes("name") && (
                                         <TableCell>
                                             <span className="font-medium text-gray-900 group-hover:text-primary transition-colors">

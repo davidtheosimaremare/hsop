@@ -4,6 +4,7 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import Sidebar from "@/components/admin/Sidebar";
 import { cn } from "@/lib/utils";
+import NextTopLoader from "nextjs-toploader";
 
 export default function AdminLayout({
     children,
@@ -18,6 +19,17 @@ export default function AdminLayout({
 
     return (
         <div className="min-h-screen bg-gray-50 flex">
+            <NextTopLoader
+                color="#DC2626"
+                initialPosition={0.08}
+                crawlSpeed={200}
+                height={3}
+                crawl={true}
+                showSpinner={false}
+                easing="ease"
+                speed={200}
+                shadow="0 0 10px #DC2626,0 0 5px #DC2626"
+            />
             {/* Sidebar */}
             <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
 
