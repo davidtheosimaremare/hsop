@@ -4,16 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { Eye, FileText } from "lucide-react";
-
-export const dynamic = "force-dynamic";
-
-import { db } from "@/lib/db";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import Link from "next/link";
 import { Eye, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Prisma } from "@prisma/client";
@@ -23,7 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminOrdersPage({
     searchParams,
 }: {
-    searchParams: { [key: string]: string | string[] | undefined };
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
     const params = await searchParams;
     const page = Number(params?.page) || 1;
