@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { RefreshCw, CheckCircle, XCircle } from "lucide-react";
 import { syncCustomersAction } from "@/app/actions/customer";
 import { useRouter } from "next/navigation";
-import { useToast } from "@/components/ui/use-toast";
 
 export default function CustomerSyncButton() {
     const [isPending, startTransition] = useTransition();

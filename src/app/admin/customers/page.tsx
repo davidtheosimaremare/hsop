@@ -54,6 +54,11 @@ export default async function AdminCustomersPage({
             orderBy,
             skip,
             take: pageSize,
+            include: {
+                users: {
+                    select: { id: true, isActive: true }
+                }
+            }
         }),
         db.customer.count({ where }),
     ]);
@@ -140,7 +145,7 @@ export default async function AdminCustomersPage({
                                             <td className="px-4 py-3">
                                                 <div className="font-medium text-gray-900">{customer.name}</div>
                                                 {customer.company && <div className="text-xs text-gray-500">{customer.company}</div>}
-                                                {customer.userId && (
+                                                {customer.users && customer.users.length > 0 && customer.users.some(u => u.isActive) && (
                                                     <span className="mt-1 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800">
                                                         Akun Aktif
                                                     </span>
