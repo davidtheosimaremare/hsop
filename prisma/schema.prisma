@@ -1,0 +1,149 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  username  String?  @unique
+  email     String   @unique
+  password  String
+  name      String?
+  phone     String?
+  role      String   @default("ADMIN")
+  isActive  Boolean  @default(true)
+  
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Customer {
+  id        String   @id
+  accurateId Int?    @unique
+  name      String?
+  email     String?  @unique
+  phone     String?
+  address   String?
+  company   String?
+  type      String   @default("BISNIS")
+  businessCategory String?
+  discount1 Float    @default(0)
+  discount2 Float    @default(0)
+  discountLP String   @default("0")
+  discountCP String   @default("0")
+  discountLighting String @default("0")
+  
+  users     User[] // Relation to Users
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orders    Order[]
+}
+
+model Product {
+  id              String      @id @default(cuid())
+  sku             String      @unique
+  name            String
+  description     String?
+  price           Float
+  availableToSell Int         @default(0)
+  brand           String?
+  category        String?
+  image           String?
+  accurateId      Int?        @unique
+  itemType        String?
+  isVisible       Boolean     @default(true)
+  datasheet       String?
+  specifications  Json?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  orderItems      OrderItem[]
+}
+
+model Order {
+  id         String      @id @default(cuid())
+  customerId String
+  customer   Customer    @relation(fields: [customerId], references: [id])
+  status     String      @default("PENDING")
+  total      Float
+  discount   Float       @default(0)
+  notes      String?
+  attachmentQuote   String?
+  attachmentPO      String?
+  attachmentInvoice String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  items      OrderItem[]
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+  price     Float
+}
+
+model SearchSuggestion {
+  id        String   @id @default(cuid())
+  term      String   @unique
+  count     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String
+  parentId    String?
+  parent      Category? @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryHierarchy")
+  isVisible   Boolean   @default(true)
+  order       Int       @default(0)
+  accurateId  Int?      @unique
+  image       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model CategorySection {
+  id          String   @id @default(cuid())
+  title       String
+  order       Int      @default(0)
+  categoryIds String[] // List of Category IDs to display
+  isVisible   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ClientProject {
+  id          String   @id @default(cuid())
+  projectName String
+  clientName  String
+  location    String?
+  image       String
+  order       Int      @default(0)
+  isVisible   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Banner {
+  id        String   @id @default(cuid())
+  title     String?
+  image     String
+  link      String?
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

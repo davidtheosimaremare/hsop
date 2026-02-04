@@ -11,22 +11,22 @@ import { Button } from "@/components/ui/button";
 type TabType = "specs" | "description";
 
 const productSpecs = [
-    { label: "Satuan", value: "Batang" },
-    { label: "Pembelian minimal", value: "1 Batang" },
-    { label: "Kelipatan pembelian", value: "1 Batang" },
-    { label: "Dimensi per unit", value: "1200 cm x 1 cm x 1 cm" },
-    { label: "Berat", value: "18.936 Gram / 18,94 Kg" },
-    { label: "Merek", value: "Perwira", isLink: true },
-    { label: "Sub kategori", value: "Besi Beton", isLink: true },
+    { label: "Satuan", value: "Unit" },
+    { label: "Pembelian minimal", value: "1 Unit" },
+    { label: "Kelipatan pembelian", value: "1 Unit" },
+    { label: "Dimensi per unit", value: "17.5 cm x 10.5 cm x 11.5 cm" },
+    { label: "Berat", value: "2.500 Gram / 2,5 Kg" },
+    { label: "Merek", value: "Siemens", isLink: true },
+    { label: "Sub kategori", value: "MCCB 3VA", isLink: true },
 ];
 
 const relatedProducts = [
-    { id: 1, brand: "Perwira", name: "Besi Beton Perwira 16mm Ulir TS420", price: 196563, stock: false, ppn: true },
-    { id: 2, brand: "JAS", name: "Besi Beton JAS 12mm Polos TP280", price: 104804, stock: false, ppn: true },
-    { id: 3, brand: "AS Asia Steel", name: "Besi Beton AS Asia Steel 10mm Polos TP280", price: 85350, stock: false, ppn: true },
-    { id: 4, brand: "Lautan Steel (LS)", name: "Besi Beton Lautan Steel (LS) 10mm Ulir TS420", price: 74832, stock: false, ppn: true },
-    { id: 5, brand: "Lautan Steel (LS)", name: "Besi Beton Lautan Steel (LS) 1 Ulir TS420", price: 138472, stock: false, ppn: true },
-    { id: 6, brand: "BPS", name: "Besi Beton BPS 19mm Ulir TS420", price: 251063, stock: true, ppn: true },
+    { id: 1, brand: "Siemens", name: "Siemens 3VA MCCB 100A 3-Pole 25kA", price: 2150000, stock: true, ppn: true },
+    { id: 2, brand: "Siemens", name: "Siemens 3P 16A MCB 6kA 5SL6316-7", price: 185000, stock: true, ppn: true },
+    { id: 3, brand: "Siemens", name: "Siemens 3P 20A MCB 10kA 5SY4320-7", price: 245000, stock: true, ppn: true },
+    { id: 4, brand: "Siemens", name: "Siemens 3RT2026 Contactor 25A 11kW", price: 850000, stock: true, ppn: true },
+    { id: 5, brand: "Siemens", name: "Siemens 3RU2126 Thermal Overload Relay", price: 420000, stock: true, ppn: true },
+    { id: 6, brand: "Siemens", name: "Siemens 3RV2021 Motor Starter Protector", price: 950000, stock: true, ppn: true },
 ];
 
 export default function ProductDetailPage() {
@@ -57,15 +57,15 @@ export default function ProductDetailPage() {
                     {/* Breadcrumb */}
                     <nav className="text-sm mb-4">
                         <ol className="flex items-center gap-2 flex-wrap">
-                            <li><a href="/" className="text-gray-500 hover:text-teal-600">Beranda</a></li>
+                            <li><a href="/" className="text-gray-500 hover:text-red-600">Beranda</a></li>
                             <li className="text-gray-400">›</li>
-                            <li><a href="#" className="text-gray-500 hover:text-teal-600">Kategori</a></li>
+                            <li><a href="#" className="text-gray-500 hover:text-red-600">Kategori</a></li>
                             <li className="text-gray-400">›</li>
-                            <li><a href="#" className="text-gray-500 hover:text-teal-600">Besi Beton & Wiremesh</a></li>
+                            <li><a href="#" className="text-gray-500 hover:text-red-600">Low Voltage Siemens</a></li>
                             <li className="text-gray-400">›</li>
-                            <li><a href="#" className="text-gray-500 hover:text-teal-600">Besi Beton</a></li>
+                            <li><a href="#" className="text-gray-500 hover:text-red-600">MCCB</a></li>
                             <li className="text-gray-400">›</li>
-                            <li className="text-gray-900 font-medium">Besi Beton Perwira 16mm Ulir TS420</li>
+                            <li className="text-gray-900 font-medium">Siemens 3VA MCCB 100A 3-Pole 25kA</li>
                         </ol>
                     </nav>
 
@@ -90,13 +90,13 @@ export default function ProductDetailPage() {
                         {/* Middle - Product Info */}
                         <div className="lg:col-span-5">
                             <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">
-                                Besi Beton Perwira 16mm Ulir TS420
+                                Siemens 3VA MCCB 100A 3-Pole 25kA
                             </h1>
                             <p className="text-2xl md:text-3xl font-bold text-red-600 mb-2">
-                                Rp {formatPrice(196563)}
+                                Rp {formatPrice(2150000)}
                             </p>
                             <p className="text-sm text-gray-600 mb-3">
-                                Harga Termasuk PPN. Biaya pengiriman dihitung saat checkout.
+                                Harga Termasuk PPN. Estimasi pengiriman dihitung saat checkout.
                             </p>
 
                             {/* Badges */}
@@ -148,8 +148,9 @@ export default function ProductDetailPage() {
                                     ))}
                                 </div>
                             ) : (
-                                <div className="text-sm text-gray-600">
-                                    <p>Besi Beton Perwira 16mm Ulir TS420 adalah besi beton berkualitas tinggi untuk konstruksi. Produk ini memenuhi standar SNI dan cocok untuk berbagai proyek pembangunan.</p>
+                                <div className="text-sm text-gray-600 space-y-4">
+                                    <p>Siemens 3VA MCCB (Molded Case Circuit Breaker) adalah solusi perlindungan sirkuit tingkat lanjut yang dirancang untuk keandalan dan keamanan maksimal pada sistem distribusi tenaga listrik tegangan rendah.</p>
+                                    <p>Dilengkapi dengan teknologi pemutusan arus yang canggih, produk ini memastikan perlindungan optimal terhadap beban berlebih dan hubungan arus pendek (short circuit) pada instalasi industri maupun komersial.</p>
                                 </div>
                             )}
                         </div>
@@ -169,7 +170,7 @@ export default function ProductDetailPage() {
                             <div className="bg-white rounded-xl border border-gray-200 p-4">
                                 <p className="text-sm text-gray-600 mb-1">Subtotal</p>
                                 <p className="text-xl font-bold text-red-600 mb-4">
-                                    Rp {formatPrice(196563 * quantity)}
+                                    Rp {formatPrice(2150000 * quantity)}
                                 </p>
 
                                 {/* Quantity */}
@@ -193,7 +194,7 @@ export default function ProductDetailPage() {
                                     >
                                         <Plus className="w-4 h-4" />
                                     </button>
-                                    <span className="text-sm text-gray-600">x Batang</span>
+                                    <span className="text-sm text-gray-600">x Unit</span>
                                 </div>
 
                                 {/* Buttons */}

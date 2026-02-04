@@ -31,7 +31,7 @@ const navCategories = [
 // Mega menu categories with subcategories and icons
 const megaMenuCategories = [
     {
-        name: "Low Voltage Product",
+        name: "Low Voltage Siemens",
         icon: "⚡",
         subcategories: [
             { name: "Air Circuit Breaker (ACB)", count: 24 },
@@ -43,7 +43,7 @@ const megaMenuCategories = [
         ]
     },
     {
-        name: "Control Product",
+        name: "Control Product Siemens",
         icon: "🎛️",
         subcategories: [
             { name: "Contactor", count: 120 },
@@ -112,7 +112,7 @@ export default function Header() {
     }, []);
 
     return (
-        <header className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-lg border-b border-gray-100">
+        <header className="sticky top-0 z-50 w-full bg-white border-b border-gray-100">
             {/* Top Header */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-16 md:h-20 gap-4">
@@ -168,7 +168,7 @@ export default function Header() {
                         }} className="relative w-full group">
                             <Input
                                 type="text"
-                                placeholder="Apa kebutuhan proyek Anda?"
+                                placeholder="Cari solusi Siemens & Produk Elektrikal"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="w-full h-11 pl-4 pr-14 rounded-xl border border-gray-200 focus:border-red-500 focus:ring-0 focus:outline-none bg-white"

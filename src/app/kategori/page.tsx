@@ -3,16 +3,16 @@
 import { useState } from "react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import { ChevronRight, Zap, Building2, Wrench, Lightbulb, Cable, Gauge } from "lucide-react";
+import { ChevronRight, Zap, Box, Wrench, Lightbulb, Cable, Gauge } from "lucide-react";
 
 type CategoryType = "low-voltage" | "control" | "lighting" | "cable" | "panel" | "instrument";
 
 const mainCategories = [
-    { id: "low-voltage" as CategoryType, name: "Low Voltage Product", icon: Zap },
-    { id: "control" as CategoryType, name: "Control Product", icon: Gauge },
+    { id: "low-voltage" as CategoryType, name: "Low Voltage Product Siemens", icon: Zap },
+    { id: "control" as CategoryType, name: "Control Product Siemens", icon: Gauge },
     { id: "lighting" as CategoryType, name: "Portable Lighting", icon: Lightbulb },
     { id: "cable" as CategoryType, name: "Cable & Wiring", icon: Cable },
-    { id: "panel" as CategoryType, name: "Panel & Enclosure", icon: Building2 },
+    { id: "panel" as CategoryType, name: "Panel & Enclosure", icon: Box },
     { id: "instrument" as CategoryType, name: "Instrument & Tools", icon: Wrench },
 ];
 
@@ -89,8 +89,8 @@ export default function KategoriPage() {
                                             key={category.id}
                                             onClick={() => setActiveCategory(category.id)}
                                             className={`w-full flex flex-col items-center text-center p-3 rounded-xl transition-colors ${activeCategory === category.id
-                                                    ? "bg-red-50 text-red-600 border border-red-200"
-                                                    : "text-gray-600 hover:bg-gray-50"
+                                                ? "bg-red-50 text-red-600 border border-red-200"
+                                                : "text-gray-600 hover:bg-gray-50"
                                                 }`}
                                         >
                                             <category.icon className="w-8 h-8 mb-2" />

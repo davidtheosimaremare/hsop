@@ -1,6 +1,15 @@
 "use client";
 
+import { usePathname } from "next/navigation";
+
 export default function FloatingWhatsApp() {
+    const pathname = usePathname();
+
+    // Hide on admin pages
+    if (pathname?.startsWith("/admin")) {
+        return null;
+    }
+
     return (
         <a
             href="https://wa.me/6281262220021"

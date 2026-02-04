@@ -18,9 +18,9 @@ const businessSteps = [
 ];
 
 const retailBenefits = [
-    { num: "1", title: "Katalog Produk Lengkap dan 100% Original", desc: "Temukan seluruh kebutuhan konstruksi Anda dalam satu platform lengkap dan kualitas produk terjamin." },
-    { num: "2", title: "Harga Terakurat dan Opsi Pembayaran Beragam", desc: "Cek harga terkini dari kebutuhan konstruksi Anda dan nikmati kemudahan berbelanja dengan beragam opsi pembayaran yang tersedia." },
-    { num: "3", title: "Pengiriman yang efisien", desc: "Opsi pengiriman yang beragam dan efisien, mencapai skala nasional." },
+    { num: "1", title: "Katalog Siemens Terlengkap dan 100% Original", desc: "Temukan seluruh kebutuhan elektrikal & industrial Siemens Anda dalam satu platform lengkap." },
+    { num: "2", title: "Harga Terakurat dan Opsi Pembayaran Beragam", desc: "Cek harga terkini dari produk Siemens dan nikmati kemudahan berbelanja dengan beragam opsi pembayaran yang tersedia." },
+    { num: "3", title: "Pengiriman yang efisien", desc: "Opsi pengiriman yang beragam dan efisien untuk kebutuhan proyek industrial Anda." },
 ];
 
 const businessFeatures = [
@@ -60,7 +60,7 @@ export default function DaftarPage() {
                 {/* Headline */}
                 {accountType === "bisnis" ? (
                     <h1 className="text-2xl font-bold mb-4 leading-tight">
-                        Bangun Dulu. <span className="text-yellow-400">Bayar Nanti.</span>
+                        Belanja Dulu. <span className="text-yellow-400">Bayar Nanti.</span>
                     </h1>
                 ) : (
                     <h1 className="text-2xl font-bold mb-4 leading-tight">

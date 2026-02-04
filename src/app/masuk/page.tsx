@@ -12,8 +12,8 @@ const slides = [
         description: "Hokiindo menyediakan berbagai macam metode pembayaran yang mudah dan beragam",
     },
     {
-        title: "Produk Berkualitas",
-        description: "Temukan produk electrical berkualitas tinggi dari brand terpercaya",
+        title: "Siemens Electrical Product",
+        description: "Distributor resmi produk Low Voltage & Control Product Siemens terlengkap dan terpercaya",
     },
     {
         title: "Pengiriman Cepat",
