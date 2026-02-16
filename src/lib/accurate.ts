@@ -41,8 +41,20 @@ export async function generateAccurateAuthHeaders() {
         throw new Error('Accurate API credentials are missing in .env');
     }
 
-    // 1. Generate timestamp in ISO format
-    const timestamp = new Date().toISOString();
+    // 1. Generate timestamp in format DD/MM/YYYY HH:mm:ss (Asia/Jakarta timezone)
+    // Accurate Private API requires this specific format
+    const now = new Date();
+    const jakartaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const day = pad(jakartaTime.getDate());
+    const month = pad(jakartaTime.getMonth() + 1);
+    const year = jakartaTime.getFullYear();
+    const hour = pad(jakartaTime.getHours());
+    const minute = pad(jakartaTime.getMinutes());
+    const second = pad(jakartaTime.getSeconds());
+
+    const timestamp = `${day}/${month}/${year} ${hour}:${minute}:${second}`;
 
     // 2. Generate HMAC SHA256 signature
     const signatureBase64 = await generateHmacSignature(secretKey, timestamp);
