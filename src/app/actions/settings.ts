@@ -124,10 +124,10 @@ export async function syncCategoriesFromProducts() {
         // For now, returning success to unblock build. usage in CategoryManager suggests it's a void action or returns success.
         console.log("Sync categories triggered");
         revalidatePath("/admin/settings/categories");
-        return { success: true };
+        return { success: true, count: 0 };
     } catch (error) {
         console.error("Sync categories failed:", error);
-        return { success: false };
+        return { success: false, count: 0 };
     }
 }
 
