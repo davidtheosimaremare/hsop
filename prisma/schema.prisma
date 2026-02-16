@@ -8,43 +8,61 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  username  String?  @unique
-  email     String   @unique
-  password  String
-  name      String?
-  phone     String?
-  role      String   @default("ADMIN")
-  isActive  Boolean  @default(true)
-  
-  customerId String?
-  customer   Customer? @relation(fields: [customerId], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String    @id @default(cuid())
+  email        String    @unique
+  password     String
+  name         String?
+  role         String    @default("ADMIN")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  customerId   String?
+  isActive     Boolean   @default(true)
+  phone        String?
+  username     String?   @unique
+  otp          String?
+  otpExpiresAt DateTime?
+  isVerified   Boolean   @default(false)
+  customer     Customer? @relation(fields: [customerId], references: [id])
+  upgradeRequests UpgradeRequest[]
 }
 
 model Customer {
-  id        String   @id
-  accurateId Int?    @unique
-  name      String?
-  email     String?  @unique
-  phone     String?
-  address   String?
-  company   String?
-  type      String   @default("BISNIS")
+  id               String            @id
+  accurateId       Int?              @unique
+  name             String?
+  email            String?           @unique
+  phone            String?
+  address          String?
+  company          String?
+  type             String            @default("BISNIS")
+  discount1        Float             @default(0)
+  discount2        Float             @default(0)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  discountCP       String            @default("0")
+  discountCPIndent String            @default("0")
+  discountLP       String            @default("0")
+  discountLPIndent String            @default("0")
+  discountLighting String            @default("0")
+  discountLightingIndent String      @default("0")
   businessCategory String?
-  discount1 Float    @default(0)
-  discount2 Float    @default(0)
-  discountLP String   @default("0")
-  discountCP String   @default("0")
-  discountLighting String @default("0")
-  
-  users     User[] // Relation to Users
+  image            String?
+  addresses        CustomerAddress[]
+  orders           Order[]
+  users            User[]
+}
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  orders    Order[]
+model CustomerAddress {
+  id         String   @id @default(cuid())
+  customerId String
+  label      String?
+  address    String
+  recipient  String?
+  phone      String?
+  isPrimary  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 }
 
 model Product {
@@ -67,30 +85,38 @@ model Product {
   orderItems      OrderItem[]
 }
 
+model CategoryMapping {
+  id           String   @id @default(cuid())
+  categoryName String   @unique
+  discountType String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
 model Order {
-  id         String      @id @default(cuid())
-  customerId String
-  customer   Customer    @relation(fields: [customerId], references: [id])
-  status     String      @default("PENDING")
-  total      Float
-  discount   Float       @default(0)
-  notes      String?
-  attachmentQuote   String?
-  attachmentPO      String?
+  id                String      @id @default(cuid())
+  customerId        String
+  status            String      @default("PENDING")
+  total             Float
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
   attachmentInvoice String?
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-  items      OrderItem[]
+  attachmentPO      String?
+  attachmentQuote   String?
+  discount          Float       @default(0)
+  notes             String?
+  customer          Customer    @relation(fields: [customerId], references: [id])
+  items             OrderItem[]
 }
 
 model OrderItem {
   id        String  @id @default(cuid())
   orderId   String
-  order     Order   @relation(fields: [orderId], references: [id])
   productId String
-  product   Product @relation(fields: [productId], references: [id])
   quantity  Int
   price     Float
+  order     Order   @relation(fields: [orderId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
 }
 
 model SearchSuggestion {
@@ -102,24 +128,24 @@ model SearchSuggestion {
 }
 
 model Category {
-  id          String    @id @default(cuid())
-  name        String
-  parentId    String?
-  parent      Category? @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  children    Category[] @relation("CategoryHierarchy")
-  isVisible   Boolean   @default(true)
-  order       Int       @default(0)
-  accurateId  Int?      @unique
-  image       String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id         String     @id @default(cuid())
+  name       String
+  parentId   String?
+  isVisible  Boolean    @default(true)
+  order      Int        @default(0)
+  accurateId Int?       @unique
+  image      String?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  parent     Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children   Category[] @relation("CategoryHierarchy")
 }
 
 model CategorySection {
   id          String   @id @default(cuid())
   title       String
   order       Int      @default(0)
-  categoryIds String[] // List of Category IDs to display
+  categoryIds String[]
   isVisible   Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -146,4 +172,140 @@ model Banner {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model News {
+  id                String    @id @default(cuid())
+  title             String
+  slug              String    @unique
+  excerpt           String?
+  content           String
+  image             String?
+  metaTitle         String?
+  metaDescription   String?
+  metaKeywords      String?
+  ogImage           String?
+  isPublished       Boolean   @default(false)
+  publishedAt       DateTime?
+  author            String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  relatedProductIds String[]
+}
+
+model DiscountRule {
+  id               String   @id @default(cuid())
+  categoryGroup    String   @unique // "LP", "CP", "LIGHTING"
+  stockDiscount    String   @default("0")
+  indentDiscount   String   @default("0")
+  description      String?
+  updatedAt        DateTime @updatedAt
+}
+
+model SiteSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique // e.g., "footer_config"
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model SalesQuotation {
+  id              String                @id @default(cuid())
+  quotationNo     String                @unique
+  userId          String?
+  customerId      String?
+  email           String
+  phone           String
+  status          String                @default("PENDING") // PENDING, PROCESSING, OFFERED, CONFIRMED, SHIPPED, COMPLETED, CANCELLED
+  totalAmount     Float                 @default(0)
+  notes           String?
+  adminNotes      String?               // catatan umum admin untuk customer
+  specialDiscount Float?                // diskon spesial (persentase) untuk keseluruhan
+  processedBy     String?               // admin yang memproses
+  processedAt     DateTime?             // waktu mulai diproses
+  offeredAt       DateTime?             // waktu penawaran dikirim
+  confirmedAt     DateTime?             // waktu customer konfirmasi / admin buat SO
+  shippedAt       DateTime?             // waktu barang dikirim
+  completedAt     DateTime?             // waktu barang diterima
+  trackingNumber  String?               // nomor resi pengiriman
+  shippingNotes   String?               // catatan pengiriman
+  shippingCost    Float?                // biaya ongkir
+  freeShipping    Boolean               @default(false) // gratis ongkir (ditanggung toko)
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  items           SalesQuotationItem[]
+}
+
+model SalesQuotationItem {
+  id           String         @id @default(cuid())
+  quotationId  String
+  productSku   String
+  productName  String
+  brand        String
+  quantity     Int
+  price        Float
+  isAvailable  Boolean?       // null = belum dicek, true = tersedia, false = tidak tersedia
+  availableQty Int?           // stok tersedia saat dicek
+  adminNote    String?        // catatan admin (alternatif, info stok, dll)
+  quotation    SalesQuotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+}
+
+model HomeCTA {
+  id                  String   @id @default(cuid())
+  title               String
+  subtitle            String?
+  image               String?
+  primaryButtonText   String?
+  primaryButtonLink   String?
+  secondaryButtonText String?
+  secondaryButtonLink String?
+  position            String   @unique // "LEFT" (Business) or "RIGHT" (Vendor)
+  isVisible           Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model WebhookLog {
+  id          String   @id @default(cuid())
+  source      String   @default("ACCURATE")
+  event       String
+  payload     Json
+  status      String   // PENDING, PROCESSING, SUCCESS, ERROR
+  message     String?
+  retryCount  Int      @default(0)
+  lastRetryAt DateTime?
+  processedAt DateTime @default(now())
+}
+
+model Page {
+  id              String    @id @default(cuid())
+  title           String
+  slug            String    @unique
+  content         String
+  metaTitle       String?
+  metaDescription String?
+  isPublished     Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model UpgradeRequest {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  requestType  String   // RESELLER, EXCLUSIVE
+  status       String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  
+  // Data specific to upgrade
+  companyName  String?
+  businessType String?
+  address      String?
+  phone        String?
+  ktpName      String?  // Nama sesuai KTP
+  ktp          String?  // Image URL
+  npwp         String?  // Image URL
+  
+  adminNotes   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }

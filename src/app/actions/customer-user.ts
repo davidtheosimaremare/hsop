@@ -6,17 +6,16 @@ import { hash } from "bcryptjs";
 
 export async function createCustomerUser(data: {
     customerId: string;
-    username: string;
+    name: string;
     email: string;
     phone: string;
     password: string;
 }) {
     try {
-        // Validate Username/Email/Phone Uniqueness
+        // Validate Email/Phone Uniqueness
         const existing = await db.user.findFirst({
             where: {
                 OR: [
-                    { username: data.username },
                     { email: data.email },
                     { phone: data.phone }
                 ]
@@ -25,7 +24,6 @@ export async function createCustomerUser(data: {
 
         if (existing) {
             let errorMsg = "Data sudah digunakan.";
-            if (existing.username === data.username) errorMsg = "Username sudah digunakan.";
             if (existing.email === data.email) errorMsg = "Email sudah digunakan.";
             if (existing.phone === data.phone) errorMsg = "Nomor telepon sudah digunakan.";
 
@@ -40,7 +38,8 @@ export async function createCustomerUser(data: {
         await db.user.create({
             data: {
                 customerId: data.customerId,
-                username: data.username,
+                name: data.name,
+                username: data.email.split("@")[0], // Fallback username or just rely on email
                 email: data.email,
                 phone: data.phone,
                 password: hashedPassword,

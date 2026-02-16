@@ -11,105 +11,101 @@ import {
     X,
     ChevronDown,
     ChevronRight,
-    LayoutGrid
+    LayoutGrid,
+    User,
+    LogOut,
+    Settings,
+    LayoutDashboard,
+    Zap
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useCart } from "@/lib/useCart";
+import SearchBox from "./SearchBox";
+// ... imports
+
+interface HeaderProps {
+    user?: {
+        name?: string;
+        email?: string;
+        role?: string;
+    } | null;
+    menuConfig?: any[];
+    searchSuggestions?: string[];
+}
 
 const navCategories = [
-    { name: "Kategori", hasDropdown: true },
-    { name: "MCB & MCCB", hasDropdown: false },
-    { name: "Contactor", hasDropdown: false },
-    { name: "Motor Starter", hasDropdown: false },
-    { name: "Push Button", hasDropdown: false },
-    { name: "LED Lighting", hasDropdown: false },
-    { name: "Cable & Gland", hasDropdown: false },
-    { name: "Panel Board", hasDropdown: false },
-    { name: "Surge Protection", hasDropdown: false },
+    { name: "Kategori Produk" },
 ];
 
-// Mega menu categories with subcategories and icons
-const megaMenuCategories = [
+// Helper to map icon string to component
+const getIconComponent = (iconName: string) => {
+    switch (iconName) {
+        case "zap": return <Zap className="w-5 h-5" />;
+        case "layout-grid": return <LayoutGrid className="w-5 h-5" />;
+        case "chevron-right": return <ChevronRight className="w-5 h-5" />;
+        default: return <ChevronRight className="w-5 h-5" />;
+    }
+};
+
+const defaultMegaMenuCategories = [
     {
-        name: "Low Voltage Siemens",
-        icon: "⚡",
+        name: "Low Voltage Product",
+        icon: <Zap className="w-5 h-5" />,
         subcategories: [
-            { name: "Air Circuit Breaker (ACB)", count: 24 },
-            { name: "Miniature Circuit Breaker (MCB)", count: 156 },
-            { name: "Moulded Case Circuit Breaker (MCCB)", count: 89 },
-            { name: "Residual Current Device (RCCB)", count: 45 },
-            { name: "Surge Protection Device (SPD)", count: 67 },
-            { name: "Fuse & Fuse Holder", count: 38 },
+            { name: "Circuit Breaker", count: 120 },
+            { name: "Surge Protection", count: 45 },
+            { name: "Fuse & Holder", count: 68 },
+            { name: "Busbar System", count: 32 },
         ]
     },
-    {
-        name: "Control Product Siemens",
-        icon: "🎛️",
-        subcategories: [
-            { name: "Contactor", count: 120 },
-            { name: "Motor Starter", count: 45 },
-            { name: "Thermal Overload Relay", count: 78 },
-            { name: "Timer & Counter", count: 56 },
-            { name: "Push Button & Pilot Lamp", count: 234 },
-            { name: "Selector Switch", count: 89 },
-        ]
-    },
-    {
-        name: "Portable Lighting",
-        icon: "💡",
-        subcategories: [
-            { name: "LED Floodlight", count: 67 },
-            { name: "LED High Bay", count: 45 },
-            { name: "LED Street Light", count: 34 },
-            { name: "LED Panel Light", count: 89 },
-            { name: "Emergency Light", count: 56 },
-            { name: "Explosion Proof Light", count: 23 },
-        ]
-    },
-    {
-        name: "Cable & Accessories",
-        icon: "🔌",
-        subcategories: [
-            { name: "Power Cable", count: 145 },
-            { name: "Control Cable", count: 78 },
-            { name: "Cable Gland", count: 234 },
-            { name: "Cable Lug", count: 156 },
-            { name: "Cable Tray", count: 67 },
-            { name: "Conduit & Fitting", count: 189 },
-        ]
-    },
-    {
-        name: "Panel & Enclosure",
-        icon: "🗄️",
-        subcategories: [
-            { name: "Distribution Board", count: 56 },
-            { name: "Metal Enclosure", count: 89 },
-            { name: "Plastic Enclosure", count: 67 },
-            { name: "Floor Standing Panel", count: 34 },
-            { name: "Din Rail & Terminal Block", count: 234 },
-            { name: "Panel Accessories", count: 178 },
-        ]
-    },
+    // ... (rest of default items can be kept or just fallback to empty if config is present but empty? No, better fallback to default if db is empty for now?)
+    // Actually user wants to manage it. If they save empty list, it should be empty.
+    // But for initial migration, if DB is empty, maybe show defaults? 
+    // The `getCategoryMenuConfig` returns [] if not found.
+    // Let's decide: If menuConfig is passed and has items, use it. Else use default?
+    // User said "Kita ambil dari data category kemudian kita bisa atur sesuai gambar".
+    // I will use default if menuConfig is empty/null, so the site doesn't look broken immediately.
 ];
 
-export default function Header() {
+export default function Header({ user, menuConfig, searchSuggestions = [] }: HeaderProps) {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [searchQuery, setSearchQuery] = useState("");
     const [isMegaMenuOpen, setIsMegaMenuOpen] = useState(false);
     const [activeCategory, setActiveCategory] = useState(0);
+    const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const megaMenuRef = useRef<HTMLDivElement>(null);
+    const userMenuRef = useRef<HTMLDivElement>(null);
+    const { totalItems } = useCart();
+    const router = useRouter();
 
-    // Close mega menu when clicking outside
+    const categoriesToDisplay = (menuConfig && menuConfig.length > 0) ? menuConfig : defaultMegaMenuCategories;
+
+    // Close menus when clicking outside
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (megaMenuRef.current && !megaMenuRef.current.contains(event.target as Node)) {
                 setIsMegaMenuOpen(false);
+            }
+            if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+                setIsUserMenuOpen(false);
             }
         };
 
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
+
+    const handleLogout = async () => {
+        // We need to call a server action or API route to logout
+        // For now, let's redirect to a logout action route or use a server action if we passed one (prop drilling action is weird here)
+        // Or simpler: window.location.href = "/api/auth/logout" if we had one.
+        // Actually we have logoutAction in actions/auth.ts. 
+        // We can't import server action directly here if this is 'use client' ? 
+        // Next.js allows importing server actions in client components.
+
+        // Dynamic import to avoid initial bundle bloat if needed, or just standard import
+        const { logoutAction } = await import("@/app/actions/auth");
+        await logoutAction();
+    };
 
     return (
         <header className="sticky top-0 z-50 w-full bg-white border-b border-gray-100">
@@ -146,46 +142,15 @@ export default function Header() {
                     </motion.div>
 
                     <div className="md:hidden flex-1 mx-2">
-                        <form onSubmit={(e) => {
-                            e.preventDefault();
-                            window.location.href = `/pencarian?q=${encodeURIComponent(searchQuery)}`;
-                        }} className="relative w-full">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <Input
-                                type="text"
-                                placeholder="Cari produk..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full h-10 pl-9 pr-3 rounded-full border border-gray-200 focus:border-red-500 focus:ring-0 focus:outline-none bg-white text-sm"
-                            />
-                        </form>
+                        <SearchBox isMobile />
                     </div>
 
                     <div className="hidden md:flex flex-1 max-w-3xl mx-8">
-                        <form onSubmit={(e) => {
-                            e.preventDefault();
-                            window.location.href = `/pencarian?q=${encodeURIComponent(searchQuery)}`;
-                        }} className="relative w-full group">
-                            <Input
-                                type="text"
-                                placeholder="Cari solusi Siemens & Produk Elektrikal"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full h-11 pl-4 pr-14 rounded-xl border border-gray-200 focus:border-red-500 focus:ring-0 focus:outline-none bg-white"
-                            />
-                            <Button
-                                type="submit"
-                                variant="red"
-                                size="sm"
-                                className="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-11 rounded-lg transition-all duration-300"
-                            >
-                                <Search className="h-4 w-4 text-white" />
-                            </Button>
-                        </form>
+                        <SearchBox />
                     </div>
 
                     {/* Right Actions */}
-                    <div className="flex items-center">
+                    <div className="flex items-center text-sm">
                         {/* Cart/Bag */}
                         <Link href="/keranjang">
                             <motion.button
@@ -201,7 +166,7 @@ export default function Header() {
                                     className="h-6 w-6 object-contain grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-200"
                                 />
                                 <span className="absolute -top-1 -right-1.5 h-[14px] min-w-[18px] px-1 bg-[#FF0000] border border-white rounded-sm text-[9px] text-white flex items-center justify-center font-semibold">
-                                    0
+                                    {totalItems}
                                 </span>
                             </motion.button>
                         </Link>
@@ -209,24 +174,92 @@ export default function Header() {
                         {/* Separator */}
                         <div className="hidden sm:block h-8 w-px bg-gray-200 mx-4" />
 
-                        {/* Auth Buttons - Desktop */}
+                        {/* Auth Buttons or User Menu - Desktop */}
                         <div className="hidden sm:flex items-center gap-2">
-                            <Link href="/daftar">
-                                <Button
-                                    variant="outline"
-                                    className="h-10 px-6 rounded-xl font-medium transition-all duration-300"
-                                >
-                                    Daftar
-                                </Button>
-                            </Link>
-                            <Link href="/masuk">
-                                <Button
-                                    variant="red"
-                                    className="h-10 px-6 rounded-xl font-medium transition-all duration-300"
-                                >
-                                    Masuk
-                                </Button>
-                            </Link>
+                            {user ? (
+                                <div className="relative" ref={userMenuRef}>
+                                    <button
+                                        onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                                        className="flex items-center gap-3 p-1.5 pr-3 rounded-xl hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-200"
+                                    >
+                                        <div className="w-9 h-9 bg-red-100 rounded-lg flex items-center justify-center text-red-600 font-bold">
+                                            {user.name ? user.name.charAt(0).toUpperCase() : (user.email ? user.email.charAt(0).toUpperCase() : 'U')}
+                                        </div>
+                                        <div className="text-left hidden lg:block">
+                                            <p className="text-sm font-bold text-gray-900 leading-none mb-1">
+                                                {user.name || "Member Hokiindo"}
+                                            </p>
+                                            <p className="text-xs text-gray-500 leading-none truncate max-w-[150px]">
+                                                {user.email}
+                                            </p>
+                                        </div>
+                                        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isUserMenuOpen ? "rotate-180" : ""}`} />
+                                    </button>
+
+                                    <AnimatePresence>
+                                        {isUserMenuOpen && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                                className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 py-2 overflow-hidden z-50"
+                                            >
+                                                <div className="px-4 py-3 border-b border-gray-50 mb-1">
+                                                    <p className="text-sm font-semibold text-gray-900">Akun Saya</p>
+                                                    <p className="text-xs text-green-600 font-medium mt-0.5">Verified Member</p>
+                                                </div>
+
+                                                <Link
+                                                    href="/dashboard"
+                                                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 transition-colors"
+                                                    onClick={() => setIsUserMenuOpen(false)}
+                                                >
+                                                    <LayoutDashboard className="w-4 h-4" />
+                                                    Dashboard
+                                                </Link>
+
+                                                <Link
+                                                    href="/dashboard/settings"
+                                                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 transition-colors"
+                                                    onClick={() => setIsUserMenuOpen(false)}
+                                                >
+                                                    <Settings className="w-4 h-4" />
+                                                    Pengaturan & Upgrade
+                                                </Link>
+
+                                                <div className="border-t border-gray-50 my-1" />
+
+                                                <button
+                                                    onClick={handleLogout}
+                                                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                                >
+                                                    <LogOut className="w-4 h-4" />
+                                                    Keluar
+                                                </button>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+                            ) : (
+                                <>
+                                    <Link href="/daftar">
+                                        <Button
+                                            variant="outline"
+                                            className="h-10 px-6 rounded-xl font-medium transition-all duration-300"
+                                        >
+                                            Daftar
+                                        </Button>
+                                    </Link>
+                                    <Link href="/masuk">
+                                        <Button
+                                            variant="red"
+                                            className="h-10 px-6 rounded-xl font-medium transition-all duration-300"
+                                        >
+                                            Masuk
+                                        </Button>
+                                    </Link>
+                                </>
+                            )}
                         </div>
 
                         {/* Mobile Menu Button */}
@@ -252,55 +285,60 @@ export default function Header() {
                     <div className="flex items-center justify-between h-12">
                         {/* Categories */}
                         <div className="flex items-center gap-1">
-                            {navCategories.map((category, index) => (
-                                <React.Fragment key={category.name}>
-                                    {index === 1 && (
-                                        <div className="flex items-center gap-2 ml-2 mr-1">
-                                            <div className="h-4 w-px bg-gray-200" />
-                                            <span className="text-[11px] text-gray-400 font-medium whitespace-nowrap">Rekomendasi:</span>
-                                        </div>
-                                    )}
-                                    {index === 0 ? (
-                                        <motion.button
-                                            whileHover={{ y: -1 }}
-                                            onClick={() => {
-                                                setIsMegaMenuOpen(!isMegaMenuOpen);
-                                                setActiveCategory(0);
-                                            }}
-                                            className={`
-                                                flex items-center gap-1 px-3 py-1.5 rounded-lg font-medium transition-all duration-200
-                                                text-sm text-gray-700 hover:text-red-600 hover:bg-red-50
-                                                ${isMegaMenuOpen ? "text-red-600 bg-red-50" : ""}
-                                            `}
-                                        >
-                                            <LayoutGrid className="h-4 w-4" />
-                                            <span>{category.name}</span>
-                                            <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${isMegaMenuOpen ? "rotate-180" : ""}`} />
-                                        </motion.button>
-                                    ) : (
-                                        <Link href={`/pencarian?q=${encodeURIComponent(category.name)}`}>
+                            {/* Category Dropdown */}
+                            <motion.button
+                                whileHover={{ y: -1 }}
+                                onClick={() => {
+                                    setIsMegaMenuOpen(!isMegaMenuOpen);
+                                    setActiveCategory(0);
+                                }}
+                                className={`
+                                    flex items-center gap-1 px-3 py-1.5 rounded-lg font-medium transition-all duration-200
+                                    text-sm text-gray-700 hover:text-red-600 hover:bg-red-50
+                                    ${isMegaMenuOpen ? "text-red-600 bg-red-50" : ""}
+                                `}
+                            >
+                                <LayoutGrid className="h-4 w-4" />
+                                <span>Kategori Produk</span>
+                                <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${isMegaMenuOpen ? "rotate-180" : ""}`} />
+                            </motion.button>
+
+                            {/* Search Suggestions */}
+                            {searchSuggestions.length > 0 && (
+                                <>
+                                    <div className="flex items-center gap-2 ml-2 mr-1">
+                                        <div className="h-4 w-px bg-gray-200" />
+                                        <span className="text-[11px] text-gray-400 font-medium whitespace-nowrap">Saran Cepat :</span>
+                                    </div>
+                                    {searchSuggestions.map((term) => (
+                                        <Link key={term} href={`/pencarian?q=${encodeURIComponent(term)}&page=1`}>
                                             <motion.button
                                                 whileHover={{ y: -1 }}
-                                                className={`
-                                                    flex items-center gap-1 px-3 py-1.5 rounded-lg font-medium transition-all duration-200
-                                                    text-xs text-gray-600 hover:text-red-600 hover:bg-red-50
-                                                `}
+                                                className="flex items-center gap-1 px-3 py-1.5 rounded-lg font-medium transition-all duration-200 text-xs text-gray-600 hover:text-red-600 hover:bg-red-50"
                                             >
-                                                <span>{category.name}</span>
+                                                <span>{term}</span>
                                             </motion.button>
                                         </Link>
-                                    )}
-                                </React.Fragment>
-                            ))}
+                                    ))}
+                                </>
+                            )}
                         </div>
 
                         {/* Right Navigation */}
-                        <a
-                            href="#"
-                            className="text-sm font-medium text-gray-600 hover:text-red-600 transition-colors"
-                        >
-                            Berita
-                        </a>
+                        <div className="flex items-center gap-6">
+                            <a
+                                href="#"
+                                className="text-sm font-medium text-gray-600 hover:text-red-600 transition-colors"
+                            >
+                                Berita
+                            </a>
+                            <a
+                                href="/pesanan-besar"
+                                className="text-sm font-medium text-gray-600 hover:text-red-600 transition-colors"
+                            >
+                                Bulk Order
+                            </a>
+                        </div>
                     </div>
                 </div>
 
@@ -314,19 +352,20 @@ export default function Header() {
                                 exit={{ opacity: 0, y: -10 }}
                                 transition={{ duration: 0.2 }}
                                 className="absolute left-4 sm:left-6 lg:left-8 right-4 sm:right-6 lg:right-8 top-0 bg-white shadow-2xl border border-gray-100 z-50 rounded-b-2xl overflow-hidden"
-                                style={{ maxWidth: "900px" }}
+                                style={{ maxWidth: "700px" }}
                             >
                                 <div className="flex">
                                     {/* Left Sidebar - Categories */}
-                                    <div className="w-64 bg-gradient-to-b from-gray-50 to-gray-100/50 py-3 border-r border-gray-100">
+                                    <div className="w-52 bg-gradient-to-b from-gray-50 to-gray-100/50 py-3 border-r border-gray-100">
                                         <div className="px-4 mb-3">
                                             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Kategori Produk</h3>
                                         </div>
-                                        {megaMenuCategories.map((cat, catIndex) => (
-                                            <button
-                                                key={cat.name}
+                                        {categoriesToDisplay.map((cat, catIndex) => (
+                                            <Link
+                                                key={cat.id || cat.name}
+                                                href={`/pencarian?q=&category=${encodeURIComponent(cat.name)}&page=1`}
                                                 onMouseEnter={() => setActiveCategory(catIndex)}
-                                                onClick={() => setActiveCategory(catIndex)}
+                                                onClick={() => setIsMegaMenuOpen(false)}
                                                 className={`
                                                 w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-medium transition-all duration-200
                                                 ${activeCategory === catIndex
@@ -335,10 +374,9 @@ export default function Header() {
                                                     }
                                             `}
                                             >
-                                                <span className="text-lg">{cat.icon}</span>
-                                                <span className="flex-1">{cat.name}</span>
+                                                <span className="flex-1">{cat.alias || cat.name}</span>
                                                 <ChevronRight className={`h-4 w-4 transition-transform ${activeCategory === catIndex ? "text-white translate-x-1" : "text-gray-400"}`} />
-                                            </button>
+                                            </Link>
                                         ))}
 
                                         {/* View All Link */}
@@ -357,19 +395,17 @@ export default function Header() {
                                     {/* Right Content - Subcategories */}
                                     <div className="flex-1 p-6 bg-white">
                                         <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-100">
-                                            <span className="text-2xl">{megaMenuCategories[activeCategory]?.icon}</span>
-                                            <h3 className="text-lg font-bold text-gray-900">{megaMenuCategories[activeCategory]?.name}</h3>
+                                            <h3 className="text-lg font-bold text-gray-900">{categoriesToDisplay[activeCategory]?.alias || categoriesToDisplay[activeCategory]?.name}</h3>
                                         </div>
                                         <div className="grid grid-cols-2 gap-2">
-                                            {megaMenuCategories[activeCategory]?.subcategories.map((subcat) => (
+                                            {categoriesToDisplay[activeCategory]?.subcategories.map((subcat: any) => (
                                                 <Link
-                                                    key={subcat.name}
-                                                    href={`/produk/${subcat.name.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '')}`}
+                                                    key={subcat.id || subcat.name}
+                                                    href={`/pencarian?q=&category=${encodeURIComponent(subcat.name)}&page=1`}
                                                     onClick={() => setIsMegaMenuOpen(false)}
-                                                    className="group flex items-center justify-between p-3 rounded-xl hover:bg-red-50 transition-all duration-200"
+                                                    className="group flex items-center p-2 rounded-lg hover:bg-red-50 transition-all duration-200"
                                                 >
-                                                    <span className="text-sm text-gray-700 group-hover:text-red-600 font-medium">{subcat.name}</span>
-                                                    <span className="text-xs text-gray-400 bg-gray-100 group-hover:bg-red-100 group-hover:text-red-600 px-2 py-0.5 rounded-full transition-colors">{subcat.count}</span>
+                                                    <span className="text-sm text-gray-700 group-hover:text-red-600 font-medium">{subcat.alias || subcat.name}</span>
                                                 </Link>
                                             ))}
                                         </div>
@@ -413,7 +449,7 @@ export default function Header() {
 
                             {/* Mobile Categories */}
                             <div className="space-y-1">
-                                {megaMenuCategories.map((category) => (
+                                {categoriesToDisplay.map((category) => (
                                     <Link
                                         key={category.name}
                                         href={`/pencarian?q=${encodeURIComponent(category.name)}`}
@@ -421,7 +457,9 @@ export default function Header() {
                                         onClick={() => setIsMobileMenuOpen(false)}
                                     >
                                         <div className="flex items-center gap-3">
-                                            <span className="text-lg">{category.icon}</span>
+                                            <span className="text-lg">
+                                                {typeof category.icon === 'string' ? getIconComponent(category.icon) : category.icon}
+                                            </span>
                                             <span className="font-medium">{category.name}</span>
                                         </div>
                                         <ChevronRight className="h-4 w-4 text-gray-400" />
@@ -441,6 +479,13 @@ export default function Header() {
                                     className="flex items-center px-3 py-2.5 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors font-medium"
                                 >
                                     Berita
+                                </Link>
+                                <Link
+                                    href="/pesanan-besar"
+                                    className="flex items-center px-3 py-2.5 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors font-medium"
+                                    onClick={() => setIsMobileMenuOpen(false)}
+                                >
+                                    Bulk Order
                                 </Link>
                             </div>
                         </div>

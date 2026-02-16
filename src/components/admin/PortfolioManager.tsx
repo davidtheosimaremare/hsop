@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { createClientProject, deleteClientProject } from "@/app/actions/settings";
-import { Loader2, Plus, Trash2, MapPin, Building, Image as ImageIcon } from "lucide-react";
+import { uploadFile } from "@/app/actions/upload";
+import { Loader2, Plus, Trash2, MapPin, Building, Image as ImageIcon, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import Image from "next/image";
 
 interface ClientProject {
     id: string;
@@ -25,26 +27,62 @@ export function PortfolioManager({ initialClients }: PortfolioManagerProps) {
     const [projectName, setProjectName] = useState("");
     const [clientName, setClientName] = useState("");
     const [location, setLocation] = useState("");
-    const [image, setImage] = useState("");
+    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [imagePreview, setImagePreview] = useState<string>("");
 
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [isCreating, startCreate] = useTransition();
     const router = useRouter();
 
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setImageFile(file);
+            const previewUrl = URL.createObjectURL(file);
+            setImagePreview(previewUrl);
+        }
+    };
+
     const handleCreate = () => {
-        if (!projectName || !image) {
-            alert("Nama proyek dan gambar wajib diisi.");
+        if (!projectName || !clientName || !imageFile) {
+            alert("Nama proyek, nama PT, dan gambar wajib diisi.");
             return;
         }
+
         startCreate(async () => {
-            const res = await createClientProject({ projectName, clientName, location, image });
-            if (res.success) {
-                setProjectName("");
-                setClientName("");
-                setLocation("");
-                setImage("");
-                router.refresh();
-            } else {
-                alert("Gagal membuat portfolio.");
+            try {
+                // 1. Upload Image
+                const formData = new FormData();
+                formData.append("file", imageFile);
+
+                const uploadRes = await uploadFile(formData);
+                if (!uploadRes.success || !uploadRes.url) {
+                    alert("Gagal mengupload gambar: " + uploadRes.error);
+                    return;
+                }
+
+                // 2. Create Project
+                const res = await createClientProject({
+                    projectName,
+                    clientName,
+                    location,
+                    image: uploadRes.url
+                });
+
+                if (res.success) {
+                    setProjectName("");
+                    setClientName("");
+                    setLocation("");
+                    setImageFile(null);
+                    setImagePreview("");
+                    if (fileInputRef.current) fileInputRef.current.value = "";
+                    router.refresh();
+                } else {
+                    alert("Gagal membuat portfolio: " + (res.error || "Kesalahan tidak diketahui"));
+                }
+            } catch (error: any) {
+                console.error(error);
+                alert("Terjadi kesalahan: " + error.message);
             }
         });
     };
@@ -52,30 +90,84 @@ export function PortfolioManager({ initialClients }: PortfolioManagerProps) {
     return (
         <div className="space-y-8">
             {/* Form */}
-            <div className="bg-gray-50 p-4 rounded-lg border space-y-4">
-                <h3 className="font-semibold text-sm text-gray-700">Tambah Portfolio Baru</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Input
-                        placeholder="Nama Proyek (Wajib)"
-                        value={projectName} onChange={(e) => setProjectName(e.target.value)}
-                    />
-                    <Input
-                        placeholder="Nama Klien / Perusahaan"
-                        value={clientName} onChange={(e) => setClientName(e.target.value)}
-                    />
-                    <Input
-                        placeholder="Lokasi (Kota/Daerah)"
-                        value={location} onChange={(e) => setLocation(e.target.value)}
-                    />
-                    <div className="flex gap-2">
-                        <Input
-                            placeholder="URL Gambar Logo / Foto Proyek (Wajib)"
-                            value={image} onChange={(e) => setImage(e.target.value)}
-                        />
+            <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 shadow-sm space-y-6">
+                <div className="flex items-center gap-2 border-b border-gray-200 pb-4 mb-4">
+                    <Plus className="w-5 h-5 text-red-600" />
+                    <h3 className="font-semibold text-gray-900">Tambah Portfolio Baru</h3>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700">Nama Proyek <span className="text-red-500">*</span></label>
+                            <Input
+                                placeholder="Contoh: Proyek Apartemen PIK 2"
+                                value={projectName} onChange={(e) => setProjectName(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700">Nama Perusahaan (Klien)</label>
+                            <Input
+                                placeholder="Contoh: PT. Agung Sedayu Group"
+                                value={clientName} onChange={(e) => setClientName(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700">Lokasi Proyek</label>
+                            <Input
+                                placeholder="Contoh: Jakarta Utara"
+                                value={location} onChange={(e) => setLocation(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <label className="text-sm font-medium text-gray-700">Gambar Proyek <span className="text-red-500">*</span></label>
+
+                        <div
+                            className={`border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center text-center transition-colors aspect-[3/4] w-full max-w-[240px] relative overflow-hidden ${imagePreview ? 'border-red-200 bg-red-50/10' : 'border-gray-300 hover:border-red-400 hover:bg-gray-50'}`}
+                            onClick={() => fileInputRef.current?.click()}
+                        >
+                            {imagePreview ? (
+                                <Image
+                                    src={imagePreview}
+                                    alt="Preview"
+                                    fill
+                                    className="object-cover"
+                                />
+                            ) : (
+                                <div className="space-y-4 cursor-pointer">
+                                    <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto text-gray-400">
+                                        <Upload className="w-6 h-6" />
+                                    </div>
+                                    <div className="text-sm text-gray-500">
+                                        <span className="font-semibold text-red-600">Klik upload</span>
+                                    </div>
+                                    <p className="text-xs text-gray-400">Format Portait (3:4)</p>
+                                </div>
+                            )}
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                className="hidden"
+                                accept="image/*"
+                                onChange={handleFileChange}
+                            />
+                            {imagePreview && (
+                                <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
+                                    <span className="text-white font-medium text-sm flex items-center gap-2">
+                                        <ImageIcon className="w-4 h-4" /> Ganti
+                                    </span>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
-                <div className="flex justify-end">
-                    <Button onClick={handleCreate} disabled={isCreating}>
+
+                <div className="flex justify-end pt-2 border-t border-gray-100 mt-4">
+                    <Button onClick={handleCreate} disabled={isCreating} className="bg-red-600 hover:bg-red-700">
                         {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
                         Simpan Portfolio
                     </Button>
@@ -105,8 +197,8 @@ function PortfolioItem({ client }: { client: ClientProject }) {
     };
 
     return (
-        <Card className="overflow-hidden group relative">
-            <div className="aspect-video bg-gray-100 relative">
+        <Card className="overflow-hidden group relative flex flex-col h-full">
+            <div className="aspect-[3/4] bg-gray-100 relative">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                     src={client.image}

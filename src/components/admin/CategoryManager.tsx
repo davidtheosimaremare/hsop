@@ -3,7 +3,8 @@
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { syncCategoriesFromProducts, updateCategory } from "@/app/actions/settings";
-import { Loader2, RefreshCw, ChevronRight, ChevronDown, Folder, GripVertical } from "lucide-react";
+import { syncCategoriesFromAccurateAction } from "@/app/actions/category";
+import { Loader2, RefreshCw, ChevronRight, ChevronDown, Folder, GripVertical, CloudDownload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
@@ -31,7 +32,7 @@ export function CategoryManager({ initialCategories }: CategoryManagerProps) {
     // but building a full recursive tree might be needed if depth > 1.
     // For simplicity, let's assume we handle Parent-Child logic via Select Parent.
 
-    const handleSync = () => {
+    const handleSyncProducts = () => {
         startTransition(async () => {
             const res = await syncCategoriesFromProducts();
             if (res.success) {
@@ -43,12 +44,31 @@ export function CategoryManager({ initialCategories }: CategoryManagerProps) {
         });
     };
 
+    const handleSyncAccurate = () => {
+        if (!confirm("Ini akan mengambil semua kategori dari Accurate dan menyimpannya ke database. Lanjutkan?")) return;
+
+        startTransition(async () => {
+            const res = await syncCategoriesFromAccurateAction();
+            if (res.success) {
+                alert(`Berhasil sinkronisasi dari Accurate! Memproses ${res.count} kategori.`);
+                router.refresh();
+            } else {
+                alert(`Gagal sinkronisasi: ${res.error}`);
+            }
+        });
+    };
+
     return (
         <div className="space-y-6">
-            <div className="flex justify-end">
-                <Button onClick={handleSync} disabled={isPending} variant="outline" className="gap-2">
+            <div className="flex justify-end gap-2">
+                <Button onClick={handleSyncProducts} disabled={isPending} variant="outline" className="gap-2">
                     {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                     Sync dari Produk
+                </Button>
+
+                <Button onClick={handleSyncAccurate} disabled={isPending} className="gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+                    {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CloudDownload className="h-4 w-4" />}
+                    Sync dari Accurate
                 </Button>
             </div>
 

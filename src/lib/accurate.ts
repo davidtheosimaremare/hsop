@@ -217,3 +217,135 @@ export async function fetchAllCustomers(): Promise<AccurateCustomer[]> {
     }
     return allCustomers;
 }
+
+/**
+ * Fetch real-time stock for a list of SKUs using the working list.do endpoint.
+ * Strategy: Fetch stock data in batches and filter by requested SKUs.
+ */
+export async function fetchStockForProducts(skus: string[]): Promise<Map<string, number>> {
+    if (skus.length === 0) return new Map();
+
+    const host = process.env.ACCURATE_API_HOST || "https://zeus.accurate.id";
+    const stockMap = new Map<string, number>();
+    const skuSet = new Set(skus); // For fast lookup
+
+    // Fetch stock in batches - use same approach as sync but only get stock fields
+    const pageSize = 100;
+    let page = 1;
+    let hasMore = true;
+    let foundCount = 0;
+
+    while (hasMore && page <= 50) { // Max 50 pages = 5000 items
+        try {
+            const url = new URL(`${host}/accurate/api/item/list.do`);
+            url.searchParams.append('fields', 'no,availableToSell');
+            url.searchParams.append('sp.page', page.toString());
+            url.searchParams.append('sp.pageSize', pageSize.toString());
+
+            const headers = await generateAccurateAuthHeaders();
+            if (!headers) break;
+
+            const response = await fetch(url.toString(), {
+                method: 'GET',
+                headers: headers as HeadersInit,
+            });
+
+            if (!response.ok) break;
+
+            const result = await response.json();
+            if (!result.s || !result.d) break;
+
+            const items = result.d as Array<{ no: string; availableToSell?: number }>;
+
+            // Filter and map only the SKUs we need
+            for (const item of items) {
+                if (skuSet.has(item.no)) {
+                    stockMap.set(item.no, item.availableToSell || 0);
+                    foundCount++;
+                }
+            }
+
+            // Optimization: If we found all requested SKUs, stop fetching
+            if (foundCount >= skus.length) {
+                break;
+            }
+
+            // Check if there are more pages
+            if (items.length < pageSize) {
+                hasMore = false;
+            } else {
+                page++;
+            }
+        } catch (error) {
+            console.error('Failed to fetch stock batch:', error);
+            break;
+        }
+    }
+
+    return stockMap;
+}
+
+// --- Category Logic ---
+
+export interface AccurateItemCategory {
+    id: number;
+    no: string;
+    name: string;
+    parent?: {
+        id: number;
+        name: string;
+    } | null;
+}
+
+async function fetchCategoryPage(page: number, pageSize: number): Promise<AccurateItemCategory[]> {
+    const host = process.env.ACCURATE_API_HOST || "https://zeus.accurate.id";
+    const endpoint = `${host}/accurate/api/item-category/list.do`;
+    const url = new URL(endpoint);
+
+    const fields = ['id', 'no', 'name', 'parent'].join(',');
+
+    url.searchParams.append('fields', fields);
+    url.searchParams.append('sp.page', page.toString());
+    url.searchParams.append('sp.pageSize', pageSize.toString());
+
+    try {
+        const headers = await generateAccurateAuthHeaders();
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: headers as HeadersInit,
+        });
+
+        if (!response.ok) {
+            throw new Error(`Accurate API error: ${response.status}`);
+        }
+
+        const result = await response.json();
+        if (!result.s) {
+            throw new Error(`Accurate API returned unsuccessful response: ${result.d || result.message}`);
+        }
+
+        return result.d || [];
+    } catch (err) {
+        console.error('API call failed for item categories', err);
+        throw err;
+    }
+}
+
+export async function fetchAllItemCategories(): Promise<AccurateItemCategory[]> {
+    const allCategories: AccurateItemCategory[] = [];
+    let page = 1;
+    const pageSize = 100;
+    let hasMore = true;
+
+    while (hasMore && page <= MAX_PAGES) {
+        const categories = await fetchCategoryPage(page, pageSize);
+        allCategories.push(...categories);
+
+        if (categories.length < pageSize) {
+            hasMore = false;
+        } else {
+            page++;
+        }
+    }
+    return allCategories;
+}

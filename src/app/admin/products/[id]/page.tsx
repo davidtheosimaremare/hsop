@@ -7,6 +7,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import { ProductVisibilityToggle } from "@/components/admin/ProductVisibilityToggle";
+import { ProductAutoUpdate } from "@/components/admin/ProductAutoUpdate";
+import { EditableImageSection } from "@/components/admin/EditableImageSection";
+import { EditableDescriptionSection } from "@/components/admin/EditableDescriptionSection";
+import { EditableDatasheetSection } from "@/components/admin/EditableDatasheetSection";
+import { EditableBrandSection } from "@/components/admin/EditableBrandSection";
 
 export const dynamic = "force-dynamic";
 
@@ -41,18 +46,8 @@ export default async function AdminProductDetailPage({ params }: { params: { id:
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    {product.datasheet && (
-                        <Button variant="outline" asChild>
-                            <a href={product.datasheet} target="_blank" rel="noopener noreferrer">
-                                <Download className="mr-2 h-4 w-4" /> Datasheet
-                            </a>
-                        </Button>
-                    )}
-                    <Button variant="outline" asChild>
-                        <Link href={`/admin/products/${id}/edit`}>
-                            <Pencil className="mr-2 h-4 w-4" /> Edit Detail
-                        </Link>
-                    </Button>
+
+
                     <ProductVisibilityToggle productId={id} isVisible={product.isVisible} />
                 </div>
             </div>
@@ -80,29 +75,12 @@ export default async function AdminProductDetailPage({ params }: { params: { id:
                         <CardTitle>Gambar Produk</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="aspect-square relative bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden border border-dashed border-gray-300">
-                            {product.image ? (
-                                <Image
-                                    src={product.image}
-                                    alt={product.name}
-                                    fill
-                                    className="object-cover"
-                                />
-                            ) : (
-                                <div className="text-center p-4">
-                                    <Package className="h-16 w-16 text-gray-300 mx-auto mb-2" />
-                                    <span className="text-sm text-gray-400">Belum ada gambar</span>
-                                </div>
-                            )}
-                        </div>
-                        <div className="mt-4 text-center">
-                            <p className="text-xs text-gray-500 mb-2">
-                                * Fitur upload gambar akan ditambahkan segera.
-                            </p>
-                            <Button variant="secondary" className="w-full" disabled>
-                                Upload Gambar
-                            </Button>
-                        </div>
+                        <EditableImageSection
+                            productId={product.id}
+                            sku={product.sku}
+                            initialImage={product.image}
+                            productName={product.name}
+                        />
                     </CardContent>
                 </Card>
 
@@ -139,79 +117,36 @@ export default async function AdminProductDetailPage({ params }: { params: { id:
                                     <div className="flex items-center gap-2 text-sm text-gray-500">
                                         <Tag className="h-4 w-4" /> Merk
                                     </div>
-                                    <p className="font-medium">{product.brand || "-"}</p>
+                                    <EditableBrandSection
+                                        productId={product.id}
+                                        sku={product.sku}
+                                        initialBrand={product.brand}
+                                    />
                                 </div>
 
                             </div>
                         </CardContent>
                     </Card>
 
-                    {/* Specifications Card */}
+                    {/* Datasheet Card */}
+                    {/* Datasheet Card */}
                     <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Settings className="h-5 w-5" /> Spesifikasi Teknis
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            {specs && Object.keys(specs).length > 0 ? (
-                                <div className="relative overflow-x-auto rounded-md border">
-                                    <table className="w-full text-sm text-left rtl:text-right text-gray-700">
-                                        <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-                                            <tr>
-                                                <th scope="col" className="px-6 py-3 w-1/3">Parameter</th>
-                                                <th scope="col" className="px-6 py-3">Nilai</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {Object.entries(specs).map(([key, value], index) => (
-                                                <tr key={key} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                                                    <td className="px-6 py-3 font-medium text-gray-900 whitespace-nowrap border-r">
-                                                        {key}
-                                                    </td>
-                                                    <td className="px-6 py-3">
-                                                        {String(value)}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            ) : (
-                                <div className="text-center py-8 text-gray-500 border-2 border-dashed rounded-lg">
-                                    <FileText className="h-10 w-10 mx-auto mb-2 text-gray-300" />
-                                    <p>Belum ada data spesifikasi teknis.</p>
-                                    <p className="text-xs mt-1">Data akan otomatis terisi saat sinkronisasi dengan Siemens iMall.</p>
-                                </div>
-                            )}
+                        <CardContent className="pt-6">
+                            <EditableDatasheetSection
+                                productId={product.id}
+                                sku={product.sku}
+                                initialDatasheet={product.datasheet}
+                            />
                         </CardContent>
                     </Card>
 
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Deskripsi</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">
-                                {product.description || "Tidak ada deskripsi."}
-                            </p>
-
-                            {/* Datasheet Link Bottom Alternative */}
-                            {product.datasheet && (
-                                <div className="mt-4 pt-4 border-t">
-                                    <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                                        <FileText className="h-4 w-4" /> Dokumen Pendukung
-                                    </h4>
-                                    <a
-                                        href={product.datasheet}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-sm text-red-600 hover:underline flex items-center gap-2"
-                                    >
-                                        Download Product Datasheet (PDF)
-                                    </a>
-                                </div>
-                            )}
+                        <CardContent className="pt-6">
+                            <EditableDescriptionSection
+                                productId={product.id}
+                                sku={product.sku}
+                                initialDescription={product.description}
+                            />
                         </CardContent>
                     </Card>
                 </div>

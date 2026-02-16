@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
 import { ChevronRight, Zap, Box, Wrench, Lightbulb, Cable, Gauge } from "lucide-react";
 
 type CategoryType = "low-voltage" | "control" | "lighting" | "cable" | "panel" | "instrument";
@@ -65,93 +63,86 @@ export default function KategoriPage() {
     const currentSubcategories = subcategories[activeCategory];
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
-            <Header />
 
-            <main className="flex-1">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                    {/* Breadcrumb */}
-                    <nav className="text-sm mb-6">
-                        <ol className="flex items-center gap-2">
-                            <li><a href="/" className="text-gray-500 hover:text-red-600">Beranda</a></li>
-                            <li className="text-gray-400">›</li>
-                            <li className="text-red-600 font-medium">Daftar Kategori</li>
-                        </ol>
-                    </nav>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            {/* Breadcrumb */}
+            <nav className="text-sm mb-6">
+                <ol className="flex items-center gap-2">
+                    <li><a href="/" className="text-gray-500 hover:text-red-600">Beranda</a></li>
+                    <li className="text-gray-400">›</li>
+                    <li className="text-red-600 font-medium">Daftar Kategori</li>
+                </ol>
+            </nav>
 
-                    <div className="flex flex-col lg:flex-row gap-6">
-                        {/* Left Sidebar - Main Categories */}
-                        <aside className="lg:w-48 flex-shrink-0">
-                            <div className="bg-white rounded-xl border border-gray-200 p-3">
-                                <div className="space-y-1">
-                                    {mainCategories.map((category) => (
-                                        <button
-                                            key={category.id}
-                                            onClick={() => setActiveCategory(category.id)}
-                                            className={`w-full flex flex-col items-center text-center p-3 rounded-xl transition-colors ${activeCategory === category.id
-                                                ? "bg-red-50 text-red-600 border border-red-200"
-                                                : "text-gray-600 hover:bg-gray-50"
-                                                }`}
-                                        >
-                                            <category.icon className="w-8 h-8 mb-2" />
-                                            <span className="text-xs font-medium leading-tight">{category.name}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        </aside>
-
-                        {/* Main Content - Subcategories */}
-                        <div className="flex-1">
-                            {/* Category Title */}
-                            <h1 className="text-2xl font-bold text-gray-900 mb-6">
-                                {currentCategory?.name}
-                            </h1>
-
-                            {/* Subcategories Grid */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {currentSubcategories.map((subcat) => (
-                                    <div
-                                        key={subcat.name}
-                                        className="bg-white rounded-xl border border-gray-200 overflow-hidden"
-                                    >
-                                        {/* Subcategory Header */}
-                                        <a
-                                            href="#"
-                                            className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors border-b border-gray-100"
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                                                    <div className="w-6 h-6 bg-gray-200 rounded" />
-                                                </div>
-                                                <span className="font-semibold text-gray-900">{subcat.name}</span>
-                                            </div>
-                                            <ChevronRight className="w-5 h-5 text-gray-400" />
-                                        </a>
-
-                                        {/* Items Grid */}
-                                        <div className="p-4">
-                                            <div className="grid grid-cols-3 gap-2">
-                                                {subcat.items.map((item) => (
-                                                    <a
-                                                        key={item}
-                                                        href={`/pencarian?q=${encodeURIComponent(item)}`}
-                                                        className="text-sm text-gray-600 hover:text-red-600 transition-colors"
-                                                    >
-                                                        {item}
-                                                    </a>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+            <div className="flex flex-col lg:flex-row gap-6">
+                {/* Left Sidebar - Main Categories */}
+                <aside className="lg:w-48 flex-shrink-0">
+                    <div className="bg-white rounded-xl border border-gray-200 p-3">
+                        <div className="space-y-1">
+                            {mainCategories.map((category) => (
+                                <button
+                                    key={category.id}
+                                    onClick={() => setActiveCategory(category.id)}
+                                    className={`w-full flex flex-col items-center text-center p-3 rounded-xl transition-colors ${activeCategory === category.id
+                                        ? "bg-red-50 text-red-600 border border-red-200"
+                                        : "text-gray-600 hover:bg-gray-50"
+                                        }`}
+                                >
+                                    <category.icon className="w-8 h-8 mb-2" />
+                                    <span className="text-xs font-medium leading-tight">{category.name}</span>
+                                </button>
+                            ))}
                         </div>
                     </div>
-                </div>
-            </main>
+                </aside>
 
-            <Footer />
+                {/* Main Content - Subcategories */}
+                <div className="flex-1">
+                    {/* Category Title */}
+                    <h1 className="text-2xl font-bold text-gray-900 mb-6">
+                        {currentCategory?.name}
+                    </h1>
+
+                    {/* Subcategories Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {currentSubcategories.map((subcat) => (
+                            <div
+                                key={subcat.name}
+                                className="bg-white rounded-xl border border-gray-200 overflow-hidden"
+                            >
+                                {/* Subcategory Header */}
+                                <a
+                                    href="#"
+                                    className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors border-b border-gray-100"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                                            <div className="w-6 h-6 bg-gray-200 rounded" />
+                                        </div>
+                                        <span className="font-semibold text-gray-900">{subcat.name}</span>
+                                    </div>
+                                    <ChevronRight className="w-5 h-5 text-gray-400" />
+                                </a>
+
+                                {/* Items Grid */}
+                                <div className="p-4">
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {subcat.items.map((item) => (
+                                            <a
+                                                key={item}
+                                                href={`/pencarian?q=${encodeURIComponent(item)}`}
+                                                className="text-sm text-gray-600 hover:text-red-600 transition-colors"
+                                            >
+                                                {item}
+                                            </a>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }

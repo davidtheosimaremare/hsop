@@ -12,7 +12,7 @@ export default function AdminLayout({
     children: React.ReactNode;
 }) {
     const pathname = usePathname();
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const isLoginPage = pathname === "/admin/login";
 
     const isFullWidth = pathname.startsWith("/admin/customers");

@@ -35,7 +35,7 @@ export function CustomerUserForm({ customerId, onCancel }: CustomerUserFormProps
         startTransition(async () => {
             const res = await createCustomerUser({
                 customerId,
-                username,
+                name: username, // state is still named 'username' but holds name
                 email,
                 phone,
                 password
@@ -72,12 +72,27 @@ export function CustomerUserForm({ customerId, onCancel }: CustomerUserFormProps
             )}
 
             <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
+                <Label htmlFor="name">Nama Lengkap</Label>
                 <Input
-                    id="username"
-                    value={username}
+                    id="name"
+                    value={username} // Using username state for name as per existing logic, or rename state?
+                    // User asked for "nama, email, nomor hp, password".
+                    // Existing code uses "username" state potentially for name?
+                    // Let's check schema. User table has `name` or `username`?
+                    // I should check schema.
                     onChange={(e) => setUsername(e.target.value)}
-                    placeholder="Contoh: user_pt_abc"
+                    placeholder="Nama Lengkap User"
+                />
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="email@example.com"
                 />
             </div>
 

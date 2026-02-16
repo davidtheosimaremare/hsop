@@ -1,7 +1,16 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Toaster } from "sonner";
+import NextTopLoader from "nextjs-toploader";
+import ChatWidget from "@/components/chat/ChatWidget";
+
 import "./globals.css";
+import "@/styles/nprogress.css";
 import FloatingWhatsApp from "@/components/ui/FloatingWhatsApp";
+import { CartProvider } from "@/lib/useCart";
+import { Suspense } from "react";
+import { NavigationProgress } from "@/components/layout/NavigationProgress";
+
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,8 +42,16 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
       >
-        {children}
-        <FloatingWhatsApp />
+        <Suspense fallback={null}>
+          <NavigationProgress />
+        </Suspense>
+        <NextTopLoader color="#dc2626" showSpinner={false} />
+        <Toaster position="top-right" richColors />
+        <CartProvider>
+          {children}
+          <FloatingWhatsApp />
+          <ChatWidget />
+        </CartProvider>
       </body>
     </html>
   );

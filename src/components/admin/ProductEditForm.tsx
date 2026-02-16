@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +38,7 @@ export function ProductEditForm({ product, onSuccess }: ProductEditFormProps) {
     const [description, setDescription] = useState(product.description || "");
     const [datasheet, setDatasheet] = useState(product.datasheet || "");
     const [image, setImage] = useState(product.image || "");
+    const [imageInputType, setImageInputType] = useState<"upload" | "url">("upload");
 
     // Specifications State (Convert JSON object to Array for editing)
     const initialSpecs = product.specifications
@@ -104,16 +105,23 @@ export function ProductEditForm({ product, onSuccess }: ProductEditFormProps) {
 
         setIsScraping(true);
         try {
+            console.log("Starting scrape for SKU:", product.sku);
             const result = await scrapeSiemensProduct(product.sku);
+            console.log("Scrape result:", result);
+
             if (result.success && result.data) {
                 // Update Description
-                if (result.data.description && !description) {
+                if (result.data.description) {
+                    console.log("Updating description to:", result.data.description);
                     setDescription(result.data.description);
+                } else {
+                    console.log("No description found in scrape result");
                 }
 
                 // Update Image if empty
                 if (result.data.image && !image) {
                     setImage(result.data.image);
+                    setImageInputType("url"); // Switch to URL mode if scraped
                 }
 
                 // Update Specs
@@ -137,6 +145,13 @@ export function ProductEditForm({ product, onSuccess }: ProductEditFormProps) {
             setIsScraping(false);
         }
     };
+
+    // Ensure we switch input type if image looks like a URL
+    useEffect(() => {
+        if (image && image.startsWith("http") && !image.includes("blob:")) {
+            if (imageInputType !== "url") setImageInputType("url");
+        }
+    }, [image]);
 
     return (
         <div className="space-y-6 max-h-[80vh] overflow-y-auto p-1">
@@ -162,28 +177,70 @@ export function ProductEditForm({ product, onSuccess }: ProductEditFormProps) {
                 </Button>
             </div>
 
-            {/* Image Upload */}
-            <div className="space-y-2">
-                <Label>Gambar Produk</Label>
-                <div className="flex items-center gap-4">
-                    <div className="relative w-24 h-24 bg-gray-100 rounded-lg overflow-hidden border border-dashed border-gray-300 flex items-center justify-center">
+            {/* Image Upload / URL Input */}
+            <div className="space-y-4 rounded-lg border p-4 bg-gray-50">
+                <div className="flex items-center justify-between">
+                    <Label className="text-base">Gambar Produk</Label>
+                    <div className="flex bg-white rounded-md border p-1 shadow-sm">
+                        <button
+                            type="button"
+                            onClick={() => setImageInputType("upload")}
+                            className={`px-3 py-1 text-sm rounded-sm transition-colors ${imageInputType === "upload" ? "bg-red-600 text-white shadow-sm" : "hover:bg-gray-100 text-gray-600"}`}
+                        >
+                            Upload File
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setImageInputType("url")}
+                            className={`px-3 py-1 text-sm rounded-sm transition-colors ${imageInputType === "url" ? "bg-red-600 text-white shadow-sm" : "hover:bg-gray-100 text-gray-600"}`}
+                        >
+                            Log Image URL
+                        </button>
+                    </div>
+                </div>
+
+                <div className="flex items-start gap-4">
+                    <div className="relative w-32 h-32 bg-white rounded-lg overflow-hidden border border-dashed border-gray-300 flex items-center justify-center shrink-0 shadow-sm">
                         {image ? (
                             <Image src={image} alt="Preview" fill className="object-cover" />
                         ) : (
-                            <Upload className="text-gray-400" />
+                            <div className="flex flex-col items-center text-gray-400">
+                                <Upload className="h-8 w-8 mb-1" />
+                                <span className="text-xs">No Image</span>
+                            </div>
                         )}
                         {image && (
                             <button
+                                type="button"
                                 onClick={() => setImage("")}
-                                className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-0.5 hover:bg-red-700"
+                                className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md transition-all"
                             >
                                 <X className="h-3 w-3" />
                             </button>
                         )}
                     </div>
-                    <div className="flex-1">
-                        <Input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, "image")} disabled={isPending} />
-                        <p className="text-xs text-gray-500 mt-1">Format: JPG, PNG. Max 5MB.</p>
+
+                    <div className="flex-1 space-y-3">
+                        {imageInputType === "upload" ? (
+                            <div className="space-y-2">
+                                <Label className="text-xs text-gray-500 uppercase font-semibold tracking-wider">Upload Local File</Label>
+                                <Input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, "image")} disabled={isPending} className="bg-white" />
+                                <p className="text-xs text-gray-500">Supported formats: JPG, PNG, WEBP. Max size: 5MB.</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                <Label className="text-xs text-gray-500 uppercase font-semibold tracking-wider">Image URL Link</Label>
+                                <Input
+                                    type="text"
+                                    placeholder="https://example.com/image.jpg"
+                                    value={image}
+                                    onChange={(e) => setImage(e.target.value)}
+                                    disabled={isPending}
+                                    className="bg-white font-mono text-sm"
+                                />
+                                <p className="text-xs text-gray-500">Paste a direct link to an image. Ensure the URL is publicly accessible.</p>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

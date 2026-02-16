@@ -7,6 +7,8 @@ import SyncButton from "@/components/admin/SyncButton";
 import ProductTable from "@/components/admin/ProductTable";
 import { Prisma } from "@prisma/client";
 import Link from "next/link";
+import { ProductImageImporter } from "@/components/admin/ProductImageImporter";
+import { ProductDescriptionImporter } from "@/components/admin/ProductDescriptionImporter";
 
 export default async function AdminProductsPage({
     searchParams,
@@ -44,11 +46,14 @@ export default async function AdminProductsPage({
     if (categoryFilter && categoryFilter !== "all") {
         where.category = categoryFilter;
     }
+    // Stock filter removed as field is deleted
+    /*
     if (stockStatus === "available") {
         where.availableToSell = { gt: 0 };
     } else if (stockStatus === "out_of_stock") {
         where.availableToSell = { lte: 0 };
     }
+    */
 
     // Construct OrderBy
     let orderBy: Prisma.ProductOrderByWithRelationInput = {};
@@ -89,6 +94,13 @@ export default async function AdminProductsPage({
     categoriesData = categoriesRes;
     lowStockCount = lowStockRes;
 
+    // Add stock filter to where clause
+    if (stockStatus === 'available') {
+        where.availableToSell = { gt: 0 };
+    } else if (stockStatus === 'out_of_stock') {
+        where.availableToSell = { lte: 0 };
+    }
+
     if (query) {
         // Search Mode: Fetch ALL matches, then Sort & Paginate in Memory
         const allMatches = await db.product.findMany({
@@ -96,11 +108,7 @@ export default async function AdminProductsPage({
             orderBy: orderBy,
         });
 
-
         // Custom Ranking: Smart Search
-        // 1. Starts With -> Highest Priority
-        // 2. Index Of -> Earlier match is better ("Siemens acb" vs "Siemens acc acb")
-        // 3. Length -> Shorter match is usually more relevant
         const lowerQuery = query.toLowerCase();
         allMatches.sort((a, b) => {
             const nameA = a.name.toLowerCase();
@@ -112,27 +120,20 @@ export default async function AdminProductsPage({
             if (aStarts && !bStarts) return -1;
             if (!aStarts && bStarts) return 1;
 
-            // If neither starts with (or both do), check index position
             const aIndex = nameA.indexOf(lowerQuery);
             const bIndex = nameB.indexOf(lowerQuery);
 
-            if (aIndex !== bIndex) {
-                return aIndex - bIndex; // Lower index (earlier occurrence) first
-            }
+            if (aIndex !== bIndex) return aIndex - bIndex;
+            if (nameA.length !== nameB.length) return nameA.length - nameB.length;
 
-            // If index is same, prefer shorter string (more specific match)
-            if (nameA.length !== nameB.length) {
-                return nameA.length - nameB.length;
-            }
-
-            return 0; // Maintain DB sort order
+            return 0;
         });
 
         totalProducts = allMatches.length;
         products = allMatches.slice(skip, skip + pageSize);
 
     } else {
-        // Normal Mode: Efficient DB Pagination
+        // Normal Mode: Efficient DB Pagination (stock filter already in where clause)
         const [productsRes, totalRes] = await Promise.all([
             db.product.findMany({
                 where,
@@ -167,6 +168,8 @@ export default async function AdminProductsPage({
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <h1 className="text-2xl font-bold text-gray-900">Data Product</h1>
                 <div className="flex gap-2">
+                    <ProductImageImporter />
+                    <ProductDescriptionImporter />
                     <SyncButton />
                 </div>
             </div>
@@ -200,7 +203,7 @@ export default async function AdminProductsPage({
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold text-yellow-600">{lowStockCount}</div>
-                        <p className="text-xs text-muted-foreground">Item &lt;= 5 unit</p>
+                        <p className="text-xs text-muted-foreground">Produk stok ≤ 5 unit</p>
                     </CardContent>
                 </Card>
             </div>
