@@ -69,3 +69,36 @@ export async function syncCategoriesFromAccurateAction() {
         return { success: false, error: error.message || "Gagal sinkronisasi kategori." };
     }
 }
+
+export async function toggleCategoryVisibility(id: string, isVisible: boolean) {
+    try {
+        await db.category.update({
+            where: { id },
+            data: { isVisible }
+        });
+        revalidatePath("/admin/products/categories");
+        revalidatePath("/admin/settings/categories");
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to toggle visibility:", error);
+        return { success: false };
+    }
+}
+
+export async function updateCategoryOrder(updates: { id: string; order: number }[]) {
+    try {
+        // Run in transaction if possible, or parallel
+        await db.$transaction(
+            updates.map(u => db.category.update({
+                where: { id: u.id },
+                data: { order: u.order }
+            }))
+        );
+        revalidatePath("/admin/products/categories");
+        revalidatePath("/admin/settings/categories");
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to update order:", error);
+        return { success: false };
+    }
+}

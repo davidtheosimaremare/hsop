@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ChevronRight, ChevronDown, RefreshCw, Eye, EyeOff, GripVertical, ChevronUp } from "lucide-react";
-import { syncCategories, updateCategoryOrder, toggleCategoryVisibility } from "@/app/actions/category";
+import { syncCategoriesFromAccurateAction as syncCategories, updateCategoryOrder, toggleCategoryVisibility } from "@/app/actions/category";
 import { Button } from "@/components/ui/button";
 
 interface CategoryNode {
