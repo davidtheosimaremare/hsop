@@ -38,7 +38,8 @@ export async function uploadFile(formData: FormData) {
         await writeFile(filePath, buffer);
 
         const publicUrl = `${relativeDir}/${uniqueName}`;
-        console.log(`Upload successful: ${publicUrl}`);
+        console.log(`[Upload] Success! Accessible at: ${publicUrl}`);
+        console.log(`[Upload] Local System Path: ${filePath}`);
         return { success: true, url: publicUrl, filename: file.name };
     } catch (error) {
         console.error("Upload error (fs/promises):", error);
@@ -91,8 +92,9 @@ export async function saveImageFromUrl(url: string, prefix: string = "import") {
         await writeFile(filePath, buffer);
 
         const publicUrl = `${relativeDir}/${uniqueName}`;
+        console.log(`[Import] Success! Accessible at: ${publicUrl}`);
+        console.log(`[Import] Local System Path: ${filePath}`);
         return { success: true, url: publicUrl };
-
     } catch (error: any) {
         console.error(`Error saving image from URL (${url}):`, error);
         return { success: false, error: `Failed to download image: ${error.message}` };

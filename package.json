@@ -68,6 +68,7 @@
     "react-hook-form": "^7.71.1",
     "react-image-crop": "^11.0.10",
     "react-quill-new": "^3.8.3",
+    "sharp": "^0.33.5",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
     "uuid": "^13.0.0",
