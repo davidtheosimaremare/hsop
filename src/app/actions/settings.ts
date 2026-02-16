@@ -153,14 +153,14 @@ export async function updateCategory(id: string, data: any) {
 
 // --- Banner Actions ---
 
-export async function createBanner(data: { title: string; image: string; link?: string }) {
+export async function createBanner(data: { title: string; image: string; link?: string; isActive?: boolean }) {
     try {
         await db.banner.create({
             data: {
                 title: data.title,
                 image: data.image,
                 link: data.link,
-                isActive: true
+                isActive: data.isActive ?? true
             }
         });
         revalidatePath("/admin/settings/banners");
