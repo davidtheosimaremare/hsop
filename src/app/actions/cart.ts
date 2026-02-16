@@ -105,12 +105,12 @@ export async function submitCartQuotation(
             console.error("[submitCartQuotation] WA failed:", waError);
         }
 
-        return { success: true, quotationNo: quotation.quotationNo };
+        return { success: true, quotationNo: quotation.quotationNo, error: undefined };
     } catch (error) {
         console.error("[submitCartQuotation] Error:", error);
         // Fallback: at least try to send email
         const result = await sendCartQuotation(email, phone, items, totalPrice);
-        return result;
+        return { ...result, quotationNo: undefined };
     }
 }
 
