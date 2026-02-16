@@ -56,9 +56,9 @@ export default async function SalesOrderDetailPage({ params }: PageProps) {
                 </div>
                 <div className="flex gap-2">
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${order.status === "COMPLETED" ? "bg-green-100 text-green-700" :
-                            order.status === "PROCESSING" ? "bg-orange-100 text-orange-700" :
-                                order.status === "CANCELLED" ? "bg-red-100 text-red-700" :
-                                    "bg-yellow-100 text-yellow-700"
+                        order.status === "PROCESSING" ? "bg-orange-100 text-orange-700" :
+                            order.status === "CANCELLED" ? "bg-red-100 text-red-700" :
+                                "bg-yellow-100 text-yellow-700"
                         }`}>
                         {order.status === "COMPLETED" ? "Selesai" :
                             order.status === "PROCESSING" ? "Diproses" :
@@ -87,7 +87,7 @@ export default async function SalesOrderDetailPage({ params }: PageProps) {
                                         </div>
                                         <div className="flex-1">
                                             <h4 className="font-medium">{item.product?.name || item.productId}</h4>
-                                            <p className="text-sm text-gray-500">{item.product?.itemCode}</p>
+                                            <p className="text-sm text-gray-500">{item.product?.sku}</p>
                                             <div className="flex items-center gap-4 mt-2 text-sm">
                                                 <span>Qty: {item.quantity}</span>
                                                 <span>@ Rp {item.price.toLocaleString("id-ID")}</span>
