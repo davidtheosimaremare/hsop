@@ -16,8 +16,8 @@ export default function ResetPasswordPage() {
     const [showPassword, setShowPassword] = useState(false);
 
     // Initial state for the action
-    const initialState = { error: "", success: false, message: "" };
-    const [state, formAction, isPending] = useActionState(resetPasswordAction, initialState);
+    const initialState = { error: "", success: false, message: "", redirect: "" };
+    const [state, formAction, isPending] = useActionState(resetPasswordAction as any, initialState);
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
