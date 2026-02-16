@@ -151,7 +151,7 @@ export default function HomeCTAManager() {
         }
     };
 
-    const renderForm = (cta: CTAData, setCTA: React.Dispatch<React.SetStateAction<CTAData>>, position: "LEFT" | "RIGHT", fileRef: React.RefObject<HTMLInputElement>) => (
+    const renderForm = (cta: CTAData, setCTA: React.Dispatch<React.SetStateAction<CTAData>>, position: "LEFT" | "RIGHT", fileRef: React.RefObject<HTMLInputElement | null>) => (
         <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Visual Preview / Image Upload */}
