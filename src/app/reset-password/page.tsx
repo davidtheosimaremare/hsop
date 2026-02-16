@@ -10,7 +10,9 @@ import { Input } from "@/components/ui/input";
 import { resetPasswordAction } from "@/app/actions/auth";
 import { useActionState } from "react";
 
-export default function ResetPasswordPage() {
+import { Suspense } from "react";
+
+function ResetPasswordForm() {
     const searchParams = useSearchParams();
     const emailParam = searchParams.get("email") || "";
     const [showPassword, setShowPassword] = useState(false);
@@ -143,5 +145,13 @@ export default function ResetPasswordPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function ResetPasswordPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-gray-400" /></div>}>
+            <ResetPasswordForm />
+        </Suspense>
     );
 }
