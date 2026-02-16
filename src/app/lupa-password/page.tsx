@@ -12,7 +12,7 @@ import { useActionState } from "react";
 export default function LupaPasswordPage() {
     // Initial state for the action
     const initialState = { error: "", success: false, message: "" };
-    const [state, formAction, isPending] = useActionState(requestPasswordReset, initialState);
+    const [state, formAction, isPending] = useActionState(requestPasswordReset as any, initialState);
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
