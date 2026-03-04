@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import {
     getCategoryMenuConfig,
@@ -45,7 +46,7 @@ export default function CategoriesMenuPage() {
             }
         } catch (error) {
             console.error("Failed to load data", error);
-            alert("Gagal memuat data menu.");
+            toast.error("Gagal memuat data menu.");
         } finally {
             setIsLoading(false);
         }
@@ -56,13 +57,13 @@ export default function CategoriesMenuPage() {
         try {
             const result = await updateCategoryMenuConfig(menuItems);
             if (result.success) {
-                alert("Pengaturan menu tersimpan!");
+                toast.success("Pengaturan menu tersimpan!");
             } else {
                 throw new Error(result.error);
             }
         } catch (error) {
             console.error("Failed to save", error);
-            alert("Gagal menyimpan pengaturan.");
+            toast.error("Gagal menyimpan pengaturan.");
         } finally {
             setIsSaving(false);
         }

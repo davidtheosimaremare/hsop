@@ -25,7 +25,7 @@ export default function AdminCustomerNewPage() {
                     <CardHeader>
                         <CardTitle>Formulir Customer Baru</CardTitle>
                         <CardDescription>
-                            Isi data di bawah ini. ID Customer akan dibuat secara otomatis (MANUAL-...).
+                            Isi data di bawah ini. ID Customer akan dibuat secara otomatis (CO-...).
                         </CardDescription>
                     </CardHeader>
                     <CardContent>

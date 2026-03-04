@@ -1,7 +1,12 @@
 "use server";
 
-import puppeteer from "puppeteer";
 import * as cheerio from "cheerio";
+import { db } from "@/lib/db";
+import fs from "fs/promises";
+import path from "path";
+import crypto from "crypto";
+import { revalidatePath } from 'next/cache';
+import puppeteer from 'puppeteer';
 
 interface ScrapedData {
     success: boolean;
@@ -17,7 +22,6 @@ export async function scrapeSiemensProduct(sku: string): Promise<ScrapedData> {
     const cleanSku = encodeURIComponent(sku.trim());
     const url = `https://sieportal.siemens.com/en-id/products-services/detail/${cleanSku}`;
     console.log(`[Scraper] Puppeteer Launching for: ${url}`);
-
     let browser;
     try {
         browser = await puppeteer.launch({
@@ -260,5 +264,141 @@ export async function scrapeSiemensProduct(sku: string): Promise<ScrapedData> {
         };
     } finally {
         if (browser) await browser.close();
+    }
+}
+
+
+export async function scrapeSieportalImage(productId: string, sku: string) {
+    let browser;
+    try {
+        console.log(`Starting Puppeteer to scrape image for SKU: ${sku}`);
+        const searchUrl = `https://mall.industry.siemens.com/mall/en/id/Catalog/Product/${sku}`;
+
+        browser = await puppeteer.launch({
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
+
+        const page = await browser.newPage();
+
+        // Anti-bot detection mitigation settings
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+        await page.setViewport({ width: 1280, height: 800 });
+
+        // Wait until it's loaded
+        await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 30000 });
+
+        // Auto-accept cookies / Consent overlay
+        try {
+            console.log("Trying to auto-accept cookies...");
+            await page.evaluate(() => {
+                // Typical Usercentrics or standard cookie banner implementations
+                const acceptTexts = ['accept all', 'terima semua', 'agree', 'allow all'];
+
+                // Function to search button recursively including Shadow DOMs
+                const clickAcceptInNode = (node: Document | ShadowRoot | Element) => {
+                    const buttons = Array.from(node.querySelectorAll('button, a.button, [role="button"]'));
+                    for (const btn of buttons) {
+                        const text = (btn.textContent || btn.getAttribute('aria-label') || '').toLowerCase();
+                        if (acceptTexts.some(t => text.includes(t))) {
+                            (btn as HTMLElement).click();
+                            return true;
+                        }
+                    }
+
+                    // Traverse shadow roots
+                    const allElements = node.querySelectorAll('*');
+                    for (const el of Array.from(allElements)) {
+                        if (el.shadowRoot) {
+                            if (clickAcceptInNode(el.shadowRoot)) return true;
+                        }
+                    }
+                    return false;
+                };
+
+                // Try well-known IDS first
+                const directBtns = document.querySelectorAll('#uc-btn-accept-banner, #onetrust-accept-btn-handler, .js-cookie-accept');
+                if (directBtns.length > 0) {
+                    (directBtns[0] as HTMLElement).click();
+                } else {
+                    clickAcceptInNode(document);
+                }
+            });
+            // Wait a moment for overlay to disappear
+            await new Promise(r => setTimeout(r, 1500));
+        } catch (e) {
+            console.log("Cookie consent handler skipped or error.");
+        }
+
+        // Tunggu angular / komponen Sieportal merender gambar utamanya
+        await page.waitForSelector('sie-ui-picture', { timeout: 10000 }).catch(() => console.log('sie-ui-picture not found quickly, proceeding anyway'));
+
+        // Look for the specific picture component the user described using deep selector patterns
+        const imgUrl = await page.evaluate(() => {
+
+            // Priority 1: High res image from active srcset within the specific sie-ui-picture component
+            const sourceElements = document.querySelectorAll('sie-ui-picture source');
+            for (const source of Array.from(sourceElements)) {
+                const srcset = source.getAttribute('srcset');
+                if (srcset) return srcset.split(',')[0].trim().split(' ')[0]; // get the first url from srcset
+            }
+
+            // Priority 2: Direct img tag inside the figure within sie-ui-picture
+            const imgElement = document.querySelector('sie-ui-picture img, .gallery__image img');
+            if (imgElement) return imgElement.getAttribute('src');
+
+            // Priority 3: Fallback meta image
+            const metaOg = document.querySelector('meta[property="og:image"]');
+            if (metaOg) return metaOg.getAttribute('content');
+
+            return null;
+        });
+
+        if (!imgUrl) {
+            return { success: false, error: "Gambar produk utama tidak ditemukan di halaman detail produk Sieportal." };
+        }
+
+        // Fix protocol relative URLs
+        const fullImgUrl = imgUrl.startsWith('//') ? `https:${imgUrl}` : imgUrl.startsWith('http') ? imgUrl : `https://mall.industry.siemens.com${imgUrl}`;
+        console.log(`Found image URL: ${fullImgUrl}`);
+
+        // Fetch the image
+        const imgResponse = await fetch(fullImgUrl);
+        if (!imgResponse.ok) throw new Error(`Failed to fetch image: ${imgResponse.statusText}`);
+
+        const buffer = Buffer.from(await imgResponse.arrayBuffer());
+
+        // Generate random filename
+        const ext = path.extname(fullImgUrl.split('?')[0]) || '.jpg';
+        const fileName = `sieportal-${sku}-${crypto.randomBytes(4).toString("hex")}${ext}`;
+        const uploadDir = path.join(process.cwd(), "public/uploads/products");
+
+        // Ensure directory exists
+        await fs.mkdir(uploadDir, { recursive: true });
+
+        const filePath = path.join(uploadDir, fileName);
+        await fs.writeFile(filePath, buffer);
+
+        const fileUrl = `/uploads/products/${fileName}`;
+
+        // Save to Database
+        await db.product.update({
+            where: { id: productId },
+            data: { image: fileUrl },
+        });
+
+        revalidatePath(`/admin/products/${productId}`);
+        revalidatePath(`/admin/products/${sku}`);
+        revalidatePath('/admin/products');
+
+        return { success: true, url: fileUrl };
+
+    } catch (error: any) {
+        console.error("Error scraping sieportal image:", error);
+        return { success: false, error: error?.message || "Gagal menarik gambar dari Sieportal." };
+    } finally {
+        if (browser) {
+            await browser.close();
+        }
     }
 }

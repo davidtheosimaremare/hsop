@@ -3,117 +3,181 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import Link from "next/link";
 
-// Placeholder slides - replace with actual data later
-const slides = [
+interface Banner {
+    id: string;
+    image: string;
+    title?: string | null;
+    link?: string | null;
+}
+
+interface HeroSliderProps {
+    banners: Banner[];
+}
+
+const DEFAULT_SLIDES = [
     {
-        id: 1,
-        title: "Slide 1",
-        bgColor: "bg-gradient-to-r from-blue-100 to-blue-200",
+        id: "default-1",
+        title: "Welcome to Hokiindo",
+        image: "https://placehold.co/1920x820/ef4444/ffffff?text=Quality+Electrical+Products",
+        link: "/produk"
     },
     {
-        id: 2,
-        title: "Slide 2",
-        bgColor: "bg-gradient-to-r from-red-100 to-orange-100",
-    },
-    {
-        id: 3,
-        title: "Slide 3",
-        bgColor: "bg-gradient-to-r from-green-100 to-teal-100",
-    },
+        id: "default-2",
+        title: "Siemens Authorized Distributor",
+        image: "https://placehold.co/1920x820/dc2626/ffffff?text=Siemens+Authorized+Distributor",
+        link: "/produk/siemens"
+    }
 ];
 
-export default function HeroSlider() {
+export default function HeroSlider({ banners }: HeroSliderProps) {
+    const slides = banners.length > 0 ? banners : DEFAULT_SLIDES;
     const [currentSlide, setCurrentSlide] = useState(0);
     const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+    const [direction, setDirection] = useState(0);
 
     const nextSlide = useCallback(() => {
+        setDirection(1);
         setCurrentSlide((prev) => (prev + 1) % slides.length);
-    }, []);
+    }, [slides.length]);
 
     const prevSlide = useCallback(() => {
+        setDirection(-1);
         setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
-    }, []);
+    }, [slides.length]);
 
     const goToSlide = (index: number) => {
+        setDirection(index > currentSlide ? 1 : -1);
         setCurrentSlide(index);
         setIsAutoPlaying(false);
-        // Resume autoplay after 5 seconds
-        setTimeout(() => setIsAutoPlaying(true), 5000);
+        setTimeout(() => setIsAutoPlaying(true), 10000);
     };
 
-    // Auto-play functionality
     useEffect(() => {
         if (!isAutoPlaying) return;
-
-        const interval = setInterval(() => {
-            nextSlide();
-        }, 4000);
-
+        const interval = setInterval(nextSlide, 6000);
         return () => clearInterval(interval);
     }, [isAutoPlaying, nextSlide]);
 
+    const slideVariants = {
+        enter: (direction: number) => ({
+            x: direction > 0 ? '100%' : '-100%',
+            opacity: 0,
+            scale: 1.1,
+            filter: "blur(4px)"
+        }),
+        center: {
+            zIndex: 1,
+            x: 0,
+            opacity: 1,
+            scale: 1,
+            filter: "blur(0px)"
+        },
+        exit: (direction: number) => ({
+            zIndex: 0,
+            x: direction < 0 ? '50%' : '-50%',
+            opacity: 0,
+            scale: 0.95,
+            filter: "blur(4px)"
+        })
+    };
+
     return (
-        <div className="w-full">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-                <div className="relative overflow-hidden rounded-2xl md:rounded-3xl">
+        <div className="w-full bg-white">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 md:py-6">
+                <div className="relative overflow-hidden shadow-2xl shadow-gray-200/50 rounded-2xl md:rounded-3xl bg-gray-100 group">
                     {/* Slides Container */}
                     <div className="relative aspect-[3/1] md:aspect-[4/1] lg:aspect-[5/1]">
-                        <AnimatePresence mode="wait">
+                        <AnimatePresence initial={false} custom={direction} mode="popLayout">
                             <motion.div
                                 key={currentSlide}
-                                initial={{ opacity: 0, x: 100 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -100 }}
-                                transition={{ duration: 0.4, ease: "easeInOut" }}
-                                className={`absolute inset-0 ${slides[currentSlide].bgColor} flex items-center justify-center`}
+                                custom={direction}
+                                variants={slideVariants}
+                                initial="enter"
+                                animate="center"
+                                exit="exit"
+                                transition={{
+                                    x: { type: "spring", stiffness: 300, damping: 30 },
+                                    opacity: { duration: 0.4 },
+                                    scale: { duration: 0.8, ease: "easeOut" },
+                                    filter: { duration: 0.4 }
+                                }}
+                                className="absolute inset-0"
                             >
-                                {/* Placeholder content - replace with actual images */}
-                                <div className="text-center">
-                                    <span className="text-gray-400 text-lg md:text-xl">
-                                        Banner {currentSlide + 1}
-                                    </span>
-                                </div>
+                                {slides[currentSlide].link ? (
+                                    <Link href={slides[currentSlide].link || "#"}>
+                                        <div className="relative w-full h-full cursor-pointer overflow-hidden">
+                                            <img
+                                                src={slides[currentSlide].image}
+                                                alt={slides[currentSlide].title || "Banner"}
+                                                className="w-full h-full object-cover transition-transform duration-[8000ms] hover:scale-110"
+                                            />
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent hidden md:block" />
+                                        </div>
+                                    </Link>
+                                ) : (
+                                    <div className="relative w-full h-full overflow-hidden">
+                                        <img
+                                            src={slides[currentSlide].image}
+                                            alt={slides[currentSlide].title || "Banner"}
+                                            className="w-full h-full object-cover transition-transform duration-[8000ms] hover:scale-110"
+                                        />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent hidden md:block" />
+                                    </div>
+                                )}
                             </motion.div>
                         </AnimatePresence>
+
+                        {/* Navigation Overlay (only shows on hover) */}
+                        <div className="absolute inset-0 flex items-center justify-between px-2 md:px-6 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                            <button
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    prevSlide();
+                                    setIsAutoPlaying(false);
+                                    setTimeout(() => setIsAutoPlaying(true), 10000);
+                                }}
+                                className="w-10 h-10 md:w-14 md:h-14 bg-white/90 backdrop-blur-md hover:bg-white rounded-full flex items-center justify-center shadow-xl transition-all hover:scale-110 active:scale-95 pointer-events-auto border border-white/50"
+                                aria-label="Previous"
+                            >
+                                <ChevronLeft className="w-5 h-5 md:w-8 md:h-8 text-gray-900" />
+                            </button>
+                            <button
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    nextSlide();
+                                    setIsAutoPlaying(false);
+                                    setTimeout(() => setIsAutoPlaying(true), 10000);
+                                }}
+                                className="w-10 h-10 md:w-14 md:h-14 bg-white/90 backdrop-blur-md hover:bg-white rounded-full flex items-center justify-center shadow-xl transition-all hover:scale-110 active:scale-95 pointer-events-auto border border-white/50"
+                                aria-label="Next"
+                            >
+                                <ChevronRight className="w-5 h-5 md:w-8 md:h-8 text-gray-900" />
+                            </button>
+                        </div>
                     </div>
 
-                    {/* Navigation Arrows */}
-                    <button
-                        onClick={() => {
-                            prevSlide();
-                            setIsAutoPlaying(false);
-                            setTimeout(() => setIsAutoPlaying(true), 5000);
-                        }}
-                        className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-white/80 hover:bg-white rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110"
-                        aria-label="Previous slide"
-                    >
-                        <ChevronLeft className="w-4 h-4 md:w-5 md:h-5 text-gray-700" />
-                    </button>
-                    <button
-                        onClick={() => {
-                            nextSlide();
-                            setIsAutoPlaying(false);
-                            setTimeout(() => setIsAutoPlaying(true), 5000);
-                        }}
-                        className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-white/80 hover:bg-white rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110"
-                        aria-label="Next slide"
-                    >
-                        <ChevronRight className="w-4 h-4 md:w-5 md:h-5 text-gray-700" />
-                    </button>
-
-                    {/* Dots Indicator */}
-                    <div className="absolute bottom-3 md:bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2">
+                    {/* Premium Progress Bar (Bottom) */}
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 bg-black/10 backdrop-blur-sm rounded-full z-20 border border-white/10">
                         {slides.map((_, index) => (
                             <button
                                 key={index}
                                 onClick={() => goToSlide(index)}
-                                className={`transition-all duration-300 rounded-full ${currentSlide === index
-                                        ? "w-6 md:w-8 h-2 md:h-2.5 bg-red-500"
-                                        : "w-2 md:w-2.5 h-2 md:h-2.5 bg-white/60 hover:bg-white/80"
-                                    }`}
-                                aria-label={`Go to slide ${index + 1}`}
-                            />
+                                className="relative group p-1"
+                                aria-label={`Slide ${index + 1}`}
+                            >
+                                <div className={`h-1.5 transition-all duration-500 rounded-full overflow-hidden ${currentSlide === index ? "w-8 bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]" : "w-1.5 bg-white/50 hover:bg-white/80"}`}>
+                                    {currentSlide === index && isAutoPlaying && (
+                                        <motion.div
+                                            initial={{ x: "-100%" }}
+                                            animate={{ x: "0%" }}
+                                            transition={{ duration: 6, ease: "linear" }}
+                                            className="h-full w-full bg-red-400"
+                                        />
+                                    )}
+                                </div>
+                            </button>
                         ))}
                     </div>
                 </div>
@@ -121,3 +185,4 @@ export default function HeroSlider() {
         </div>
     );
 }
+

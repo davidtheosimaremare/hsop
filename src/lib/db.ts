@@ -1,3 +1,4 @@
+// DB connection (Force Reload)
 import { PrismaClient } from "@prisma/client";
 
 declare global {

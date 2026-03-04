@@ -11,14 +11,8 @@ import {
     Settings,
     LogOut,
     ListTree,
-    FolderTree,
     ChevronLeft,
     ChevronRight,
-    Search,
-    LayoutTemplate,
-    Briefcase,
-    ChevronDown,
-    Image as ImageIcon,
     Package,
     ShoppingCart,
     FileCheck,
@@ -30,101 +24,59 @@ import {
     BadgePercent,
     Webhook,
     Activity,
-    Bell,
-    UserPlus
+    UserPlus,
+    ChevronDown,
+    ArrowUpCircle,
+    Search,
+    LayoutTemplate,
+    Briefcase,
+    ImageIcon,
+    Bell
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { getPendingQuotationCount } from "@/app/actions/quotation";
+import { sidebarMenuItems, type Permission } from "@/lib/rbac";
+import { useAuth, CanAccess } from "@/components/auth/CanAccess";
+
+// Map icon names to actual components
+const iconMap: Record<string, any> = {
+    LayoutDashboard,
+    Package,
+    ShoppingCart,
+    Users,
+    FileCheck,
+    ClipboardList,
+    Truck,
+    Receipt,
+    Newspaper,
+    FileText,
+    Settings,
+    ShieldCheck,
+    Webhook,
+    Activity,
+    UserPlus,
+    ArrowUpCircle,
+    BadgePercent,
+    ListTree,
+    Search,
+    LayoutTemplate,
+    Briefcase,
+    ImageIcon,
+    Bell,
+    ShoppingBag,
+};
 
 interface MenuItem {
     title: string;
     href: string;
-    icon: any;
-    badgeKey?: string; // key to look up dynamic badge count
+    icon: string;
+    badgeKey?: string;
     children?: MenuItem[];
+    requiredPermission?: string;
 }
-
-const menuItems: MenuItem[] = [
-    {
-        title: "Dashboard",
-        href: "/admin",
-        icon: LayoutDashboard,
-    },
-    {
-        title: "Data Customer",
-        href: "/admin/customers",
-        icon: Users,
-    },
-    {
-        title: "Permintaan Upgrade",
-        href: "/admin/upgrades",
-        icon: UserPlus,
-    },
-    {
-        title: "Produk",
-        href: "/admin/products",
-        icon: Package,
-        children: [
-            { title: "Daftar Produk", href: "/admin/products", icon: ShoppingBag },
-            { title: "Grup Kategori", href: "/admin/products/categories", icon: ListTree },
-            { title: "Diskon Default", href: "/admin/settings/discounts", icon: BadgePercent },
-        ]
-    },
-    {
-        title: "Pesanan",
-        href: "/admin/sales",
-        icon: ShoppingCart,
-        children: [
-            { title: "Penawaran Penjualan", href: "/admin/sales/quotations", icon: FileCheck, badgeKey: "pendingQuotations" },
-            { title: "Pesanan Penjualan", href: "/admin/sales/orders", icon: ClipboardList },
-            { title: "Pengiriman Penjualan", href: "/admin/sales/deliveries", icon: Truck },
-            { title: "Faktur Penjualan", href: "/admin/sales/invoices", icon: Receipt },
-        ]
-    },
-    {
-        title: "Setting Halaman",
-        href: "/admin/settings",
-        icon: Settings,
-        children: [
-            { title: "Saran Pencarian", href: "/admin/settings/search", icon: Search },
-            { title: "Section Homepage", href: "/admin/settings/sections", icon: LayoutTemplate },
-            { title: "Portfolio Client", href: "/admin/settings/portfolio", icon: Briefcase },
-            { title: "Home CTA", href: "/admin/settings/cta", icon: LayoutTemplate },
-            { title: "Banner Slider", href: "/admin/settings/banners", icon: ImageIcon },
-            { title: "Menu Kategori", href: "/admin/settings/categories-menu", icon: ListTree },
-            { title: "Grid Kategori", href: "/admin/settings/grid-categories", icon: LayoutDashboard },
-            { title: "Footer", href: "/admin/settings/footer", icon: LayoutTemplate },
-            { title: "Notifikasi Pesanan", href: "/admin/settings", icon: Bell },
-            { title: "Format File", href: "/admin/settings/format-file", icon: FileText },
-        ]
-    },
-    {
-        title: "Berita",
-        href: "/admin/news",
-        icon: Newspaper,
-    },
-    {
-        title: "Halaman",
-        href: "/admin/pages",
-        icon: FileText,
-    },
-    {
-        title: "Akun Admin",
-        href: "/admin/users",
-        icon: ShieldCheck,
-    },
-    {
-        title: "Developer",
-        href: "/admin/developer",
-        icon: Webhook,
-        children: [
-            { title: "Webhook Simulator", href: "/admin/developer/webhooks", icon: Activity },
-        ]
-    },
-];
 
 interface SidebarProps {
     isOpen: boolean;
@@ -133,7 +85,10 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     const pathname = usePathname();
-    const [openSubmenus, setOpenSubmenus] = useState<string[]>(["/admin/settings"]); // Default open for visibility
+    const { hasPermission, user, isLoading, refreshUser } = useAuth();
+    const [openSubmenus, setOpenSubmenus] = useState<string[]>(["/admin/settings"]);
+    const [mounted, setMounted] = useState(false);
+    const [badgeCounts, setBadgeCounts] = useState<Record<string, number>>({});
 
     const toggleSubmenu = (href: string) => {
         setOpenSubmenus(prev =>
@@ -141,14 +96,9 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         );
     };
 
-    // Hydration fix: Only render interactive parts on client
-    const [mounted, setMounted] = useState(false);
     useEffect(() => {
         setMounted(true);
     }, []);
-
-    // Notification badge counts
-    const [badgeCounts, setBadgeCounts] = useState<Record<string, number>>({});
 
     const fetchBadges = useCallback(async () => {
         try {
@@ -159,11 +109,31 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
 
     useEffect(() => {
         if (mounted) {
+            // If we have no user but we are supposed to be in admin, try to refresh
+            if (!user && !isLoading) {
+                console.log("Sidebar: User missing, refreshing...");
+                refreshUser();
+            }
+
+            console.log("Sidebar - User state:", { user, isLoading });
             fetchBadges();
-            const interval = setInterval(fetchBadges, 30000); // refresh every 30s
+            const interval = setInterval(fetchBadges, 30000);
             return () => clearInterval(interval);
         }
-    }, [mounted, fetchBadges]);
+    }, [mounted, fetchBadges, user, isLoading, refreshUser]);
+
+    // Helper to check if menu item should be shown
+    const shouldShowMenuItem = (requiredPermission?: string) => {
+        // If still loading, show all items (or we can hide them)
+        if (isLoading) return true;
+        // If no user (not logged in), hide all
+        if (!user) return false;
+        // If SUPER_ADMIN, show all
+        if (user.role === "SUPER_ADMIN") return true;
+        // Otherwise check permission
+        if (!requiredPermission) return true;
+        return hasPermission(requiredPermission as Permission);
+    };
 
     if (!mounted) {
         return (
@@ -215,18 +185,29 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
 
             {/* Navigation */}
             <nav className="flex-1 py-6 px-3 space-y-1 overflow-y-auto">
-                {menuItems.map((item) => {
-                    // Check if active:
-                    // 1. If item has children, check if path starts with item.href (already implemented).
-                    // 2. If item is root ('/admin'), exact match.
-                    // 3. Otherwise, check if path starts with item.href (to handle /admin/products/new, etc.)
+                {sidebarMenuItems.map((item) => {
+                    // Check if user has permission to view this menu item
+                    if (!shouldShowMenuItem(item.requiredPermission)) {
+                        return null;
+                    }
+
+                    const IconComponent = iconMap[item.icon] || LayoutDashboard;
                     const isParentActive = item.href === "/admin"
                         ? pathname === "/admin"
                         : pathname.startsWith(item.href);
-
                     const isSubmenuOpen = openSubmenus.includes(item.href);
 
                     if (item.children && isOpen) {
+                        // Filter children based on permissions
+                        const visibleChildren = item.children.filter(child => {
+                            return shouldShowMenuItem(child.requiredPermission);
+                        });
+
+                        // Don't render if no visible children
+                        if (visibleChildren.length === 0) {
+                            return null;
+                        }
+
                         return (
                             <Collapsible
                                 key={item.href}
@@ -245,14 +226,13 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                                         )}
                                     >
                                         <div className="flex items-center gap-3">
-                                            <item.icon className={cn(
+                                            <IconComponent className={cn(
                                                 "h-5 w-5 flex-shrink-0 transition-colors",
                                                 isParentActive ? "text-red-600" : "text-gray-500 group-hover:text-gray-700"
                                             )} />
                                             <span className="font-medium text-sm whitespace-nowrap">{item.title}</span>
-                                            {/* Parent badge: show if any child has a badge */}
                                             {(() => {
-                                                const totalBadge = item.children?.reduce((sum, child) => sum + (child.badgeKey && badgeCounts[child.badgeKey] ? badgeCounts[child.badgeKey] : 0), 0) || 0;
+                                                const totalBadge = (visibleChildren as any).reduce((sum: number, child: any) => sum + (child.badgeKey && badgeCounts[child.badgeKey] ? badgeCounts[child.badgeKey] : 0), 0);
                                                 return totalBadge > 0 ? (
                                                     <span className="ml-auto mr-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
                                                         {totalBadge}
@@ -264,7 +244,8 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                                     </button>
                                 </CollapsibleTrigger>
                                 <CollapsibleContent className="space-y-1 pl-4">
-                                    {item.children.map((child) => {
+                                    {visibleChildren.map((child) => {
+                                        const ChildIcon = iconMap[child.icon] || FileText;
                                         const isChildActive = pathname === child.href;
                                         return (
                                             <Link
@@ -277,11 +258,11 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                                                         : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
                                                 )}
                                             >
-                                                <child.icon className="h-4 w-4" />
+                                                <ChildIcon className="h-4 w-4" />
                                                 <span>{child.title}</span>
-                                                {child.badgeKey && badgeCounts[child.badgeKey] ? (
+                                                {(child as any).badgeKey && badgeCounts[(child as any).badgeKey] ? (
                                                     <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 animate-pulse">
-                                                        {badgeCounts[child.badgeKey]}
+                                                        {badgeCounts[(child as any).badgeKey]}
                                                     </span>
                                                 ) : null}
                                             </Link>
@@ -304,7 +285,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                             )}
                             title={!isOpen ? item.title : undefined}
                         >
-                            <item.icon className={cn(
+                            <IconComponent className={cn(
                                 "h-5 w-5 flex-shrink-0 transition-colors",
                                 isParentActive ? "text-red-600" : "text-gray-500 group-hover:text-gray-700"
                             )} />

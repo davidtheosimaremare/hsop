@@ -11,7 +11,7 @@ import { getLatestNews } from "@/app/actions/news";
 import { db } from "@/lib/db";
 
 export default async function Home() {
-  const [savedGridSettings, menuConfig, clientProjects, latestNews] = await Promise.all([
+  const [savedGridSettings, menuConfig, clientProjects, latestNews, activeBanners] = await Promise.all([
     getSiteSetting("homepage_grid_categories"),
     getSiteSetting("category_menu_config"),
     db.clientProject.findMany({
@@ -21,7 +21,11 @@ export default async function Home() {
       ],
       where: { isVisible: true }
     }),
-    getLatestNews(4)
+    getLatestNews(4),
+    db.banner.findMany({
+      where: { isActive: true },
+      orderBy: { order: "asc" }
+    })
   ]);
 
   let gridCategories: any[] = [];
@@ -73,7 +77,7 @@ export default async function Home() {
   return (
     <div className="min-h-screen bg-gray-50">
       <SiteHeader />
-      <HeroSlider />
+      <HeroSlider banners={activeBanners} />
       <CategorySection categories={gridCategories} />
       <ClientPortfolioSection projects={clientProjects} />
       <PromoBanners />

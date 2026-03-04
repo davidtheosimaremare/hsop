@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { updateOrder } from "@/app/actions/order";
 import { Loader2, Save, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 // Mock Upload Function (Will implement real upload later if needed)
 // For now, it just accepts a URL string
@@ -46,10 +47,10 @@ export function OrderDetailActions({ order }: OrderDetailActionsProps) {
             });
 
             if (res.success) {
-                alert("Pesanan berhasil diupdate!");
+                toast.success("Pesanan berhasil diupdate!");
                 router.refresh();
             } else {
-                alert("Gagal mengupdate pesanan.");
+                toast.error("Gagal mengupdate pesanan.");
             }
         });
     };

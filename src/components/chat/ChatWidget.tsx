@@ -1,13 +1,19 @@
 "use client";
 
-import { MessageCircle } from "lucide-react"; // Only import if not already there, but we replacing whole file logic essentially
 import { useEffect, useState } from "react";
 import { getSiteSetting } from "@/app/actions/settings";
+import { usePathname } from "next/navigation";
 
 export default function ChatWidget() {
+    const pathname = usePathname();
     // Default config
     const [phoneNumber, setPhoneNumber] = useState("6281234567890");
     const [message, setMessage] = useState("Halo Admin Hokiindo, saya mau tanya tentang produk...");
+
+    // Hide on admin pages
+    if (pathname?.startsWith("/admin")) {
+        return null;
+    }
 
     useEffect(() => {
         const loadConfig = async () => {

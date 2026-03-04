@@ -1,36 +1,51 @@
 "use client";
-
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Minus, Plus, Trash2, Loader2 } from "lucide-react";
+import { Minus, Plus, Trash2, Loader2, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/lib/useCart";
 import Image from "next/image";
 import Link from "next/link";
 import GuestCheckoutModal from "@/components/public/GuestCheckoutModal";
 import { saveQuotationToDb } from "@/app/actions/cart";
+import { useAuth } from "@/components/auth/CanAccess";
+import { useToast, ToastManager } from "@/components/ui/toast";
 
-interface CartPageProps {
-    user?: { id: string; email: string; name?: string } | null;
-}
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
-export default function CartPage({ user }: CartPageProps) {
+export default function CartPage() {
+    const { user, refreshUser } = useAuth();
+    const router = useRouter();
     const { items: cartItems, updateQuantity, removeItem, totalItems, totalPrice, clearCart } = useCart();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [successMessage, setSuccessMessage] = useState("");
+    const { toasts, removeToast, toast } = useToast();
+
+
+    // Estimate Modal State
+    const [isEstimateModalOpen, setIsEstimateModalOpen] = useState(false);
+    const [estimateName, setEstimateName] = useState("");
 
     const formatPrice = (price: number) => {
         return new Intl.NumberFormat("id-ID").format(Math.round(price));
     };
 
     const handleQuotationSuccess = () => {
-        setSuccessMessage("Permintaan terkirim! Tim sales akan menghubungi Anda.");
-        setShowSuccess(true);
-        setTimeout(() => setShowSuccess(false), 5000);
+        toast.success("Permintaan terkirim! Silakan login jika ingin melihat riwayat transaksi ini.");
     };
 
-    const handleLoggedInSubmit = async () => {
+    const handleLoggedInSubmit = async (isDraft: boolean = false) => {
         setIsSubmitting(true);
 
         const items = cartItems.map(item => {
@@ -44,27 +59,50 @@ export default function CartPage({ user }: CartPageProps) {
                 // If no status (legacy), fallback to old logic?
                 // For now user wants split, so we trust stockStatus.
                 readyStock: item.stockStatus === 'READY' ? item.quantity : 0,
-                indent: item.stockStatus === 'INDENT' ? item.quantity : 0
+                indent: item.stockStatus === 'INDENT' ? item.quantity : 0,
+                discountStr: item.discountStr,
+                originalPrice: item.originalPrice
             };
         });
 
-        const result = await saveQuotationToDb(items, totalPrice);
+        const result = await saveQuotationToDb(
+            items,
+            totalPrice,
+            isDraft ? 'DRAFT' : 'PENDING',
+            undefined, // No userClientId for now
+            isDraft ? estimateName : undefined // Pass estimate name if draft
+        );
 
         setIsSubmitting(false);
 
         if (result.success) {
             clearCart();
-            setSuccessMessage(`Quotation #${result.quotationNo?.slice(-8).toUpperCase()} berhasil dibuat!`);
-            setShowSuccess(true);
-            setTimeout(() => setShowSuccess(false), 5000);
+            if (isDraft) {
+                toast.success("Estimasi berhasil disimpan!");
+                setTimeout(() => router.push('/dashboard/estimasi'), 1500);
+            } else {
+                toast.success(`HRSQ #${result.quotationNo?.slice(-8).toUpperCase()} berhasil dibuat!`);
+                setTimeout(() => router.push('/dashboard/transaksi'), 2000);
+            }
         } else {
-            alert(result.error || "Gagal menyimpan quotation");
+            toast.error(result.error || "Gagal menyimpan quotation");
         }
+    };
+
+    const handleSaveEstimate = async () => {
+        setIsEstimateModalOpen(false);
+        await handleLoggedInSubmit(true);
+        setEstimateName(""); // Reset
     };
 
     const handleRFQClick = () => {
         if (user) {
-            handleLoggedInSubmit();
+            // Check if user has address
+            if (!user.address) {
+                setIsModalOpen(true);
+            } else {
+                handleLoggedInSubmit(false); // Default is RFQ (not draft)
+            }
         } else {
             setIsModalOpen(true);
         }
@@ -213,96 +251,139 @@ export default function CartPage({ user }: CartPageProps) {
 
                     {/* Right - Order Summary */}
                     <div className="lg:col-span-1">
-                        <div className="bg-white rounded-xl border border-gray-200 p-4 sticky top-24">
-                            <h2 className="font-semibold text-gray-900 mb-4">Ringkasan Pesanan</h2>
+                        <div className="space-y-6 sticky top-24">
+                            {/* Client Selector removed as per request */}
 
-                            {/* Summary Items */}
-                            <div className="space-y-3 pb-4 border-b border-gray-100">
-                                {cartItems.map((item) => (
-                                    <div key={item.id} className="flex items-start gap-3">
-                                        <div className="w-10 h-10 bg-gray-100 rounded flex-shrink-0 flex items-center justify-center relative overflow-hidden">
-                                            {item.image ? (
-                                                <Image
-                                                    src={item.image}
-                                                    alt={item.name}
-                                                    fill
-                                                    className="object-contain p-0.5"
-                                                />
-                                            ) : (
-                                                <div className="w-6 h-6 bg-gray-200 rounded" />
-                                            )}
+                            <div className="bg-white rounded-xl border border-gray-200 p-4">
+                                <h2 className="font-semibold text-gray-900 mb-4">Ringkasan Pesanan</h2>
+
+                                {/* Summary Items */}
+                                <div className="space-y-3 pb-4 border-b border-gray-100">
+                                    {cartItems.map((item) => (
+                                        <div key={item.id} className="flex items-start gap-3">
+                                            <div className="w-10 h-10 bg-gray-100 rounded flex-shrink-0 flex items-center justify-center relative overflow-hidden">
+                                                {item.image ? (
+                                                    <Image
+                                                        src={item.image}
+                                                        alt={item.name}
+                                                        fill
+                                                        className="object-contain p-0.5"
+                                                    />
+                                                ) : (
+                                                    <div className="w-6 h-6 bg-gray-200 rounded" />
+                                                )}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs text-gray-900 line-clamp-1">{item.name}</p>
+                                                <p className="text-xs text-gray-500">{item.quantity} x Rp {formatPrice(item.price)}</p>
+                                            </div>
+                                            <p className="text-xs font-medium text-gray-900 flex-shrink-0">
+                                                Rp {formatPrice(item.price * item.quantity)}
+                                            </p>
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-xs text-gray-900 line-clamp-1">{item.name}</p>
-                                            <p className="text-xs text-gray-500">{item.quantity} x Rp {formatPrice(item.price)}</p>
-                                        </div>
-                                        <p className="text-xs font-medium text-gray-900 flex-shrink-0">
-                                            Rp {formatPrice(item.price * item.quantity)}
-                                        </p>
+                                    ))}
+                                </div>
+
+                                {/* Totals */}
+                                <div className="py-4 space-y-2">
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-gray-600">Total Item</span>
+                                        <span className="font-medium text-gray-900">{totalItems} item</span>
                                     </div>
-                                ))}
-                            </div>
-
-                            {/* Totals */}
-                            <div className="py-4 space-y-2">
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-gray-600">Total Item</span>
-                                    <span className="font-medium text-gray-900">{totalItems} item</span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-gray-600">Subtotal</span>
-                                    <span className="font-medium text-gray-900">Rp {formatPrice(totalPrice)}</span>
-                                </div>
-                            </div>
-
-                            {/* Total */}
-                            <div className="pt-4 border-t border-gray-100">
-                                <div className="flex justify-between mb-4">
-                                    <span className="font-semibold text-gray-900">Total</span>
-                                    <span className="font-bold text-lg text-red-600">
-                                        Rp {formatPrice(totalPrice)}
-                                    </span>
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-gray-600">Subtotal</span>
+                                        <span className="font-medium text-gray-900">Rp {formatPrice(totalPrice)}</span>
+                                    </div>
                                 </div>
 
-                                {/* Request for Quotation Button */}
-                                <Button
-                                    onClick={handleRFQClick}
-                                    disabled={isSubmitting}
-                                    className="w-full h-11 bg-red-600 hover:bg-red-700 text-white font-medium disabled:opacity-50"
-                                >
-                                    {isSubmitting ? (
-                                        <>
-                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                            Memproses...
-                                        </>
-                                    ) : (
-                                        "Request for Quotation"
+                                {/* Total */}
+                                <div className="pt-4 border-t border-gray-100">
+                                    <div className="flex justify-between mb-4">
+                                        <span className="font-semibold text-gray-900">Total</span>
+                                        <span className="font-bold text-lg text-red-600">
+                                            Rp {formatPrice(totalPrice)}
+                                        </span>
+                                    </div>
+
+                                    {/* Request for Quotation Button */}
+                                    <Button
+                                        onClick={handleRFQClick}
+                                        disabled={isSubmitting}
+                                        className="w-full h-11 bg-red-600 hover:bg-red-700 text-white font-medium disabled:opacity-50"
+                                    >
+                                        {isSubmitting ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                Memproses...
+                                            </>
+                                        ) : (
+                                            "Kirim Permintaan Penawaran"
+                                        )}
+                                    </Button>
+
+                                    {user && (
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => setIsEstimateModalOpen(true)}
+                                            disabled={isSubmitting}
+                                            className="w-full h-11 border-gray-300 text-gray-700 font-medium hover:bg-gray-50 mt-3"
+                                        >
+                                            Simpan sebagai Estimasi
+                                        </Button>
                                     )}
-                                </Button>
 
-                                <p className="text-xs text-gray-500 text-center mt-3">
-                                    Harga belum termasuk ongkos kirim. Tim sales akan menghubungi Anda secepatnya.
-                                </p>
+                                    <p className="text-xs text-gray-500 text-center mt-3">
+                                        Harga belum termasuk ongkos kirim. Tim sales akan menghubungi Anda secepatnya.
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Success Toast */}
-            {showSuccess && (
-                <div className="fixed bottom-6 right-6 bg-green-600 text-white px-6 py-4 rounded-lg shadow-lg z-50 animate-in slide-in-from-right">
-                    <p className="font-medium">{successMessage || "Berhasil!"}</p>
-                </div>
-            )}
+            {/* Toast notifications */}
+            <ToastManager toasts={toasts} removeToast={removeToast} />
 
-            {/* Guest Checkout Modal */}
+            {/* Estimate Modal */}
+            <Dialog open={isEstimateModalOpen} onOpenChange={setIsEstimateModalOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Simpan Estimasi</DialogTitle>
+                        <DialogDescription>
+                            Simpan keranjang ini sebagai draft untuk dikirim nanti.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="estimateName">Nama Proyek (Opsional)</Label>
+                            <Input
+                                id="estimateName"
+                                placeholder="Contoh: Proyek Apartemen A / Gedung B"
+                                value={estimateName}
+                                onChange={(e) => setEstimateName(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsEstimateModalOpen(false)}>
+                            Batal
+                        </Button>
+                        <Button onClick={handleSaveEstimate} className="bg-red-600 hover:bg-red-700 text-white">
+                            Simpan
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Checkout Modal */}
             <GuestCheckoutModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 onSuccess={handleQuotationSuccess}
+                user={user}
+                refreshUser={refreshUser}
             />
         </div>
     );
 }
-

@@ -2,12 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { updateCustomerDiscounts } from "@/app/actions/customer";
-import { Loader2, Save, Plug2, CircuitBoard, Flashlight } from "lucide-react";
+import { Loader2, Save, Plug2, CircuitBoard, Flashlight, Percent, Info } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
 
 interface CustomerDiscountFormProps {
     customerId: string;
@@ -24,94 +23,68 @@ interface CustomerDiscountFormProps {
     };
 }
 
-// Helper to calculate effective discount for visualization
 const calculateEffectiveDiscount = (expression: string): number => {
     if (!expression) return 0;
-
-    // Split by '+' and clean whitespace
     const parts = expression.split('+').map(p => parseFloat(p.trim()));
-
     if (parts.some(isNaN)) return 0;
-
-    // Calculate: Price * (1 - d1/100) * (1 - d2/100) ...
-    // Effective Discount = 1 - (Result Multiplier)
     const multiplier = parts.reduce((acc, curr) => acc * (1 - curr / 100), 1);
     return (1 - multiplier) * 100;
 };
 
-const DiscountItem = ({
+const DiscountRow = ({
     icon: Icon,
     label,
-    description,
+    color,
     valueStock,
     setValueStock,
     valueIndent,
     setValueIndent,
-    color
 }: {
-    icon: any,
-    label: string,
-    description: string,
-    valueStock: string,
-    setValueStock: (v: string) => void,
-    valueIndent: string,
-    setValueIndent: (v: string) => void,
-    color: "yellow" | "blue" | "orange"
+    icon: any;
+    label: string;
+    color: "blue" | "red" | "emerald";
+    valueStock: string;
+    setValueStock: (v: string) => void;
+    valueIndent: string;
+    setValueIndent: (v: string) => void;
 }) => {
     const effectiveStock = calculateEffectiveDiscount(valueStock);
     const effectiveIndent = calculateEffectiveDiscount(valueIndent);
 
-    const colorStyles = {
-        yellow: { bg: "bg-yellow-100", text: "text-yellow-600", bar: "bg-yellow-500", border: "focus-within:ring-yellow-500/20" },
-        blue: { bg: "bg-blue-100", text: "text-blue-600", bar: "bg-blue-500", border: "focus-within:ring-blue-500/20" },
-        orange: { bg: "bg-orange-100", text: "text-orange-600", bar: "bg-orange-500", border: "focus-within:ring-orange-500/20" }
-    };
+    const dotColor = { blue: "bg-blue-500", red: "bg-red-500", emerald: "bg-emerald-500" }[color];
+    const iconBg = { blue: "bg-blue-50 text-blue-500", red: "bg-red-50 text-red-500", emerald: "bg-emerald-50 text-emerald-500" }[color];
 
-    const styles = colorStyles[color];
-
-    const renderInput = (val: string, setVal: (v: string) => void, labelType: "Ready Stock" | "Indent", effective: number) => (
-        <div className="flex flex-col items-end gap-1 w-full sm:w-auto">
-            <span className="text-xs font-semibold text-gray-500 self-start mb-1">{labelType}</span>
-            <div className={`flex items-center gap-2 bg-white p-1 rounded-lg border border-gray-200 shadow-sm focus-within:ring-4 ${styles.border} focus-within:border-${color}-500 transition-all w-full sm:w-auto`}>
-                <Input
-                    type="text"
-                    value={val}
-                    onChange={(e) => {
-                        const v = e.target.value;
-                        if (/^[\d+.\s]*$/.test(v)) setVal(v);
-                    }}
-                    placeholder="0"
-                    className="w-full sm:w-24 text-right font-mono font-bold text-lg border-none bg-transparent focus-visible:ring-0 h-10 p-0"
-                />
-                <span className="text-sm font-semibold text-gray-400 pr-3 select-none">%</span>
-            </div>
+    const renderInput = (val: string, setVal: (v: string) => void, placeholder: string, effective: number) => (
+        <div className="relative">
+            <Input
+                type="text"
+                value={val}
+                onChange={(e) => {
+                    const v = e.target.value;
+                    if (/^[\d+.\s]*$/.test(v)) setVal(v);
+                }}
+                placeholder={placeholder}
+                className="h-8 text-xs font-black text-right pr-6 rounded-lg border-gray-100 bg-gray-50 focus:bg-white"
+            />
+            <Percent className="absolute right-2 top-1/2 -translate-y-1/2 w-2.5 h-2.5 text-gray-300 pointer-events-none" />
             {val.includes('+') && (
-                <span className="text-[10px] uppercase tracking-wider font-semibold text-gray-500 bg-gray-100 px-2 py-1 rounded-md">
-                    Efektif: {effective.toFixed(2)}%
-                </span>
+                <span className="absolute -bottom-4 right-0 text-[8px] font-bold text-gray-400 italic">Eff: {effective.toFixed(1)}%</span>
             )}
         </div>
     );
 
     return (
-        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 p-4 border rounded-xl bg-white shadow-sm hover:shadow-md transition-all duration-200">
-            <div className={`p-4 rounded-2xl ${styles.bg} shrink-0`}>
-                <Icon className={`h-6 w-6 ${styles.text}`} />
+        <div className="grid grid-cols-[auto_1fr_1fr] gap-3 items-center py-3 border-b border-gray-50 last:border-0">
+            <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center shrink-0", iconBg)}>
+                <Icon className="w-3.5 h-3.5" />
             </div>
-            <div className="flex-1 w-full">
-                <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-3">
-                    <div className="sm:max-w-xs">
-                        <div className="flex items-center gap-2 mb-1">
-                            <Label className="text-base font-bold text-gray-900">{label}</Label>
-                        </div>
-                        <p className="text-sm text-gray-500 mt-1 leading-relaxed">{description}</p>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-                        {renderInput(valueStock, setValueStock, "Ready Stock", effectiveStock)}
-                        {renderInput(valueIndent, setValueIndent, "Indent", effectiveIndent)}
-                    </div>
-                </div>
+            <div className="space-y-1">
+                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none">Ready Stock</p>
+                {renderInput(valueStock, setValueStock, "0", effectiveStock)}
+            </div>
+            <div className="space-y-1">
+                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none">Indent</p>
+                {renderInput(valueIndent, setValueIndent, "0", effectiveIndent)}
             </div>
         </div>
     );
@@ -126,13 +99,10 @@ export function CustomerDiscountForm({
 }: CustomerDiscountFormProps) {
     const [lp, setLP] = useState<string>(String(discountLP));
     const [lpIndent, setLPIndent] = useState<string>(String(discountLPIndent || "0"));
-
     const [cp, setCP] = useState<string>(String(discountCP));
     const [cpIndent, setCPIndent] = useState<string>(String(discountCPIndent || "0"));
-
     const [lighting, setLighting] = useState<string>(String(discountLighting));
     const [lightingIndent, setLightingIndent] = useState<string>(String(discountLightingIndent || "0"));
-
     const [isPending, startTransition] = useTransition();
     const router = useRouter();
 
@@ -140,7 +110,6 @@ export function CustomerDiscountForm({
         startTransition(async () => {
             const res = await updateCustomerDiscounts(customerId, lp, lpIndent, cp, cpIndent, lighting, lightingIndent);
             if (res.success) {
-                alert("Diskon berhasil disimpan!");
                 router.refresh();
             } else {
                 alert(`Gagal menyimpan diskon: ${res.error}`);
@@ -148,64 +117,45 @@ export function CustomerDiscountForm({
         });
     };
 
-    const getDescription = (categories: string[] | undefined) => {
-        if (!categories || categories.length === 0) {
-            return "Silahkan pilih sub kategorinya.";
-        }
-        return categories.join(", ");
-    };
-
     return (
-        <div className="space-y-6">
-            <div className="space-y-4">
-                <DiscountItem
-                    icon={Plug2}
-                    label="Siemens LP (Low Voltage)"
-                    description={getDescription(mappings?.LP)}
-                    valueStock={lp}
-                    setValueStock={setLP}
-                    valueIndent={lpIndent}
-                    setValueIndent={setLPIndent}
-                    color="yellow"
-                />
+        <div className="space-y-3">
 
-                <DiscountItem
-                    icon={CircuitBoard}
-                    label="Siemens CP (Control Product)"
-                    description={getDescription(mappings?.CP)}
-                    valueStock={cp}
-                    setValueStock={setCP}
-                    valueIndent={cpIndent}
-                    setValueIndent={setCPIndent}
-                    color="blue"
-                />
-
-                <DiscountItem
-                    icon={Flashlight}
-                    label="Portable Lighting"
-                    description={getDescription(mappings?.LIGHTING)}
-                    valueStock={lighting}
-                    setValueStock={setLighting}
-                    valueIndent={lightingIndent}
-                    setValueIndent={setLightingIndent}
-                    color="orange"
-                />
+            <div>
+                <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block" /> Siemens LP
+                </p>
+                <DiscountRow icon={Plug2} label="LP" color="blue" valueStock={lp} setValueStock={setLP} valueIndent={lpIndent} setValueIndent={setLPIndent} />
             </div>
 
-            <div className="flex justify-end pt-2">
-                <Button
-                    onClick={handleSave}
-                    disabled={isPending}
-                    className="bg-[#E31E2D] hover:bg-[#C21A26] text-white w-full sm:w-auto"
-                >
-                    {isPending ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                        <Save className="mr-2 h-4 w-4" />
-                    )}
-                    Simpan Perubahan Diskon
-                </Button>
+            <div>
+                <p className="text-[9px] font-black text-red-600 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" /> Siemens CP
+                </p>
+                <DiscountRow icon={CircuitBoard} label="CP" color="red" valueStock={cp} setValueStock={setCP} valueIndent={cpIndent} setValueIndent={setCPIndent} />
             </div>
+
+            <div>
+                <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" /> Lighting / Portable
+                </p>
+                <DiscountRow icon={Flashlight} label="Lighting" color="emerald" valueStock={lighting} setValueStock={setLighting} valueIndent={lightingIndent} setValueIndent={setLightingIndent} />
+            </div>
+
+            <div className="flex items-start gap-2 p-3 bg-gray-50 rounded-xl mt-2">
+                <Info className="w-3.5 h-3.5 text-gray-400 mt-0.5 shrink-0" />
+                <p className="text-[9px] font-bold text-gray-500 leading-relaxed">
+                    Format diskon bertingkat: <span className="text-gray-900 font-black">40+10+5</span>. Sistem kalkulasi otomatis nilai efektif.
+                </p>
+            </div>
+
+            <Button
+                onClick={handleSave}
+                disabled={isPending}
+                className="bg-gray-900 hover:bg-black text-white w-full h-9 rounded-xl font-black text-[10px] uppercase tracking-[0.2em]"
+            >
+                {isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1.5 h-3.5 w-3.5" />}
+                Simpan Diskon
+            </Button>
         </div>
     );
 }

@@ -16,12 +16,14 @@ interface CustomerEditFormProps {
         email: string | null;
         phone: string | null;
         company: string | null;
+        companyEmail?: string | null;
+        companyPhone?: string | null;
         address: string | null;
     };
 }
 
 export function CustomerEditForm({ customer }: CustomerEditFormProps) {
-    const [type, setType] = useState<"BISNIS" | "RETAIL">((customer.type as "BISNIS" | "RETAIL") || "RETAIL");
+    const [type, setType] = useState<"BISNIS" | "RETAIL" | "RESELLER">((customer.type as any) || "RETAIL");
     const [isPending, startTransition] = useTransition();
     const router = useRouter();
     const [error, setError] = useState("");
@@ -35,10 +37,12 @@ export function CustomerEditForm({ customer }: CustomerEditFormProps) {
                 email: formData.get("email") as string,
                 phone: formData.get("phone") as string,
                 company: formData.get("company") as string,
+                companyEmail: formData.get("companyEmail") as string,
+                companyPhone: formData.get("companyPhone") as string,
                 address: formData.get("address") as string,
             };
 
-            const res = await updateCustomer(customer.id, data);
+            const res = await updateCustomer(customer.id, data as any);
             if (res.success) {
                 router.push(`/admin/customers/${customer.id}`);
                 router.refresh(); // Ensure data is fresh
@@ -54,23 +58,33 @@ export function CustomerEditForm({ customer }: CustomerEditFormProps) {
             <div className="flex border-b border-gray-200 mb-6">
                 <button
                     type="button"
-                    onClick={() => setType("RETAIL")}
-                    className={`flex-1 py-3 text-sm font-medium text-center border-b-2 transition-colors ${type === "RETAIL"
-                        ? "border-red-600 text-red-600"
+                    onClick={() => setType("BISNIS")}
+                    className={`flex-1 py-3 text-sm font-medium text-center border-b-2 transition-colors ${type === "BISNIS"
+                        ? "border-red-600 text-red-600 font-black"
                         : "border-transparent text-gray-500 hover:text-gray-700"
                         }`}
                 >
-                    Perorangan (Retail)
+                    PERUSAHAAN
                 </button>
                 <button
                     type="button"
-                    onClick={() => setType("BISNIS")}
-                    className={`flex-1 py-3 text-sm font-medium text-center border-b-2 transition-colors ${type === "BISNIS"
-                        ? "border-red-600 text-red-600"
+                    onClick={() => setType("RESELLER")}
+                    className={`flex-1 py-3 text-sm font-medium text-center border-b-2 transition-colors ${type === "RESELLER"
+                        ? "border-red-600 text-red-600 font-black"
                         : "border-transparent text-gray-500 hover:text-gray-700"
                         }`}
                 >
-                    Bisnis (B2B)
+                    RESELLER / MITRA JUAL
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setType("RETAIL")}
+                    className={`flex-1 py-3 text-sm font-medium text-center border-b-2 transition-colors ${type === "RETAIL"
+                        ? "border-red-600 text-red-600 font-black"
+                        : "border-transparent text-gray-500 hover:text-gray-700"
+                        }`}
+                >
+                    PEMBELI PRIBADI (RETAIL)
                 </button>
             </div>
 
@@ -82,15 +96,41 @@ export function CustomerEditForm({ customer }: CustomerEditFormProps) {
 
             <div className="space-y-4">
                 {type === "BISNIS" && (
-                    <div className="space-y-2">
-                        <Label htmlFor="company">Nama Perusahaan <span className="text-red-500">*</span></Label>
-                        <Input
-                            id="company"
-                            name="company"
-                            placeholder="PT. Hokiindo Perkasa"
-                            defaultValue={customer.company || ""}
-                            required
-                        />
+                    <div className="space-y-4 border-l-2 border-red-100 pl-4 py-2 bg-gray-50/50 rounded-r-lg">
+                        <p className="text-[10px] font-black text-red-600 uppercase tracking-widest">Data Perusahaan</p>
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="company">Nama Perusahaan <span className="text-red-500">*</span></Label>
+                                <Input
+                                    id="company"
+                                    name="company"
+                                    placeholder="PT. Hokiindo Perkasa"
+                                    defaultValue={customer.company || ""}
+                                    required
+                                />
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="companyPhone">Telepon Kantor</Label>
+                                    <Input
+                                        id="companyPhone"
+                                        name="companyPhone"
+                                        placeholder="021..."
+                                        defaultValue={customer.companyPhone || ""}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="companyEmail">Email Perusahaan</Label>
+                                    <Input
+                                        id="companyEmail"
+                                        name="companyEmail"
+                                        type="email"
+                                        placeholder="office@company.com"
+                                        defaultValue={customer.companyEmail || ""}
+                                    />
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
 

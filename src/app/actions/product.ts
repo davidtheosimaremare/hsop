@@ -236,9 +236,11 @@ export async function updateProductDetails(
     id: string,
     data: {
         description?: string;
+        longDescription?: string;
         specifications?: Record<string, string>;
         datasheet?: string;
         image?: string;
+        sliderImages?: string[];
         brand?: string;
     }
 ) {
@@ -368,5 +370,87 @@ export async function bulkUpdateDiscountCategory(productIds: string[], category:
     } catch (error) {
         console.error("Failed to bulk update discount category:", error);
         return { success: false, count: 0 };
+    }
+}
+
+// ── Admin: Get products by category & search for alternative selection ──
+export async function getProductsForAlternative(category: string, query: string = "", stockStatus: string = "all", page: number = 1, limit: number = 20) {
+    try {
+        const whereClause: any = {};
+
+        // Filter by category if provided and not "Uncategorized" or "All"
+        if (category && category !== "Uncategorized" && category !== "All") {
+            whereClause.category = category;
+        }
+
+        // Filter by search query (Name or SKU)
+        if (query) {
+            whereClause.OR = [
+                { name: { contains: query, mode: "insensitive" } },
+                { sku: { contains: query, mode: "insensitive" } },
+            ];
+        }
+
+        // Filter by Stock Status
+        if (stockStatus === "ready") {
+            whereClause.availableToSell = { gt: 0 };
+        } else if (stockStatus === "indent") {
+            whereClause.availableToSell = { lte: 0 };
+        }
+
+        const skip = (page - 1) * limit;
+
+        const [products, totalCount] = await Promise.all([
+            db.product.findMany({
+                where: whereClause,
+                take: limit,
+                skip: skip,
+                orderBy: { name: 'asc' }, // Sort by Keyword/Name ASC as requested
+                select: {
+                    id: true,
+                    name: true,
+                    sku: true,
+                    availableToSell: true,
+                    price: true,
+                    image: true,
+                    category: true
+                }
+            }),
+            db.product.count({ where: whereClause })
+        ]);
+
+        const totalPages = Math.ceil(totalCount / limit);
+
+        return {
+            success: true,
+            products,
+            pagination: {
+                currentPage: page,
+                totalPages,
+                totalCount,
+                limit
+            }
+        };
+    } catch (error) {
+        console.error("Failed to get products for alternative:", error);
+        return { success: false, error: "Gagal mengambil produk" };
+    }
+}
+
+export async function getProductCategories() {
+    try {
+        const categories = await db.product.groupBy({
+            by: ['category'],
+            where: {
+                category: { not: null }
+            },
+            orderBy: {
+                category: 'asc'
+            }
+        });
+        return { success: true, categories: categories.map(c => c.category).filter(Boolean) as string[] };
+    } catch (error) {
+        console.error("Failed to get categories:", error);
+        return { success: false, categories: [] };
     }
 }

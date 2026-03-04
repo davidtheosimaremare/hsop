@@ -67,8 +67,16 @@ export async function getPublicProducts({
 }: ProductFilterParams) {
     const skip = (page - 1) * pageSize;
 
+    // Fetch hidden categories to exclude their products
+    const hiddenCategories = await db.category.findMany({
+        where: { isVisible: false },
+        select: { name: true }
+    });
+    const hiddenCategoryNames = hiddenCategories.map(c => c.name);
+
     const where: Prisma.ProductWhereInput = {
         isVisible: true,
+        category: hiddenCategoryNames.length > 0 ? { notIn: hiddenCategoryNames } : undefined,
     };
 
     if (query) {
@@ -161,29 +169,47 @@ export async function getPublicProducts({
 
 
 export async function getPublicProductBySlug(slug: string) {
-    // If slug has a hyphen, the part after the FIRST hyphen is the SKU
-    // e.g. siemens-3VJ10... or schneider-3VJ10...
+    // 1. First try matching exact SKU (user preference)
+    const productBySku = await db.product.findUnique({
+        where: { sku: slug },
+    });
+    if (productBySku) return productBySku;
+
+    // 2. Decode in case of special characters
+    const decodedSlug = decodeURIComponent(slug);
+    const productByDecodedSku = await db.product.findUnique({
+        where: { sku: decodedSlug },
+    });
+    if (productByDecodedSku) return productByDecodedSku;
+
+    // 3. Fallback: Siemens prefix logic if still needed for old links
     if (slug.includes("-")) {
         const firstHyphenIndex = slug.indexOf("-");
-        const sku = slug.substring(firstHyphenIndex + 1);
+        const skuFromSlug = slug.substring(firstHyphenIndex + 1);
 
-        const product = await db.product.findUnique({
-            where: { sku },
+        const p = await db.product.findUnique({
+            where: { sku: skuFromSlug },
         });
 
-        if (product) return product;
+        if (p) return p;
     }
 
-    // Fallback: Try to find by ID (for backward compatibility)
+    // 4. Try legacy ID
     return await db.product.findUnique({
         where: { id: slug },
     });
 }
 
 export async function getRelatedProducts(category: string, excludeId: string) {
+    const hiddenCategories = await db.category.findMany({
+        where: { isVisible: false },
+        select: { name: true }
+    });
+    const hiddenCategoryNames = hiddenCategories.map(c => c.name);
+
     return await db.product.findMany({
         where: {
-            category: category ? { contains: category, mode: "insensitive" } : undefined,
+            category: category ? { contains: category, mode: "insensitive" } : (hiddenCategoryNames.length > 0 ? { notIn: hiddenCategoryNames } : undefined),
             id: { not: excludeId },
             isVisible: true
         },

@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { sendUpgradeRequestNotification } from "@/lib/mail";
 
 export type UpgradeRequestData = {
-    requestType: "RESELLER" | "EXCLUSIVE";
+    requestType: "RETAIL" | "EXCLUSIVE" | "RESELLER";
     ktpName: string;
     ktp: string; // URL
     npwp?: string; // URL
@@ -161,7 +161,7 @@ export async function processUpgradeRequest(requestId: string, action: "APPROVE"
                 db.customer.update({
                     where: { id: customerId },
                     data: {
-                        type: request.requestType, // RESELLER or EXCLUSIVE
+                        type: request.requestType, // RETAIL or EXCLUSIVE
                         company: request.companyName || undefined, // Update company name if provided
                         address: request.address, // Update address
                         phone: request.phone, // Update phone

@@ -24,6 +24,7 @@ export async function loginAction(prevState: any, formData: FormData) {
             where: { email },
         });
         console.log("User found:", user ? "YES" : "NO");
+        console.log("User data:", JSON.stringify({ id: user?.id, email: user?.email, customerId: user?.customerId, role: user?.role }, null, 2));
 
         if (!user) {
             return { error: "Email atau password salah." };
@@ -37,14 +38,17 @@ export async function loginAction(prevState: any, formData: FormData) {
             return { error: "Email atau password salah." };
         }
 
-        // 3. Check Verification
+        // 3. Check if user is active
+        if (!user.isActive) {
+            return { 
+                error: "Akun Anda telah dinonaktifkan oleh admin. Silakan hubungi admin untuk informasi lebih lanjut." 
+            };
+        }
+
+        // 4. Check Verification
         if (!user.isVerified) {
             return {
                 error: "Akun belum diverifikasi.",
-                // We can rely on frontend using this flag to redirect, or do it here if possible. 
-                // But redirects in server actions with error state are tricky if we want to preserve state?
-                // Let's return a specific error code/flag or just rely on the message.
-                // Better: return a specific field.
                 unverified: true,
                 email: email
             };
@@ -54,14 +58,28 @@ export async function loginAction(prevState: any, formData: FormData) {
         const { encrypt } = await import("@/lib/auth");
         // Expires in 30 days if remember me is checked, otherwise 24 hours
         const expires = new Date(Date.now() + (remember ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000));
-        const session = await encrypt({ user: { id: user.id, email: user.email, role: user.role, name: user.name }, expires });
+        const session = await encrypt({
+            user: {
+                id: user.id,
+                email: user.email,
+                role: user.role,
+                name: user.name,
+                isActive: user.isActive,
+                customerId: user.customerId,
+            },
+            expires
+        });
+        console.log("Session created with customerId:", user.customerId);
 
         const { cookies } = await import("next/headers");
         (await cookies()).set("session", session, { expires, httpOnly: true });
         console.log("Session cookie set.");
 
         // Redirect based on role
-        if (user.role === "ADMIN" || user.role === "SUPER_ADMIN") {
+        // Admin roles (SUPER_ADMIN, ADMIN, MANAGER) -> /admin
+        // Customer roles (CUSTOMER) -> / (home)
+        const adminRoles = ["SUPER_ADMIN", "ADMIN", "MANAGER"];
+        if (user.role && adminRoles.includes(user.role)) {
             redirect("/admin");
         } else {
             redirect("/");
@@ -181,8 +199,26 @@ export async function resetPasswordAction(prevState: any, formData: FormData) {
 
 
 
+export async function getCurrentUser() {
+    const { getSession } = await import("@/lib/auth");
+    const session = await getSession();
+    return session?.user || null;
+}
+
 export async function logoutAction() {
+    const { getSession } = await import("@/lib/auth");
+    const session = await getSession();
+    const userRole = session?.user?.role;
+
     const { logout } = await import("@/lib/auth");
     await logout();
-    redirect("/admin/login");
+
+    // Redirect based on previous role
+    const adminRoles = ["SUPER_ADMIN", "ADMIN", "MANAGER"];
+    if (userRole && adminRoles.includes(userRole)) {
+        redirect("/admin/login");
+    } else {
+        // Customer users redirect to home
+        redirect("/");
+    }
 }

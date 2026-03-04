@@ -44,10 +44,11 @@ export default function ProductCard({ product }: ProductCardProps) {
             sku: product.sku,
             name: product.name,
             brand: product.brand || '',
-            price: priceInfo.originalPriceWithPPN,
-            originalPrice: undefined,
+            price: priceInfo.discountedPriceWithPPN,
+            originalPrice: priceInfo.originalPriceWithPPN,
             image: product.image,
-            availableToSell: product.availableToSell
+            availableToSell: product.availableToSell,
+            discountStr: priceInfo.discountStr
         }, 1);
 
         setIsAdded(true);

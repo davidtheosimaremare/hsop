@@ -35,7 +35,7 @@ async function main() {
             phone: "08123456789",
             address: "Jl. Sudirman No. 1, Jakarta",
             company: "PT. Contoh Pelanggan",
-            type: "B2B",
+            type: "CORPORATE",
             discount1: 10,
             discount2: 5,
         },

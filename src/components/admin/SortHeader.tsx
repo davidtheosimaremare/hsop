@@ -8,9 +8,10 @@ import { cn } from "@/lib/utils";
 interface SortHeaderProps {
     title: string;
     field: string;
+    className?: string;
 }
 
-export default function SortHeader({ title, field }: SortHeaderProps) {
+export default function SortHeader({ title, field, className }: SortHeaderProps) {
     const searchParams = useSearchParams();
     const currentSort = searchParams.get("sort") || "name";
     const currentOrder = searchParams.get("order") || "asc";
@@ -26,14 +27,14 @@ export default function SortHeader({ title, field }: SortHeaderProps) {
     return (
         <Link
             href={`?${params.toString()}`}
-            className="flex items-center gap-1 hover:text-gray-900 group"
+            className={cn("flex items-center gap-1 group transition-colors", className)}
         >
             {title}
-            <span className="text-gray-400 group-hover:text-gray-600">
+            <span className="text-gray-300 group-hover:text-gray-900 transition-colors">
                 {isCurrent ? (
-                    currentOrder === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                    currentOrder === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
                 ) : (
-                    <ArrowUpDown className="h-4 w-4 opacity-0 group-hover:opacity-100" />
+                    <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-40" />
                 )}
             </span>
         </Link>

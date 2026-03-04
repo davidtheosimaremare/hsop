@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -109,7 +110,7 @@ export function NewNewsForm({ products }: NewNewsFormProps) {
             router.push("/admin/news");
         } catch (error) {
             console.error(error);
-            alert("Gagal menyimpan berita");
+            toast.error("Gagal menyimpan berita");
             setIsSubmitting(false);
             setIsDirty(true); // Re-enable warning if failed
         }

@@ -7,7 +7,7 @@ import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import ShareButton from "./ShareButton";
-import { getProductSlug } from "@/lib/utils";
+import { getProductSlug, cn } from "@/lib/utils";
 import { useCart } from "@/lib/useCart";
 import { usePricing } from "@/lib/PricingContext";
 
@@ -25,6 +25,14 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
     const sliderRef = useRef<HTMLDivElement>(null);
     const { addItem } = useCart();
     const { getPriceInfo } = usePricing();
+
+    // Setup gallery images
+    const galleryImages = [
+        product.image,
+        ...(product.sliderImages || [])
+    ].filter(Boolean) as string[];
+
+    const [activeImage, setActiveImage] = useState(galleryImages[0] || null);
 
     // Calculate price info
     // Standard price (mixed logic dependent on stock)
@@ -74,9 +82,11 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                 name: product.name,
                 brand: product.brand || '',
                 price: readyPriceInfo.discountedPriceWithPPN,
+                originalPrice: readyPriceInfo.originalPriceWithPPN,
                 image: product.image,
                 availableToSell: stock,
-                stockStatus: undefined // No split status
+                stockStatus: undefined, // No split status
+                discountStr: readyPriceInfo.discountStr
             }, quantity);
         }
         // Scenario 1: Fully Ready (Non-equal prices or just logic)
@@ -88,9 +98,11 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                 name: `${product.name} (Ready Stock)`,
                 brand: product.brand || '',
                 price: readyPriceInfo.discountedPriceWithPPN,
+                originalPrice: readyPriceInfo.originalPriceWithPPN,
                 image: product.image,
                 availableToSell: stock,
-                stockStatus: 'READY'
+                stockStatus: 'READY',
+                discountStr: readyPriceInfo.discountStr
             }, quantity);
         }
         // Scenario 2: Fully Indent
@@ -102,9 +114,11 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                 name: `${product.name} (Indent)`,
                 brand: product.brand || '',
                 price: indentPriceInfo.discountedPriceWithPPN,
+                originalPrice: indentPriceInfo.originalPriceWithPPN,
                 image: product.image,
                 availableToSell: 0,
-                stockStatus: 'INDENT'
+                stockStatus: 'INDENT',
+                discountStr: indentPriceInfo.discountStr
             }, quantity);
         }
         // Scenario 3: Mixed (Split)
@@ -120,9 +134,11 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                 name: `${product.name} (Ready Stock)`,
                 brand: product.brand || '',
                 price: readyPriceInfo.discountedPriceWithPPN,
+                originalPrice: readyPriceInfo.originalPriceWithPPN,
                 image: product.image,
                 availableToSell: stock,
-                stockStatus: 'READY'
+                stockStatus: 'READY',
+                discountStr: readyPriceInfo.discountStr
             }, readyQty);
 
             // Add Indent Bundle
@@ -133,9 +149,11 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                 name: `${product.name} (Indent)`,
                 brand: product.brand || '',
                 price: indentPriceInfo.discountedPriceWithPPN,
+                originalPrice: indentPriceInfo.originalPriceWithPPN,
                 image: product.image,
                 availableToSell: 0,
-                stockStatus: 'INDENT'
+                stockStatus: 'INDENT',
+                discountStr: indentPriceInfo.discountStr
             }, indentQty);
         }
 
@@ -150,22 +168,46 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                 {/* Left - Product Image */}
                 <div className="lg:col-span-4">
                     <div className="bg-white rounded-xl border border-gray-200 p-4 relative">
-                        {/* Main Image */}
-                        <div className="aspect-square bg-white rounded-lg mb-4 flex items-center justify-center relative overflow-hidden">
-                            {product.image ? (
+                        {/* Main Image View */}
+                        <div className="aspect-square bg-white rounded-lg mb-4 flex items-center justify-center relative overflow-hidden group">
+                            {activeImage ? (
                                 <Image
-                                    src={product.image}
+                                    src={activeImage}
                                     alt={product.name}
                                     fill
-                                    className="object-contain"
+                                    className="object-contain transition-transform duration-300 group-hover:scale-105"
                                     sizes="(max-width: 768px) 100vw, 33vw"
                                 />
                             ) : (
-                                <div className="w-3/4 h-3/4 bg-gray-200 rounded-lg flex items-center justify-center text-gray-500">
-                                    No Image
+                                <div className="w-full h-full bg-gray-50 rounded-lg flex items-center justify-center text-gray-400">
+                                    Tidak ada gambar
                                 </div>
                             )}
                         </div>
+
+                        {/* Thumbnails (Only show if more than 1 image) */}
+                        {galleryImages.length > 1 && (
+                            <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-thin scrollbar-thumb-gray-200">
+                                {galleryImages.map((img, idx) => (
+                                    <button
+                                        key={idx}
+                                        onClick={() => setActiveImage(img)}
+                                        className={cn(
+                                            "relative w-16 h-16 flex-shrink-0 rounded-md border-2 overflow-hidden transition-all",
+                                            activeImage === img ? "border-red-600 opacity-100" : "border-transparent opacity-60 hover:opacity-100"
+                                        )}
+                                    >
+                                        <Image
+                                            src={img}
+                                            alt={`${product.name} thumbnail ${idx + 1}`}
+                                            fill
+                                            className="object-cover"
+                                            sizes="64px"
+                                        />
+                                    </button>
+                                ))}
+                            </div>
+                        )}
 
                         {/* Share Button */}
                         <ShareButton className="flex items-center justify-center gap-2 w-full text-sm text-teal-600 hover:text-teal-700 outline-none" text="Bagikan Halaman" />
@@ -458,6 +500,17 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                     </div>
                 </div>
             </div>
+
+            {/* Long Description */}
+            {(product.longDescription && product.longDescription !== "<p></p>") && (
+                <section className="mt-10 bg-white rounded-xl border border-gray-200 p-6 md:p-8 shadow-sm">
+                    <h2 className="text-xl font-bold text-gray-900 mb-6 border-b pb-4">Deskripsi Produk Lengkap</h2>
+                    <div
+                        className="prose prose-sm md:prose-base max-w-none text-gray-700 rich-text-content"
+                        dangerouslySetInnerHTML={{ __html: product.longDescription }}
+                    />
+                </section>
+            )}
 
             {/* Related Products */}
             {relatedProducts.length > 0 && (

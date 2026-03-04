@@ -1,0 +1,203 @@
+
+> hsop@0.1.0 build
+> prisma generate && next build
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+
+✔ Generated Prisma Client (v5.22.0) to ./node_modules/@prisma/client in 183ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Want to react to database changes in your app as they happen? Discover how with Pulse: https://pris.ly/tip-1-pulse
+
+▲ Next.js 16.1.6 (Turbopack)
+- Environments: .env
+- Experiments (use with caution):
+  · serverActions
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+Turbopack build encountered 4 warnings:
+./src/app/actions/upload.ts:91:26
+The file pattern ('/ROOT/public//uploads/' <dynamic> '/' <dynamic> '/' <dynamic> '-' <dynamic> | '/ROOT/public/uploads/' <dynamic> '/' <dynamic> '/' <dynamic> '-' <dynamic> | '/ROOT/public//uploads/' <dynamic> '/' <dynamic> '-' <dynamic> | '/ROOT/public/uploads/' <dynamic> '/' <dynamic> '-' <dynamic> | '/ROOT/public//uploads/' <dynamic> '/' <dynamic> '/' <dynamic> '-' <dynamic> '.jpg' | '/ROOT/public/uploads/' <dynamic> '/' <dynamic> '/' <dynamic> '-' <dynamic> '.jpg' | '/ROOT/public//uploads/' <dynamic> '/' <dynamic> '-' <dynamic> '.jpg' | '/ROOT/public/uploads/' <dynamic> '/' <dynamic> '-' <dynamic> '.jpg' | '/ROOT/public//uploads/' <dynamic> '/' <dynamic> '/' <dynamic> '-' <dynamic> '.png' | '/ROOT/public/uploads/' <dynamic> '/' <dynamic> '/' <dynamic> '-' <dynamic> '.png' | '/ROOT/public//uploads/' <dynamic> '/' <dynamic> '-' <dynamic> '.png' | '/ROOT/public/uploads/' <dynamic> '/' <dynamic> '-' <dynamic> '.png' | '/ROOT/public//uploads/' <dynamic> '/' <dynamic> '/' <dynamic> '-' <dynamic> '.webp' | '/ROOT/public/uploads/' <dynamic> '/' <dynamic> '/' <dynamic> '-' <dynamic> '.webp' | '/ROOT/public//uploads/' <dynamic> '/' <dynamic> '-' <dynamic> '.webp' | '/ROOT/public/uploads/' <dynamic> '/' <dynamic> '-' <dynamic> '.webp' | '/ROOT/public//uploads/' <dynamic> '/' <dynamic> '/' <dynamic> '-' <dynamic> '.gif' | '/ROOT/public/uploads/' <dynamic> '/' <dynamic> '/' <dynamic> '-' <dynamic> '.gif' | '/ROOT/public//uploads/' <dynamic> '/' <dynamic> '-' <dynamic> '.gif' | '/ROOT/public/uploads/' <dynamic> '/' <dynamic> '-' <dynamic> '.gif') matches 62824 files in [project]/
+[0m [90m 89 |[39m         [90m// 4. Save File[39m
+ [90m 90 |[39m         [36mawait[39m mkdir(uploadDir[33m,[39m { recursive[33m:[39m [36mtrue[39m })[33m;[39m
+[31m[1m>[22m[39m[90m 91 |[39m         [36mconst[39m filePath [33m=[39m join(uploadDir[33m,[39m uniqueName)[33m;[39m
+ [90m    |[39m                          [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 92 |[39m         [36mawait[39m writeFile(filePath[33m,[39m buffer)[33m;[39m
+ [90m 93 |[39m
+ [90m 94 |[39m         [36mconst[39m publicUrl [33m=[39m [32m`${relativeDir}/${uniqueName}`[39m[33m;[39m[0m
+
+Overly broad patterns can lead to build performance issues and over bundling.
+
+
+./src/app/actions/upload.ts:36:26
+The file pattern ('/ROOT/public//uploads/' <dynamic> '/' <dynamic> '/' <dynamic> '-' <dynamic> | '/ROOT/public/uploads/' <dynamic> '/' <dynamic> '/' <dynamic> '-' <dynamic> | '/ROOT/public//uploads/' <dynamic> '/' <dynamic> '-' <dynamic> | '/ROOT/public/uploads/' <dynamic> '/' <dynamic> '-' <dynamic>) matches 62824 files in [project]/
+[0m [90m 34 |[39m     [36mtry[39m {
+ [90m 35 |[39m         [36mawait[39m mkdir(uploadDir[33m,[39m { recursive[33m:[39m [36mtrue[39m })[33m;[39m
+[31m[1m>[22m[39m[90m 36 |[39m         [36mconst[39m filePath [33m=[39m join(uploadDir[33m,[39m uniqueName)[33m;[39m
+ [90m    |[39m                          [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 37 |[39m         console[33m.[39mlog([32m`Writing file to: ${filePath}`[39m)[33m;[39m
+ [90m 38 |[39m         [36mawait[39m writeFile(filePath[33m,[39m buffer)[33m;[39m
+ [90m 39 |[39m[0m
+
+Overly broad patterns can lead to build performance issues and over bundling.
+
+
+./src/app/actions/upload.ts:30:23
+The file pattern ('/ROOT/public//uploads/' <dynamic> '/' <dynamic> | '/ROOT/public/uploads/' <dynamic> '/' <dynamic>) matches 62824 files in [project]/
+[0m [90m 28 |[39m
+ [90m 29 |[39m     [36mconst[39m relativeDir [33m=[39m [32m`/uploads/${year}/${month}`[39m[33m;[39m
+[31m[1m>[22m[39m[90m 30 |[39m     [36mconst[39m uploadDir [33m=[39m join(process[33m.[39mcwd()[33m,[39m [32m"public"[39m[33m,[39m relativeDir)[33m;[39m
+ [90m    |[39m                       [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 31 |[39m
+ [90m 32 |[39m     console[33m.[39mlog([32m`Target directory: ${uploadDir}`[39m)[33m;[39m
+ [90m 33 |[39m[0m
+
+Overly broad patterns can lead to build performance issues and over bundling.
+
+
+./src/app/actions/upload.ts:87:27
+The file pattern ('/ROOT/public//uploads/' <dynamic> '/' <dynamic> | '/ROOT/public/uploads/' <dynamic> '/' <dynamic>) matches 62824 files in [project]/
+[0m [90m 85 |[39m
+ [90m 86 |[39m         [36mconst[39m relativeDir [33m=[39m [32m`/uploads/${year}/${month}`[39m[33m;[39m
+[31m[1m>[22m[39m[90m 87 |[39m         [36mconst[39m uploadDir [33m=[39m join(process[33m.[39mcwd()[33m,[39m [32m"public"[39m[33m,[39m relativeDir)[33m;[39m
+ [90m    |[39m                           [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 88 |[39m
+ [90m 89 |[39m         [90m// 4. Save File[39m
+ [90m 90 |[39m         [36mawait[39m mkdir(uploadDir[33m,[39m { recursive[33m:[39m [36mtrue[39m })[33m;[39m[0m
+
+Overly broad patterns can lead to build performance issues and over bundling.
+
+
+✓ Compiled successfully in 25.4s
+  Running TypeScript ...
+  Collecting page data using 9 workers ...
+  Generating static pages using 9 workers (0/61) ...
+  Generating static pages using 9 workers (15/61) 
+  Generating static pages using 9 workers (30/61) 
+Failed to load footer settings: Error: Dynamic server usage: Route /kategori couldn't be rendered statically because it used unstable_noStore(). See more info here: https://nextjs.org/docs/messages/dynamic-server-error
+    at e (.next/server/chunks/ssr/[root-of-the-server]__bd959535._.js:6:394)
+    at q (.next/server/chunks/ssr/_d9e9ffaa._.js:3:2649)
+    at stringify (<anonymous>) {
+  description: "Route /kategori couldn't be rendered statically because it used unstable_noStore(). See more info here: https://nextjs.org/docs/messages/dynamic-server-error",
+  digest: 'DYNAMIC_SERVER_USAGE'
+}
+Failed to get customer pricing data: Error: Dynamic server usage: Route /pesanan-besar couldn't be rendered statically because it used `cookies`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error
+    at ae (.next/server/chunks/ssr/_3a8e13ff._.js:1:49158)
+    at e (.next/server/chunks/ssr/[root-of-the-server]__a0ae7581._.js:5:12794)
+    at i (.next/server/chunks/ssr/[root-of-the-server]__314c14ae._.js:1:7266)
+    at stringify (<anonymous>) {
+  description: "Route /pesanan-besar couldn't be rendered statically because it used `cookies`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error",
+  digest: 'DYNAMIC_SERVER_USAGE'
+}
+Failed to load footer settings: Error: Dynamic server usage: Route /pesanan-besar couldn't be rendered statically because it used unstable_noStore(). See more info here: https://nextjs.org/docs/messages/dynamic-server-error
+    at e (.next/server/chunks/ssr/[root-of-the-server]__bd959535._.js:6:394)
+    at q (.next/server/chunks/ssr/_d9e9ffaa._.js:3:2649)
+    at stringify (<anonymous>) {
+  description: "Route /pesanan-besar couldn't be rendered statically because it used unstable_noStore(). See more info here: https://nextjs.org/docs/messages/dynamic-server-error",
+  digest: 'DYNAMIC_SERVER_USAGE'
+}
+  Generating static pages using 9 workers (45/61) 
+✓ Generating static pages using 9 workers (61/61) in 1177.3ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ○ /_not-found
+├ ƒ /[slug]
+├ ○ /admin
+├ ƒ /admin/customers
+├ ƒ /admin/customers/[id]
+├ ƒ /admin/customers/[id]/edit
+├ ○ /admin/customers/new
+├ ○ /admin/developer/webhooks
+├ ○ /admin/login
+├ ƒ /admin/news
+├ ƒ /admin/news/[id]/edit
+├ ƒ /admin/news/new
+├ ƒ /admin/orders
+├ ƒ /admin/orders/[id]
+├ ○ /admin/pages
+├ ƒ /admin/pages/[id]
+├ ƒ /admin/pages/[id]/edit
+├ ○ /admin/pages/new
+├ ƒ /admin/products
+├ ƒ /admin/products/[id]
+├ ƒ /admin/products/[id]/edit
+├ ƒ /admin/products/categories
+├ ƒ /admin/products/default-discounts
+├ ƒ /admin/sales/deliveries
+├ ƒ /admin/sales/invoices
+├ ƒ /admin/sales/orders
+├ ƒ /admin/sales/orders/[id]
+├ ○ /admin/sales/quotations
+├ ƒ /admin/sales/quotations/[id]
+├ ○ /admin/settings
+├ ○ /admin/settings/banners
+├ ○ /admin/settings/categories
+├ ○ /admin/settings/categories-menu
+├ ○ /admin/settings/cta
+├ ƒ /admin/settings/discounts
+├ ○ /admin/settings/footer
+├ ○ /admin/settings/format-file
+├ ƒ /admin/settings/grid-categories
+├ ○ /admin/settings/portfolio
+├ ○ /admin/settings/roles
+├ ○ /admin/settings/search
+├ ○ /admin/settings/sections
+├ ○ /admin/unauthorized
+├ ○ /admin/upgrades
+├ ○ /admin/users
+├ ƒ /api/admin/roles/permissions
+├ ƒ /api/admin/users
+├ ƒ /api/admin/users/[id]
+├ ƒ /api/auth/me
+├ ƒ /api/auth/permissions
+├ ƒ /api/chat
+├ ƒ /api/cron/sync-stock
+├ ƒ /api/news
+├ ƒ /api/notifications/stream
+├ ƒ /api/pdf/[type]/[id]
+├ ƒ /api/webhooks/accurate
+├ ƒ /api/webhooks/process
+├ ƒ /api/wilayah/districts/[regencyId]
+├ ƒ /api/wilayah/kodepos
+├ ƒ /api/wilayah/provinces
+├ ƒ /api/wilayah/regencies/[provinceId]
+├ ○ /apple-icon.png
+├ ƒ /berita
+├ ƒ /berita/[slug]
+├ ○ /daftar
+├ ƒ /dashboard
+├ ƒ /dashboard/alamat
+├ ƒ /dashboard/estimasi
+├ ƒ /dashboard/estimasi/[id]
+├ ƒ /dashboard/invoice
+├ ƒ /dashboard/notifikasi
+├ ƒ /dashboard/password
+├ ƒ /dashboard/profil
+├ ƒ /dashboard/rfq
+├ ƒ /dashboard/settings
+├ ƒ /dashboard/tim
+├ ƒ /dashboard/transaksi
+├ ƒ /dashboard/transaksi/[id]
+├ ƒ /dashboard/upgrade
+├ ○ /icon.png
+├ ƒ /kategori
+├ ƒ /keranjang
+├ ○ /lupa-password
+├ ○ /masuk
+├ ƒ /pencarian
+├ ƒ /pesanan-besar
+├ ƒ /produk/[slug]
+├ ○ /reset-password
+└ ○ /verifikasi
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

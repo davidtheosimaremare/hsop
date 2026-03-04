@@ -8,48 +8,63 @@ datasource db {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  password     String
-  name         String?
-  role         String    @default("ADMIN")
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  customerId   String?
-  isActive     Boolean   @default(true)
-  phone        String?
-  username     String?   @unique
-  otp          String?
-  otpExpiresAt DateTime?
-  isVerified   Boolean   @default(false)
-  customer     Customer? @relation(fields: [customerId], references: [id])
-  upgradeRequests UpgradeRequest[]
+  id                   String                @id @default(cuid())
+  email                String                @unique
+  password             String
+  name                 String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  customerId           String?
+  isActive             Boolean               @default(true)
+  phone                String?
+  username             String?               @unique
+  address              String?
+  otp                  String?
+  otpExpiresAt         DateTime?
+  isVerified           Boolean               @default(false)
+  role                 String                @default("ADMIN")
+  position             String?
+  isPrimaryContact     Boolean               @default(false)
+  Notification         Notification[]
+  SalesQuotation       SalesQuotation[]
+  upgradeRequests      UpgradeRequest[]
+  customer             Customer?             @relation(fields: [customerId], references: [id])
+  UserClient           UserClient[]
+  ProfileUpdateRequest ProfileUpdateRequest?
 }
 
 model Customer {
-  id               String            @id
-  accurateId       Int?              @unique
-  name             String?
-  email            String?           @unique
-  phone            String?
-  address          String?
-  company          String?
-  type             String            @default("BISNIS")
-  discount1        Float             @default(0)
-  discount2        Float             @default(0)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  discountCP       String            @default("0")
-  discountCPIndent String            @default("0")
-  discountLP       String            @default("0")
-  discountLPIndent String            @default("0")
-  discountLighting String            @default("0")
-  discountLightingIndent String      @default("0")
-  businessCategory String?
-  image            String?
-  addresses        CustomerAddress[]
-  orders           Order[]
-  users            User[]
+  id                     String            @id @default(cuid())
+  accurateId             Int?              @unique
+  name                   String?
+  email                  String?           @unique
+  phone                  String?
+  address                String?
+  company                String?
+  companyEmail           String?
+  companyPhone           String?
+  province               String?
+  city                   String?
+  district               String?
+  postalCode             String?
+  discount1              Float             @default(0)
+  discount2              Float             @default(0)
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+  discountCP             String            @default("0")
+  discountLP             String            @default("0")
+  discountLighting       String            @default("0")
+  businessCategory       String?
+  image                  String?
+  discountCPIndent       String            @default("0")
+  discountLPIndent       String            @default("0")
+  discountLightingIndent String            @default("0")
+  accurateCustomerCode   String?
+  type                   String            @default("BISNIS")
+  addresses              CustomerAddress[]
+  orders                 Order[]
+  SalesQuotation         SalesQuotation[]
+  users                  User[]
 }
 
 model CustomerAddress {
@@ -57,9 +72,14 @@ model CustomerAddress {
   customerId String
   label      String?
   address    String
+  district   String?
+  city       String?
+  province   String?
+  postalCode String?
   recipient  String?
   phone      String?
   isPrimary  Boolean  @default(false)
+  isBilling  Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
@@ -70,11 +90,13 @@ model Product {
   sku             String      @unique
   name            String
   description     String?
+  longDescription String?
   price           Float
   availableToSell Int         @default(0)
   brand           String?
   category        String?
   image           String?
+  sliderImages    String[]    @default([])
   accurateId      Int?        @unique
   itemType        String?
   isVisible       Boolean     @default(true)
@@ -194,60 +216,99 @@ model News {
 }
 
 model DiscountRule {
-  id               String   @id @default(cuid())
-  categoryGroup    String   @unique // "LP", "CP", "LIGHTING"
-  stockDiscount    String   @default("0")
-  indentDiscount   String   @default("0")
-  description      String?
-  updatedAt        DateTime @updatedAt
+  id             String   @id @default(cuid())
+  categoryGroup  String   @unique
+  stockDiscount  String   @default("0")
+  indentDiscount String   @default("0")
+  description    String?
+  updatedAt      DateTime @updatedAt
 }
 
 model SiteSetting {
   id        String   @id @default(cuid())
-  key       String   @unique // e.g., "footer_config"
+  key       String   @unique
   value     Json
   updatedAt DateTime @updatedAt
 }
 
 model SalesQuotation {
-  id              String                @id @default(cuid())
-  quotationNo     String                @unique
-  userId          String?
-  customerId      String?
-  email           String
-  phone           String
-  status          String                @default("PENDING") // PENDING, PROCESSING, OFFERED, CONFIRMED, SHIPPED, COMPLETED, CANCELLED
-  totalAmount     Float                 @default(0)
-  notes           String?
-  adminNotes      String?               // catatan umum admin untuk customer
-  specialDiscount Float?                // diskon spesial (persentase) untuk keseluruhan
-  processedBy     String?               // admin yang memproses
-  processedAt     DateTime?             // waktu mulai diproses
-  offeredAt       DateTime?             // waktu penawaran dikirim
-  confirmedAt     DateTime?             // waktu customer konfirmasi / admin buat SO
-  shippedAt       DateTime?             // waktu barang dikirim
-  completedAt     DateTime?             // waktu barang diterima
-  trackingNumber  String?               // nomor resi pengiriman
-  shippingNotes   String?               // catatan pengiriman
-  shippingCost    Float?                // biaya ongkir
-  freeShipping    Boolean               @default(false) // gratis ongkir (ditanggung toko)
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
-  items           SalesQuotationItem[]
+  id                     String                   @id @default(cuid())
+  quotationNo            String                   @unique
+  userId                 String?
+  customerId             String?
+  email                  String
+  phone                  String
+  status                 String                   @default("PENDING")
+  totalAmount            Float                    @default(0)
+  notes                  String?
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+  adminNotes             String?
+  offeredAt              DateTime?
+  processedAt            DateTime?
+  processedBy            String?
+  specialDiscount        Float?
+  completedAt            DateTime?
+  confirmedAt            DateTime?
+  shippedAt              DateTime?
+  shippingNotes          String?
+  shippingAddress        String?
+  shippingProofPath      String?
+  trackingNumber         String?
+  freeShipping           Boolean                  @default(false)
+  shippingCost           Float?
+  specialDiscountNote    String?
+  specialDiscountRequest Boolean                  @default(false)
+  userPoPath             String?
+  userClientId           String?
+  returnEvidencePath     String?
+  accurateDoId           Int?
+  accurateDoNo           String?
+  accurateHsoId          Int?
+  accurateHsoNo          String?
+  accurateHsqId          Int?
+  accurateHsqNo          String?
+  accurateSyncStatus     String?                  @default("PENDING")
+  clientName             String?
+  hdoPdfGeneratedAt      DateTime?
+  hsoPdfGeneratedAt      DateTime?
+  hsqPdfGeneratedAt      DateTime?
+  paymentMethod          String?                  @default("CASH")
+  poNotes                String?
+  revisionNumber         Int                      @default(0)
+  adminDoPdfPath         String?
+  adminInvoicePdfPath    String?
+  adminQuotePdfPath      String?
+  adminSoPdfPath         String?
+  paymentProofPath       String?
+  receiptEvidencePath    String?
+  returnRequest          Boolean                  @default(false)
+  taxInvoiceUrl          String?
+  returnReason           String?
+  invoice                SalesInvoice?
+  customer               Customer?                @relation(fields: [customerId], references: [id])
+  user                   User?                    @relation(fields: [userId], references: [id])
+  activities             SalesQuotationActivity[]
+  items                  SalesQuotationItem[]
 }
 
 model SalesQuotationItem {
-  id           String         @id @default(cuid())
-  quotationId  String
-  productSku   String
-  productName  String
-  brand        String
-  quantity     Int
-  price        Float
-  isAvailable  Boolean?       // null = belum dicek, true = tersedia, false = tidak tersedia
-  availableQty Int?           // stok tersedia saat dicek
-  adminNote    String?        // catatan admin (alternatif, info stok, dll)
-  quotation    SalesQuotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  id                            String                          @id @default(cuid())
+  quotationId                   String
+  productSku                    String
+  productName                   String
+  brand                         String
+  quantity                      Int
+  price                         Float
+  basePrice                     Float?
+  discountPercent               Float?
+  discountAmount                Float?
+  discountStr                   String?
+  adminNote                     String?
+  availableQty                  Int?
+  isAvailable                   Boolean?
+  quotation                     SalesQuotation                  @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  SalesQuotationItemAlternative SalesQuotationItemAlternative[]
 }
 
 model HomeCTA {
@@ -259,53 +320,172 @@ model HomeCTA {
   primaryButtonLink   String?
   secondaryButtonText String?
   secondaryButtonLink String?
-  position            String   @unique // "LEFT" (Business) or "RIGHT" (Vendor)
+  position            String   @unique
   isVisible           Boolean  @default(true)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }
 
 model WebhookLog {
-  id          String   @id @default(cuid())
-  source      String   @default("ACCURATE")
+  id          String    @id @default(cuid())
+  source      String    @default("ACCURATE")
   event       String
   payload     Json
-  status      String   // PENDING, PROCESSING, SUCCESS, ERROR
+  status      String
   message     String?
-  retryCount  Int      @default(0)
+  retryCount  Int       @default(0)
   lastRetryAt DateTime?
-  processedAt DateTime @default(now())
+  processedAt DateTime  @default(now())
 }
 
 model Page {
-  id              String    @id @default(cuid())
+  id              String   @id @default(cuid())
   title           String
-  slug            String    @unique
+  slug            String   @unique
   content         String
   metaTitle       String?
   metaDescription String?
-  isPublished     Boolean   @default(false)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  isPublished     Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 model UpgradeRequest {
   id           String   @id @default(cuid())
   userId       String
-  user         User     @relation(fields: [userId], references: [id])
-  requestType  String   // RESELLER, EXCLUSIVE
-  status       String   @default("PENDING") // PENDING, APPROVED, REJECTED
-  
-  // Data specific to upgrade
+  requestType  String
+  status       String   @default("PENDING")
   companyName  String?
   businessType String?
   address      String?
   phone        String?
-  ktpName      String?  // Nama sesuai KTP
-  ktp          String?  // Image URL
-  npwp         String?  // Image URL
-  
+  ktp          String?
+  npwp         String?
   adminNotes   String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  ktpName      String?
+  user         User     @relation(fields: [userId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      String   @default("INFO")
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RolePermission {
+  id          String   @id @default(cuid())
+  updatedAt   DateTime @updatedAt
+  permissions Json     @default("[]")
+  role        String   @unique
+}
+
+model SalesInvoice {
+  id                String         @id @default(cuid())
+  quotationId       String         @unique
+  accurateHsiId     Int?           @unique
+  accurateHsiNo     String?        @unique
+  invoiceDate       DateTime       @default(now())
+  dueDate           DateTime?
+  totalAmount       Float          @default(0)
+  paidAmount        Float          @default(0)
+  status            String         @default("UNPAID")
+  reminderSentAt    DateTime?
+  overdueNotifiedAt DateTime?
+  pdfGeneratedAt    DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  quotation         SalesQuotation @relation(fields: [quotationId], references: [id])
+}
+
+model SalesQuotationActivity {
+  id          String         @id @default(cuid())
+  quotationId String
+  type        String
+  title       String
+  description String?
+  performedBy String?
+  createdAt   DateTime       @default(now())
+  quotation   SalesQuotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+}
+
+model SalesReturn {
+  id               String   @id @default(cuid())
+  quotationId      String
+  reason           String
+  status           String   @default("REQUESTED")
+  adminNotes       String?
+  photoUrls        String?
+  accurateReturnId Int?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model UserClient {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  company   String?
+  email     String?
+  phone     String?
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ProfileUpdateRequest {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  field        String
+  newValue     String
+  otp          String
+  otpExpiresAt DateTime
+  status       String   @default("PENDING")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SalesQuotationItemAlternative {
+  id              String             @id @default(cuid())
+  quotationItemId String
+  productSku      String
+  productName     String
+  brand           String
+  quantity        Int
+  price           Float
+  note            String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  quotationItem   SalesQuotationItem @relation(fields: [quotationItemId], references: [id], onDelete: Cascade)
+}
+
+model Province {
+  id        String    @id
+  name      String
+  regencies Regency[]
+}
+
+model Regency {
+  id         String     @id
+  provinceId String
+  name       String
+  province   Province   @relation(fields: [provinceId], references: [id])
+  districts  District[]
+}
+
+model District {
+  id        String  @id
+  regencyId String
+  name      String
+  regency   Regency @relation(fields: [regencyId], references: [id])
 }

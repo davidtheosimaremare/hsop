@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import {
@@ -24,6 +24,12 @@ interface ProductVisibilityToggleProps {
 export function ProductVisibilityToggle({ productId, isVisible }: ProductVisibilityToggleProps) {
     const [isPending, startTransition] = useTransition();
     const [open, setOpen] = useState(false);
+    const [mounted, setMounted] = useState(false);
+
+    // Fix hydration mismatch by only rendering Radix components after mount
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const handleConfirm = () => {
         startTransition(async () => {
@@ -31,6 +37,15 @@ export function ProductVisibilityToggle({ productId, isVisible }: ProductVisibil
             setOpen(false);
         });
     };
+
+    if (!mounted) {
+        return (
+            <Button variant="outline" className="text-slate-400 border-slate-200" disabled>
+                {isVisible ? <EyeOff className="mr-2 h-4 w-4" /> : <Eye className="mr-2 h-4 w-4" />}
+                {isVisible ? 'Sembunyikan' : 'Tampilkan'}
+            </Button>
+        );
+    }
 
     return (
         <AlertDialog open={open} onOpenChange={setOpen}>

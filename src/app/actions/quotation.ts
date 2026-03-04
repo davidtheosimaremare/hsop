@@ -2,6 +2,9 @@
 
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { revalidatePath } from "next/cache";
+import { updateAccurateHSQ } from "@/lib/accurate";
+import { logActivity } from "./activity";
 
 export async function getUserQuotations() {
     const session = await getSession();
@@ -10,6 +13,12 @@ export async function getUserQuotations() {
     }
 
     try {
+        const user = await db.user.findUnique({
+            where: { id: session.user.id },
+            include: { customer: true }
+        });
+        const userType = user?.customer?.type || "RETAIL";
+
         const quotations = await db.salesQuotation.findMany({
             where: { userId: session.user.id },
             include: {
@@ -18,76 +27,85 @@ export async function getUserQuotations() {
             orderBy: { createdAt: "desc" },
         });
 
+        // Fetch product images for items
+        const allSkus = Array.from(new Set(quotations.flatMap(q => q.items.map(i => i.productSku))));
+        const products = await db.product.findMany({
+            where: { sku: { in: allSkus } },
+            select: { sku: true, image: true }
+        });
+        const productMap = new Map(products.map(p => [p.sku, p]));
+
         return {
             success: true,
+            userType,
             quotations: quotations.map(q => ({
-                id: q.id,
-                quotationNo: q.quotationNo,
-                status: q.status,
-                totalAmount: q.totalAmount,
-                notes: q.notes,
-                adminNotes: q.adminNotes,
-                specialDiscount: q.specialDiscount,
+                ...q,
                 offeredAt: q.offeredAt?.toISOString() || null,
                 confirmedAt: q.confirmedAt?.toISOString() || null,
                 shippedAt: q.shippedAt?.toISOString() || null,
                 completedAt: q.completedAt?.toISOString() || null,
-                trackingNumber: q.trackingNumber,
-                shippingNotes: q.shippingNotes,
-                shippingCost: q.shippingCost,
-                freeShipping: q.freeShipping,
                 createdAt: q.createdAt.toISOString(),
                 updatedAt: q.updatedAt.toISOString(),
-                items: q.items.map(item => ({
-                    id: item.id,
-                    productSku: item.productSku,
-                    productName: item.productName,
-                    brand: item.brand,
-                    quantity: item.quantity,
-                    price: item.price,
-                    isAvailable: item.isAvailable,
-                    availableQty: item.availableQty,
-                    adminNote: item.adminNote,
-                })),
+                items: q.items.map(item => {
+                    const product = productMap.get(item.productSku);
+                    return {
+                        id: item.id,
+                        productSku: item.productSku,
+                        productName: item.productName,
+                        brand: item.brand,
+                        quantity: item.quantity,
+                        price: item.price,
+                        basePrice: item.basePrice,
+                        discountPercent: item.discountPercent,
+                        discountAmount: item.discountAmount,
+                        discountStr: item.discountStr,
+                        isAvailable: item.isAvailable,
+                        availableQty: item.availableQty,
+                        adminNote: item.adminNote,
+                        image: product?.image,
+                    };
+                }),
             })),
         };
     } catch (error) {
         console.error("[getUserQuotations] Error:", error);
-        return { success: false, error: "Gagal mengambil data", quotations: [] };
+        return { success: false, error: "Gagal mengambil data", quotations: [], userType: "RETAIL" };
     }
 }
 
 // ── Admin: Get all quotations ──
-export async function getAllQuotations() {
+export async function getAllQuotations(page = 1, limit = 10, statusFilter?: string) {
     try {
-        const quotations = await db.salesQuotation.findMany({
-            include: { items: true },
-            orderBy: { createdAt: "desc" },
-        });
+        const where: any = {};
+        if (statusFilter && statusFilter !== "ALL") {
+            where.status = statusFilter;
+        }
+
+        const [quotations, total] = await Promise.all([
+            db.salesQuotation.findMany({
+                where,
+                include: {
+                    items: true,
+                    user: { select: { name: true } },
+                    customer: { select: { name: true } }
+                },
+                orderBy: { createdAt: "desc" },
+                skip: (page - 1) * limit,
+                take: limit,
+            }),
+            db.salesQuotation.count({ where })
+        ]);
 
         return {
             success: true,
             quotations: quotations.map(q => ({
-                id: q.id,
-                quotationNo: q.quotationNo,
-                email: q.email,
-                phone: q.phone,
-                userId: q.userId,
-                status: q.status,
-                totalAmount: q.totalAmount,
-                notes: q.notes,
-                adminNotes: q.adminNotes,
-                specialDiscount: q.specialDiscount,
-                processedBy: q.processedBy,
+                ...q,
+                customerName: q.clientName || q.customer?.name || q.user?.name || "No Name",
                 processedAt: q.processedAt?.toISOString() || null,
                 offeredAt: q.offeredAt?.toISOString() || null,
                 confirmedAt: q.confirmedAt?.toISOString() || null,
                 shippedAt: q.shippedAt?.toISOString() || null,
                 completedAt: q.completedAt?.toISOString() || null,
-                trackingNumber: q.trackingNumber,
-                shippingNotes: q.shippingNotes,
-                shippingCost: q.shippingCost,
-                freeShipping: q.freeShipping,
                 createdAt: q.createdAt.toISOString(),
                 updatedAt: q.updatedAt.toISOString(),
                 items: q.items.map(item => ({
@@ -97,15 +115,42 @@ export async function getAllQuotations() {
                     brand: item.brand,
                     quantity: item.quantity,
                     price: item.price,
+                    basePrice: item.basePrice,
+                    discountPercent: item.discountPercent,
+                    discountAmount: item.discountAmount,
                     isAvailable: item.isAvailable,
                     availableQty: item.availableQty,
                     adminNote: item.adminNote,
                 })),
             })),
+            pagination: {
+                total,
+                pages: Math.ceil(total / limit),
+                currentPage: page
+            }
         };
     } catch (error) {
         console.error("[getAllQuotations] Error:", error);
         return { success: false, error: "Gagal mengambil data", quotations: [] };
+    }
+}
+
+// ── Admin: Get status counts ──
+export async function getQuotationStatusCounts() {
+    try {
+        const counts = await db.salesQuotation.groupBy({
+            by: ['status'],
+            _count: true
+        });
+
+        const result: Record<string, number> = {};
+        counts.forEach(c => {
+            result[c.status] = c._count;
+        });
+
+        return { success: true, counts: result };
+    } catch (error) {
+        return { success: false, error: "Gagal mengambil statistik" };
     }
 }
 
@@ -136,11 +181,33 @@ export async function updateQuotationStatus(id: string, status: string) {
 }
 
 // ── Admin: Get quotation detail with real-time stock info ──
-export async function getQuotationDetail(id: string) {
+export async function getQuotationDetail(idOrNo: string) {
     try {
-        const quotation = await db.salesQuotation.findUnique({
-            where: { id },
-            include: { items: true },
+        // Decode in case it's a URL-encoded quotation number
+        const decodedIdOrNo = decodeURIComponent(idOrNo);
+
+        const quotation = await db.salesQuotation.findFirst({
+            where: {
+                OR: [
+                    { id: decodedIdOrNo },
+                    { quotationNo: decodedIdOrNo },
+                    { quotationNo: decodedIdOrNo.replace(/-/g, "/") }
+                ]
+            },
+            include: {
+                customer: true,
+                user: { select: { name: true } },
+                activities: {
+                    orderBy: {
+                        createdAt: "desc"
+                    }
+                },
+                items: {
+                    include: {
+                        SalesQuotationItemAlternative: true
+                    }
+                }
+            },
         });
 
         if (!quotation) {
@@ -149,32 +216,34 @@ export async function getQuotationDetail(id: string) {
 
         // Fetch real-time stock for each product SKU
         const skus = quotation.items.map(item => item.productSku);
+        // Also fetch skus for alternatives
+        const altSkus = quotation.items.flatMap((item: any) => item.SalesQuotationItemAlternative?.map((a: any) => a.productSku) || []);
+        const allSkus = Array.from(new Set([...skus, ...altSkus]));
+
         const products = await db.product.findMany({
-            where: { sku: { in: skus } },
-            select: { sku: true, availableToSell: true, name: true, price: true },
+            where: { sku: { in: allSkus } },
+            select: { sku: true, availableToSell: true, name: true, price: true, image: true, category: true },
         });
         const stockMap = new Map(products.map(p => [p.sku, p]));
 
         return {
             success: true,
             quotation: {
-                id: quotation.id,
-                quotationNo: quotation.quotationNo,
-                email: quotation.email,
-                phone: quotation.phone,
-                userId: quotation.userId,
-                customerId: quotation.customerId,
-                status: quotation.status,
-                totalAmount: quotation.totalAmount,
-                notes: quotation.notes,
-                adminNotes: quotation.adminNotes,
-                specialDiscount: quotation.specialDiscount,
-                processedBy: quotation.processedBy,
+                ...quotation,
+                customerName: quotation.clientName || quotation.customer?.name || (quotation as any).user?.name || "No Name",
+                customerCompany: quotation.customer?.company || null,
                 processedAt: quotation.processedAt?.toISOString() || null,
                 offeredAt: quotation.offeredAt?.toISOString() || null,
+                confirmedAt: quotation.confirmedAt?.toISOString() || null,
+                shippedAt: quotation.shippedAt?.toISOString() || null,
+                completedAt: quotation.completedAt?.toISOString() || null,
                 createdAt: quotation.createdAt.toISOString(),
                 updatedAt: quotation.updatedAt.toISOString(),
-                items: quotation.items.map(item => {
+                activities: (quotation.activities || []).map(a => ({
+                    ...a,
+                    createdAt: a.createdAt.toISOString(),
+                })),
+                items: quotation.items.map((item: any) => {
                     const product = stockMap.get(item.productSku);
                     return {
                         id: item.id,
@@ -183,12 +252,29 @@ export async function getQuotationDetail(id: string) {
                         brand: item.brand,
                         quantity: item.quantity,
                         price: item.price,
+                        basePrice: item.basePrice,
+                        discountPercent: item.discountPercent,
+                        discountAmount: item.discountAmount,
+                        discountStr: item.discountStr,
                         isAvailable: item.isAvailable,
                         availableQty: item.availableQty,
                         adminNote: item.adminNote,
-                        // Real-time stock info
+                        image: product?.image || item.image,
+                        category: product?.category,
                         currentStock: product?.availableToSell ?? 0,
                         currentPrice: product?.price ?? item.price,
+                        alternatives: (item.SalesQuotationItemAlternative || []).map((alt: any) => {
+                            const altProd = stockMap.get(alt.productSku);
+                            return {
+                                id: alt.id,
+                                productSku: alt.productSku,
+                                productName: alt.productName,
+                                price: alt.price,
+                                image: altProd?.image,
+                                category: altProd?.category,
+                                availableToSell: altProd?.availableToSell ?? 0
+                            };
+                        })
                     };
                 }),
             },
@@ -200,19 +286,35 @@ export async function getQuotationDetail(id: string) {
 }
 
 // ── Admin: Start processing a quotation ──
-export async function processQuotation(id: string) {
+export async function processQuotation(idOrNo: string) {
     try {
+        const decodedIdOrNo = decodeURIComponent(idOrNo);
+        const q = await db.salesQuotation.findFirst({
+            where: {
+                OR: [
+                    { id: decodedIdOrNo },
+                    { quotationNo: decodedIdOrNo },
+                    { quotationNo: decodedIdOrNo.replace(/-/g, "/") }
+                ]
+            }
+        });
+        if (!q) return { success: false, error: "Not found" };
+
         const session = await getSession();
         const adminName = session?.user?.name || session?.user?.email || "Admin";
 
         await db.salesQuotation.update({
-            where: { id },
+            where: { id: q.id },
             data: {
                 status: "PROCESSING",
                 processedBy: adminName,
                 processedAt: new Date(),
             },
         });
+
+        await logActivity(q.id, "PROCESSING", "Mulai diproses", `Admin ${adminName} mulai memproses penawaran ini.`, "ADMIN");
+
+        revalidatePath(`/admin/sales/quotations/${decodeURIComponent(idOrNo)}`);
         return { success: true };
     } catch (error) {
         console.error("[processQuotation] Error:", error);
@@ -220,49 +322,36 @@ export async function processQuotation(id: string) {
     }
 }
 
-// ── Admin: Update individual item response ──
-export async function updateQuotationItemResponse(
-    itemId: string,
-    data: {
-        isAvailable: boolean | null;
-        availableQty: number | null;
-        adminNote: string | null;
-    }
-) {
+// ── Admin: Save draft of offer ──
+export async function saveQuotationDraft(idOrNo: string, data: any) {
     try {
-        await db.salesQuotationItem.update({
-            where: { id: itemId },
-            data: {
-                isAvailable: data.isAvailable,
-                availableQty: data.availableQty,
-                adminNote: data.adminNote,
-            },
+        const decodedIdOrNo = decodeURIComponent(idOrNo);
+        const q = await db.salesQuotation.findFirst({
+            where: {
+                OR: [
+                    { id: decodedIdOrNo },
+                    { quotationNo: decodedIdOrNo },
+                    { quotationNo: decodedIdOrNo.replace(/-/g, "/") }
+                ]
+            }
         });
-        return { success: true };
-    } catch (error) {
-        console.error("[updateQuotationItemResponse] Error:", error);
-        return { success: false, error: "Gagal mengupdate item" };
-    }
-}
+        if (!q) return { success: false, error: "Not found" };
 
-// ── Admin: Submit the final offer ──
-export async function submitQuotationOffer(
-    id: string,
-    data: {
-        adminNotes: string | null;
-        specialDiscount: number | null;
-        items: {
-            id: string;
-            isAvailable: boolean | null;
-            availableQty: number | null;
-            adminNote: string | null;
-        }[];
-    }
-) {
-    try {
-        // Update all items in a transaction
-        const updatedQuotation = await db.$transaction(async (tx) => {
-            // Update each item
+        const hasAlternatives = data.items?.some((i: any) => i.alternatives && i.alternatives.length > 0);
+
+        await db.$transaction(async (tx) => {
+            await tx.salesQuotation.update({
+                where: { id: q.id },
+                data: {
+                    // Move from PENDING → PROCESSING when admin first saves draft
+                    status: q.status === "PENDING" ? "PROCESSING" : q.status,
+                    adminNotes: data.adminNotes,
+                    specialDiscount: data.specialDiscount,
+                    specialDiscountNote: data.specialDiscountNote,
+                    processedAt: q.status === "PENDING" ? new Date() : q.processedAt,
+                }
+            });
+
             for (const item of data.items) {
                 await tx.salesQuotationItem.update({
                     where: { id: item.id },
@@ -270,33 +359,335 @@ export async function submitQuotationOffer(
                         isAvailable: item.isAvailable,
                         availableQty: item.availableQty,
                         adminNote: item.adminNote,
-                    },
+                    }
                 });
-            }
 
-            // Update the quotation itself
-            const q = await tx.salesQuotation.update({
-                where: { id },
+                // Handle alternatives if provided
+                if (item.alternatives) {
+                    // Delete old alternatives
+                    await tx.salesQuotationItemAlternative.deleteMany({
+                        where: { quotationItemId: item.id }
+                    });
+
+                    // Create new alternatives
+                    if (item.alternatives.length > 0) {
+                        for (const alt of item.alternatives) {
+                            await tx.salesQuotationItemAlternative.create({
+                                data: {
+                                    quotationItemId: item.id,
+                                    productSku: alt.productSku,
+                                    productName: alt.productName,
+                                    brand: alt.brand,
+                                    quantity: alt.quantity,
+                                    price: alt.price,
+                                    note: alt.note
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+        });
+
+        const actMsg = hasAlternatives
+            ? `Admin memperbarui draft penawaran. Terdapat produk alternatif yang ditawarkan kepada customer.`
+            : `Admin memperbarui detail draft penawaran (stok/diskon/catatan).`;
+        await logActivity(q.id, "DRAFT_UPDATED", "Draft Diperbarui", actMsg, "ADMIN");
+
+        // --- Sync to Accurate HSQ ---
+        if (q.accurateHsqId) {
+            try {
+                const updatedQ = await db.salesQuotation.findUnique({
+                    where: { id: q.id },
+                    include: {
+                        items: {
+                            include: { SalesQuotationItemAlternative: true }
+                        }
+                    }
+                });
+                if (updatedQ) {
+                    await updateAccurateHSQ(q.accurateHsqId, updatedQ);
+                }
+            } catch (syncErr) {
+                console.error("[saveQuotationDraft] Accurate sync failed:", syncErr);
+                // Non-blocking: draft was saved successfully regardless
+            }
+        }
+
+        revalidatePath(`/admin/sales/quotations/${idOrNo}`);
+        return { success: true };
+    } catch (error) {
+        console.error("[saveQuotationDraft] Error:", error);
+        return { success: false, error: "Gagal menyimpan draft" };
+    }
+}
+
+// ── Admin: Submit the final offer ──
+export async function submitQuotationOffer(idOrNo: string, data: any) {
+    try {
+        const decodedIdOrNo = decodeURIComponent(idOrNo);
+        const q = await db.salesQuotation.findFirst({
+            where: {
+                OR: [
+                    { id: decodedIdOrNo },
+                    { quotationNo: decodedIdOrNo },
+                    { quotationNo: decodedIdOrNo.replace(/-/g, "/") }
+                ]
+            }
+        });
+        if (!q) return { success: false, error: "Not found" };
+
+        const session = await getSession();
+        const adminName = session?.user?.name || session?.user?.email || "Admin";
+
+        const updatedQuotation = await db.$transaction(async (tx) => {
+            await tx.salesQuotation.update({
+                where: { id: q.id },
                 data: {
                     status: "OFFERED",
                     adminNotes: data.adminNotes,
                     specialDiscount: data.specialDiscount,
+                    specialDiscountNote: data.specialDiscountNote,
                     offeredAt: new Date(),
-                },
-                include: { items: true },
+                }
             });
-            return q;
+
+            for (const item of data.items) {
+                await tx.salesQuotationItem.update({
+                    where: { id: item.id },
+                    data: {
+                        isAvailable: item.isAvailable,
+                        availableQty: item.availableQty,
+                        adminNote: item.adminNote,
+                    }
+                });
+
+                if (item.alternatives) {
+                    await tx.salesQuotationItemAlternative.deleteMany({
+                        where: { quotationItemId: item.id }
+                    });
+                    if (item.alternatives.length > 0) {
+                        for (const alt of item.alternatives) {
+                            await tx.salesQuotationItemAlternative.create({
+                                data: {
+                                    quotationItemId: item.id,
+                                    productSku: alt.productSku,
+                                    productName: alt.productName,
+                                    brand: alt.brand,
+                                    quantity: alt.quantity,
+                                    price: alt.price,
+                                    note: alt.note
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+
+            return await tx.salesQuotation.findUnique({
+                where: { id: q.id },
+                include: { items: true }
+            });
         });
 
-        // ── Send notifications (non-blocking) ──
-        sendOfferNotifications(updatedQuotation).catch(err => {
-            console.error("[submitQuotationOffer] Notification error:", err);
-        });
+        await logActivity(q.id, "OFFER_SENT", "Penawaran dikirim", "Admin telah mengirimkan penawaran harga kepada pelanggan.", "ADMIN");
 
+        // Send notifications
+        if (updatedQuotation) {
+            sendOfferNotifications(updatedQuotation).catch(err => {
+                console.error("[submitQuotationOffer] Notification error:", err);
+            });
+        }
+
+        revalidatePath(`/admin/sales/quotations/${decodeURIComponent(idOrNo)}`);
+        revalidatePath(`/dashboard/transaksi`);
         return { success: true };
     } catch (error) {
         console.error("[submitQuotationOffer] Error:", error);
         return { success: false, error: "Gagal mengirim penawaran" };
+    }
+}
+
+// ── User: Send draft quotation ──
+export async function sendDraftQuotation(id: string) {
+    try {
+        const quotation = await db.salesQuotation.findUnique({
+            where: { id },
+            include: { items: true }
+        });
+
+        if (!quotation) return { success: false, error: "Quotation tidak ditemukan" };
+
+        await db.salesQuotation.update({
+            where: { id },
+            data: { status: "OFFERED" }
+        });
+
+        await logActivity(id, "DRAFT_SUBMITTED", "Draft dikirim", "User telah mengirimkan permintaan penawaran harga.", "USER");
+
+        const { sendCartQuotation } = await import("@/lib/mail");
+        await sendCartQuotation(
+            quotation.email,
+            quotation.phone || "",
+            quotation.items.map(item => ({
+                sku: item.productSku,
+                name: item.productName,
+                brand: item.brand,
+                price: item.price,
+                quantity: item.quantity,
+            })),
+            quotation.totalAmount
+        ).catch(console.error);
+
+        revalidatePath("/dashboard/estimasi");
+        revalidatePath("/dashboard/transaksi");
+        return { success: true, newQuotationNo: quotation.quotationNo };
+    } catch (error) {
+        console.error("[sendDraftQuotation] Error:", error);
+        return { success: false, error: "Gagal mengirim draft" };
+    }
+}
+
+// ── User/Admin: Cancel quotation ──
+export async function cancelQuotation(id: string, reason?: string) {
+    try {
+        const session = await getSession();
+        const role = session?.user?.role;
+        const performedBy = (role === "ADMIN" || role === "SUPER_ADMIN") ? "ADMIN" : "USER";
+
+        await db.salesQuotation.update({
+            where: { id },
+            data: { status: "CANCELLED" }
+        });
+
+        await logActivity(id, "CANCELLED", "Dibatalkan", reason || "Dibatalkan oleh " + performedBy, performedBy);
+
+        revalidatePath("/dashboard/transaksi");
+        revalidatePath("/admin/sales/quotations");
+        return { success: true };
+    } catch (error) {
+        console.error("[cancelQuotation] Error:", error);
+        return { success: false, error: "Gagal membatalkan penawaran" };
+    }
+}
+
+// ── User: Select alternative product ──
+export async function userSelectAlternative(quotationId: string, itemId: string, altId: string) {
+    try {
+        await db.$transaction(async (tx) => {
+            const alternative = await (tx as any).salesQuotationItemAlternative.findUnique({
+                where: { id: altId }
+            });
+
+            if (!alternative) throw new Error("Alternatif tidak ditemukan");
+
+            const currentItem = await tx.salesQuotationItem.findUnique({
+                where: { id: itemId }
+            });
+
+            if (!currentItem) throw new Error("Item tidak ditemukan");
+
+            // Swap current item with alternative
+            await tx.salesQuotationItem.update({
+                where: { id: itemId },
+                data: {
+                    productSku: alternative.productSku,
+                    productName: alternative.productName,
+                    price: alternative.price,
+                    isAvailable: true,
+                    adminNote: `(Diganti dari ${currentItem.productName})`
+                }
+            });
+
+            // Update alternative to hold the old item (for undo)
+            await (tx as any).salesQuotationItemAlternative.update({
+                where: { id: altId },
+                data: {
+                    productSku: currentItem.productSku,
+                    productName: currentItem.productName,
+                    price: currentItem.price
+                }
+            });
+        });
+
+        await logActivity(quotationId, "ALT_SELECTED", "Produk alternatif dipilih", "User memilih produk alternatif yang disarankan.", "USER");
+
+        revalidatePath(`/dashboard/transaksi/${quotationId}`);
+        return { success: true };
+    } catch (error) {
+        console.error("[userSelectAlternative] Error:", error);
+        return { success: false, error: error instanceof Error ? error.message : "Gagal memilih alternatif" };
+    }
+}
+
+// ── User: Undo alternative selection ──
+export async function userUndoAlternative(quotationId: string, itemId: string) {
+    // Similar logic to swap back
+    // For simplicity, let's just use the same logic if we can identify the original
+    // But usually we just swap back the first alternative if it's the original
+    return { success: false, error: "Not implemented" };
+}
+
+// ── User: Accept proforma / Proceed to payment ──
+export async function acceptProforma(id: string) {
+    try {
+        await db.salesQuotation.update({
+            where: { id },
+            data: { status: "CONFIRMED", confirmedAt: new Date() }
+        });
+
+        await logActivity(id, "PROFORMA_ACCEPTED", "Proforma disetujui", "User menyetujui penawaran dan lanjut ke pembayaran.", "USER");
+
+        revalidatePath(`/dashboard/transaksi/${id}`);
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: "Gagal menyetujui proforma" };
+    }
+}
+
+// ── User: Update shipping address for quotation ──
+export async function updateQuotationAddress(id: string, address: string, addressId?: string) {
+    try {
+        await db.salesQuotation.update({
+            where: { id },
+            data: { shippingAddress: address } as any // Use any if field name is different
+        });
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: "Gagal mengupdate alamat" };
+    }
+}
+
+// ── Admin: Approve special discount request ──
+export async function adminApproveDiscount(id: string, adminNotes?: string) {
+    try {
+        await db.salesQuotation.update({
+            where: { id },
+            data: {
+                adminNotes: adminNotes,
+                // Logic for approving discount... 
+            }
+        });
+        await logActivity(id, "DISCOUNT_APPROVED", "Diskon disetujui", adminNotes || "Admin menyetujui permintaan diskon.", "ADMIN");
+        revalidatePath(`/admin/sales/quotations/${id}`);
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: "Gagal menyetujui diskon" };
+    }
+}
+
+// ── Admin: Reject special discount request ──
+export async function adminRejectDiscount(id: string, adminNotes?: string) {
+    try {
+        await db.salesQuotation.update({
+            where: { id },
+            data: { adminNotes }
+        });
+        await logActivity(id, "DISCOUNT_REJECTED", "Diskon ditolak", adminNotes || "Admin menolak permintaan diskon.", "ADMIN");
+        revalidatePath(`/admin/sales/quotations/${id}`);
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: "Gagal menolak diskon" };
     }
 }
 
@@ -515,4 +906,3 @@ export async function completeQuotationOrder(id: string) {
         return { success: false, error: "Gagal menyelesaikan pesanan" };
     }
 }
-

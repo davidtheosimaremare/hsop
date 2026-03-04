@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2, Loader2, Save } from "lucide-react";
+import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { getSiteSetting, updateSiteSetting } from "@/app/actions/settings";
 
@@ -109,10 +110,10 @@ export default function FooterSettingsPage() {
         setIsSaving(true);
         try {
             await updateSiteSetting("footer_config", config);
-            alert("Pengaturan footer tersimpan!");
+            toast.success("Pengaturan footer tersimpan!");
         } catch (error) {
             console.error("Failed to save", error);
-            alert("Gagal menyimpan pengaturan.");
+            toast.error("Gagal menyimpan pengaturan.");
         } finally {
             setIsSaving(false);
         }

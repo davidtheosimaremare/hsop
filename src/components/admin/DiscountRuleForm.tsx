@@ -16,6 +16,7 @@ interface DiscountRuleFormProps {
     groupLabel: string;
     defaultDesc: string;
     initialData?: any;
+    accent?: any;
 }
 
 export function DiscountRuleForm({ groupKey, groupLabel, defaultDesc, initialData }: DiscountRuleFormProps) {

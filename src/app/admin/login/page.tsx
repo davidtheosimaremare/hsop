@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
-import { loginAction } from "@/app/actions/auth";
+import { useActionState, useEffect, useState } from "react";
+import { adminLoginAction } from "@/app/admin/actions/auth";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,15 +9,21 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Eye, EyeOff, Lock, Mail, AlertCircle } from "lucide-react";
-import { useState } from "react";
 
-const initialState = {
+const initialState: any = {
     error: "",
+    success: false,
 };
 
 export default function AdminLoginPage() {
-    const [state, formAction, isPending] = useActionState(loginAction, initialState);
+    const [state, formAction, isPending] = useActionState(adminLoginAction, initialState);
     const [showPassword, setShowPassword] = useState(false);
+
+    useEffect(() => {
+        if (state?.success) {
+            window.location.href = "/admin";
+        }
+    }, [state?.success]);
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">

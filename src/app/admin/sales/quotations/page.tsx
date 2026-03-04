@@ -4,472 +4,418 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { FileCheck, Clock, CheckCircle2, XCircle, ChevronDown, ChevronUp, Mail, Phone, Download, FileSpreadsheet, Loader2, RefreshCw, Package, Send, Truck, ShieldCheck } from "lucide-react";
-import { getAllQuotations, updateQuotationStatus, processQuotation, confirmQuotationOrder, shipQuotationOrder, completeQuotationOrder } from "@/app/actions/quotation";
-import { getSiteSetting } from "@/app/actions/settings";
-import { exportQuotationPDF, exportQuotationExcel, type QuotationExportData, type ExportTemplate } from "@/lib/export-quotation";
-import { format } from "date-fns";
+import {
+    Loader2, RefreshCw, Send, ShieldCheck,
+    ChevronLeft, ChevronRight, Search, User,
+    ArrowRight, TrendingUp, XCircle, Phone, AlertCircle, FileCheck,
+} from "lucide-react";
+import { getAllQuotations, getQuotationStatusCounts } from "@/app/actions/quotation";
+import { format, formatDistanceToNow } from "date-fns";
+import { id as localeId } from "date-fns/locale";
+import {
+    Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import {
+    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-    PENDING: { label: "Menunggu", color: "text-yellow-700", bg: "bg-yellow-100 border-yellow-200" },
-    PROCESSING: { label: "Diproses", color: "text-blue-700", bg: "bg-blue-100 border-blue-200" },
-    PROCESSED: { label: "Diproses", color: "text-blue-700", bg: "bg-blue-100 border-blue-200" },
-    OFFERED: { label: "Ditawarkan", color: "text-purple-700", bg: "bg-purple-100 border-purple-200" },
-    CONFIRMED: { label: "Pesanan Dikonfirmasi", color: "text-indigo-700", bg: "bg-indigo-100 border-indigo-200" },
-    SHIPPED: { label: "Dikirim", color: "text-sky-700", bg: "bg-sky-100 border-sky-200" },
-    COMPLETED: { label: "Selesai", color: "text-green-700", bg: "bg-green-100 border-green-200" },
-    CANCELLED: { label: "Dibatalkan", color: "text-red-700", bg: "bg-red-100 border-red-200" },
+const STATUS_CONFIG: Record<string, {
+    label: string; pill: string; dot: string; bar: string; icon: any; urgency?: boolean;
+}> = {
+    PENDING: {
+        label: "Menunggu",
+        pill: "bg-yellow-50 text-yellow-700 ring-1 ring-yellow-200 shadow-sm shadow-yellow-100/50",
+        dot: "bg-yellow-500",
+        bar: "bg-gradient-to-b from-yellow-400 to-yellow-600",
+        icon: AlertCircle,
+        urgency: true
+    },
+    PROCESSING: {
+        label: "Diproses",
+        pill: "bg-purple-50 text-purple-700 ring-1 ring-purple-200 shadow-sm shadow-purple-100/50",
+        dot: "bg-purple-500",
+        bar: "bg-gradient-to-b from-purple-400 to-purple-600",
+        icon: RefreshCw,
+        urgency: true
+    },
+    OFFERED: {
+        label: "Ditawarkan",
+        pill: "bg-amber-50 text-amber-700 ring-1 ring-amber-200 shadow-sm shadow-amber-100/50",
+        dot: "bg-amber-500",
+        bar: "bg-gradient-to-b from-amber-400 to-amber-600",
+        icon: Send,
+    },
+    CONFIRMED: {
+        label: "Dikonfirmasi",
+        pill: "bg-blue-50 text-blue-700 ring-1 ring-blue-200 shadow-sm shadow-blue-100/50",
+        dot: "bg-blue-500",
+        bar: "bg-gradient-to-b from-blue-400 to-blue-600",
+        icon: ShieldCheck
+    },
+    CANCELLED: {
+        label: "Dibatalkan",
+        pill: "bg-slate-50 text-slate-500 ring-1 ring-slate-200",
+        dot: "bg-slate-400",
+        bar: "bg-slate-400",
+        icon: XCircle
+    },
 };
 
-function QuotationRow({ q, template, onStatusChange }: { q: any; template?: ExportTemplate; onStatusChange: () => void }) {
+// ─── Row ───────────────────────────────────────────────────────────────────
+function QuotationRow({ q, index }: { q: any; index: number }) {
     const router = useRouter();
-    const [isOpen, setIsOpen] = useState(false);
-    const [isUpdating, setIsUpdating] = useState(false);
-    const [showShipDialog, setShowShipDialog] = useState(false);
-    const [trackingNumber, setTrackingNumber] = useState("");
-    const [shippingNotes, setShippingNotes] = useState("");
-    const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-    const [shippingCost, setShippingCost] = useState("");
-    const [freeShipping, setFreeShipping] = useState(false);
-    const fmtPrice = (p: number) => new Intl.NumberFormat("id-ID").format(Math.round(p));
-    const status = STATUS_CONFIG[q.status] || STATUS_CONFIG.PENDING;
-
-    const handleStatus = async (newStatus: string) => {
-        setIsUpdating(true);
-        await updateQuotationStatus(q.id, newStatus);
-        setIsUpdating(false);
-        onStatusChange();
-    };
-
-    const handleProcess = async () => {
-        setIsUpdating(true);
-        const result = await processQuotation(q.id);
-        setIsUpdating(false);
-        if (result.success) {
-            router.push(`/admin/sales/quotations/${q.id}`);
-        }
-    };
-
-    const handleConfirm = async () => {
-        setIsUpdating(true);
-        const cost = freeShipping ? 0 : parseInt(shippingCost.replace(/\D/g, "") || "0");
-        await confirmQuotationOrder(q.id, cost, freeShipping);
-        setIsUpdating(false);
-        setShowConfirmDialog(false);
-        onStatusChange();
-    };
-
-    const handleShip = async () => {
-        setIsUpdating(true);
-        await shipQuotationOrder(q.id, trackingNumber, shippingNotes);
-        setIsUpdating(false);
-        setShowShipDialog(false);
-        setTrackingNumber("");
-        setShippingNotes("");
-        onStatusChange();
-    };
-
-    const handleComplete = async () => {
-        setIsUpdating(true);
-        await completeQuotationOrder(q.id);
-        setIsUpdating(false);
-        onStatusChange();
-    };
+    const fmtPrice = (p: number) => "Rp " + new Intl.NumberFormat("id-ID").format(Math.round(p));
+    const cfg = STATUS_CONFIG[q.status] || STATUS_CONFIG.OFFERED;
+    const StatusIcon = cfg.icon;
+    const timeAgo = formatDistanceToNow(new Date(q.createdAt), { addSuffix: true, locale: localeId });
 
     return (
-        <>
-            <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
-                {/* Row Header */}
-                <button
-                    onClick={() => setIsOpen(!isOpen)}
-                    className="w-full grid grid-cols-12 items-center gap-3 p-5 hover:bg-gray-50 transition-colors text-left"
-                >
-                    <div className="col-span-2 font-mono font-semibold text-gray-800 text-sm">
-                        {q.quotationNo}
-                    </div>
-                    <div className="col-span-3 min-w-0">
-                        <p className="text-gray-900 truncate font-medium text-sm">{q.email}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{q.phone}</p>
-                    </div>
-                    <div className="col-span-2 text-sm text-gray-500">
-                        {format(new Date(q.createdAt), "dd/MM/yyyy HH:mm")}
-                    </div>
-                    <div className="col-span-1 text-center">
-                        <span className="text-sm text-gray-600">{q.items.length}</span>
-                    </div>
-                    <div className="col-span-2 text-right font-semibold text-gray-900 text-base">
-                        Rp {fmtPrice(q.totalAmount)}
-                    </div>
-                    <div className="col-span-1 text-center">
-                        <Badge variant="outline" className={`text-xs px-2 py-0.5 ${status.bg} ${status.color}`}>
-                            {status.label}
-                        </Badge>
-                    </div>
-                    <div className="col-span-1 text-right">
-                        {isOpen ? <ChevronUp className="w-5 h-5 text-gray-400 inline" /> : <ChevronDown className="w-5 h-5 text-gray-400 inline" />}
-                    </div>
-                </button>
+        <TableRow
+            className="cursor-pointer group hover:bg-slate-50/50 border-b border-slate-100/80 transition-all duration-300"
+            onClick={() => router.push(`/admin/sales/quotations/${q.quotationNo.replace(/\//g, "-")}`)}
+        >
+            {/* Status indicator bar */}
+            <TableCell className="p-0 w-[4px]">
+                <div className={`h-full min-h-[58px] w-1 rounded-r-sm ${cfg.bar} opacity-60 group-hover:opacity-100 transition-opacity`} />
+            </TableCell>
 
-                {/* Expanded Detail */}
-                {isOpen && (
-                    <div className="border-t border-gray-100 bg-gray-50 p-5 space-y-4">
-                        {/* Customer Info */}
-                        <div className="flex gap-6 text-sm text-gray-600">
-                            <span className="flex items-center gap-1.5"><Mail className="w-4 h-4" />{q.email}</span>
-                            <span className="flex items-center gap-1.5"><Phone className="w-4 h-4" />{q.phone}</span>
-                            <span>{q.userId ? "Customer Terdaftar" : "Guest"}</span>
+            {/* No. HRSQ */}
+            <TableCell className="py-5 pl-8 w-[180px]">
+                <div className="flex items-center gap-3">
+                    {cfg.urgency && (
+                        <div className="relative flex h-2 w-2 shrink-0">
+                            <div className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-40 ${cfg.dot}`} />
+                            <div className={`relative rounded-full h-2 w-2 shadow-[0_0_8px_rgba(251,191,36,0.5)] ${cfg.dot}`} />
                         </div>
+                    )}
+                    <div className="flex flex-col">
+                        <span className="font-mono text-[13px] font-black text-slate-900 group-hover:text-red-600 tracking-tight transition-colors">
+                            {q.quotationNo}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest leading-none mt-0.5">Reference ID</span>
+                    </div>
+                </div>
+            </TableCell>
 
-                        {/* Items Table */}
-                        <div className="rounded-lg border border-gray-200 overflow-hidden">
-                            <table className="w-full text-sm">
-                                <thead className="bg-gray-100">
-                                    <tr className="text-gray-500 uppercase text-xs">
-                                        <th className="py-3 px-4 text-left w-10">#</th>
-                                        <th className="py-3 px-4 text-left">SKU</th>
-                                        <th className="py-3 px-4 text-left">Produk</th>
-                                        <th className="py-3 px-4 text-left">Brand</th>
-                                        <th className="py-3 px-4 text-center">Qty</th>
-                                        <th className="py-3 px-4 text-right">Harga</th>
-                                        <th className="py-3 px-4 text-right">Subtotal</th>
-                                        {["OFFERED", "CONFIRMED", "SHIPPED", "COMPLETED"].includes(q.status) && (
-                                            <>
-                                                <th className="py-3 px-4 text-center">Status</th>
-                                                <th className="py-3 px-4 text-left">Catatan</th>
-                                            </>
-                                        )}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {q.items.map((item: any, idx: number) => (
-                                        <tr key={item.id} className="border-t border-gray-100">
-                                            <td className="py-3 px-4 text-gray-400">{idx + 1}</td>
-                                            <td className="py-3 px-4 font-mono text-gray-600">{item.productSku}</td>
-                                            <td className="py-3 px-4 text-gray-900">{item.productName}</td>
-                                            <td className="py-3 px-4 text-gray-500">{item.brand}</td>
-                                            <td className="py-3 px-4 text-center font-medium">{item.quantity}</td>
-                                            <td className="py-3 px-4 text-right">Rp {fmtPrice(item.price)}</td>
-                                            <td className="py-3 px-4 text-right font-semibold">Rp {fmtPrice(item.price * item.quantity)}</td>
-                                            {["OFFERED", "CONFIRMED", "SHIPPED", "COMPLETED"].includes(q.status) && (
-                                                <>
-                                                    <td className="py-3 px-4 text-center">
-                                                        {item.isAvailable === true && <span className="inline-flex items-center gap-1 text-green-600 text-xs"><CheckCircle2 className="w-3 h-3" /> Tersedia</span>}
-                                                        {item.isAvailable === false && <span className="inline-flex items-center gap-1 text-red-600 text-xs"><XCircle className="w-3 h-3" /> Tidak</span>}
-                                                        {item.isAvailable == null && <span className="text-gray-400 text-xs">-</span>}
-                                                    </td>
-                                                    <td className="py-3 px-4 text-xs text-gray-600 max-w-[200px] truncate">{item.adminNote || "-"}</td>
-                                                </>
-                                            )}
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        {/* Special Discount */}
-                        {q.specialDiscount && q.specialDiscount > 0 && (
-                            <div className="flex items-center gap-2 p-3 bg-purple-50 border border-purple-100 rounded-lg text-sm text-purple-700">
-                                <Package className="w-4 h-4" />
-                                <span>Diskon Spesial: <strong>{q.specialDiscount}%</strong></span>
-                            </div>
-                        )}
-
-                        {/* Shipping Cost Info (if confirmed/shipped/completed) */}
-                        {(q.shippingCost !== null || q.freeShipping) && (
-                            <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-100 rounded-lg text-sm text-green-700">
-                                <Truck className="w-4 h-4" />
-                                <span>Ongkos Kirim: <strong>{q.freeShipping ? "GRATIS (Ditanggung Toko)" : `Rp ${fmtPrice(q.shippingCost)}`}</strong></span>
-                            </div>
-                        )}
-
-                        {/* Admin Notes */}
-                        {q.adminNotes && (
-                            <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-700">
-                                <Send className="w-4 h-4" />
-                                <span>Catatan Admin: {q.adminNotes}</span>
-                            </div>
-                        )}
-
-                        {/* Tracking Info */}
-                        {q.trackingNumber && (
-                            <div className="flex items-center gap-2 p-3 bg-sky-50 border border-sky-100 rounded-lg text-sm text-sky-700">
-                                <Truck className="w-4 h-4" />
-                                <span>No. Resi: <strong>{q.trackingNumber}</strong></span>
-                                {q.shippingNotes && <span className="text-sky-500 ml-2">({q.shippingNotes})</span>}
-                            </div>
-                        )}
-
-                        {/* Actions */}
-                        <div className="flex items-center justify-between">
-                            <div className="flex gap-2">
-                                <Button variant="outline" onClick={() => exportQuotationPDF(q as QuotationExportData, template)} className="text-sm h-10 px-4 border-red-200 text-red-600 hover:bg-red-50">
-                                    <Download className="w-4 h-4 mr-2" /> PDF
-                                </Button>
-                                <Button variant="outline" onClick={() => exportQuotationExcel(q as QuotationExportData, template)} className="text-sm h-10 px-4 border-green-200 text-green-600 hover:bg-green-50">
-                                    <FileSpreadsheet className="w-4 h-4 mr-2" /> Excel
-                                </Button>
-                            </div>
-                            <div className="flex gap-2">
-                                {q.status === "PENDING" && (
-                                    <>
-                                        <Button variant="outline" onClick={handleProcess} disabled={isUpdating} className="text-sm h-10 px-4 border-blue-200 text-blue-600 hover:bg-blue-50">
-                                            {isUpdating ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : <Package className="w-4 h-4 mr-2" />}
-                                            Proses
-                                        </Button>
-                                        <Button variant="outline" onClick={() => handleStatus("CANCELLED")} disabled={isUpdating} className="text-sm h-10 px-4 border-red-200 text-red-600 hover:bg-red-50">
-                                            Tolak
-                                        </Button>
-                                    </>
-                                )}
-                                {q.status === "PROCESSING" && (
-                                    <Button variant="outline" onClick={() => router.push(`/admin/sales/quotations/${q.id}`)} className="text-sm h-10 px-4 border-blue-200 text-blue-600 hover:bg-blue-50">
-                                        <Package className="w-4 h-4 mr-2" /> Lanjutkan Proses
-                                    </Button>
-                                )}
-                                {q.status === "OFFERED" && (
-                                    <Button variant="outline" onClick={() => setShowConfirmDialog(true)} disabled={isUpdating} className="text-sm h-10 px-4 border-indigo-200 text-indigo-600 hover:bg-indigo-50">
-                                        {isUpdating ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : <ShieldCheck className="w-4 h-4 mr-2" />}
-                                        Konfirmasi Pesanan
-                                    </Button>
-                                )}
-                                {q.status === "CONFIRMED" && (
-                                    <Button variant="outline" onClick={() => setShowShipDialog(true)} disabled={isUpdating} className="text-sm h-10 px-4 border-sky-200 text-sky-600 hover:bg-sky-50">
-                                        {isUpdating ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : <Truck className="w-4 h-4 mr-2" />}
-                                        Kirim Barang
-                                    </Button>
-                                )}
-                                {q.status === "SHIPPED" && (
-                                    <Button variant="outline" onClick={handleComplete} disabled={isUpdating} className="text-sm h-10 px-4 border-green-200 text-green-600 hover:bg-green-50">
-                                        {isUpdating ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
-                                        Selesai
-                                    </Button>
-                                )}
-                            </div>
+            {/* Customer */}
+            <TableCell className="py-5">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-red-50 group-hover:border-red-100 group-hover:text-red-600 transition-all duration-300">
+                        <User className="w-5 h-5" />
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                        <span className="text-sm font-bold text-slate-800 group-hover:text-red-700 transition-colors leading-tight">
+                            {q.customerName || "No Name"}
+                        </span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-medium text-slate-400 leading-none">{q.email}</span>
+                            {q.phone && (
+                                <>
+                                    <div className="w-1 h-1 rounded-full bg-slate-200" />
+                                    <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1 leading-none">
+                                        {q.phone}
+                                    </span>
+                                </>
+                            )}
                         </div>
                     </div>
-                )}
-            </div>
+                </div>
+            </TableCell>
 
-            {/* Confirm Dialog (Shipping Cost) */}
-            <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>Konfirmasi Pesanan — {q.quotationNo}</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <p className="text-sm text-gray-500">
-                            Masukkan biaya ongkos kirim untuk pesanan ini. Kosongkan atau centang "Gratis Ongkir" jika tidak ada biaya.
-                        </p>
+            {/* Qty */}
+            <TableCell className="py-5 text-center w-[80px]">
+                <div className="inline-flex flex-col items-center">
+                    <span className="text-sm font-black text-slate-700 font-mono">
+                        {q.items.reduce((acc: number, item: any) => acc + item.quantity, 0)}
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-300 uppercase tracking-tighter">Items</span>
+                </div>
+            </TableCell>
 
-                        <div className="flex items-center gap-2 mb-2">
-                            <input
-                                type="checkbox"
-                                id="freeShipping"
-                                checked={freeShipping}
-                                onChange={(e) => {
-                                    setFreeShipping(e.target.checked);
-                                    if (e.target.checked) setShippingCost("");
-                                }}
-                                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                            />
-                            <label htmlFor="freeShipping" className="text-sm font-medium text-gray-700 cursor-pointer">
-                                Gratis Ongkos Kirim (Ditanggung Toko)
-                            </label>
-                        </div>
+            {/* Tanggal */}
+            <TableCell className="py-5 w-[140px]">
+                <div className="flex flex-col gap-0.5">
+                    <span className="text-sm font-bold text-slate-700">{format(new Date(q.createdAt), "dd MMM yyyy")}</span>
+                    <span className="text-[11px] font-medium text-slate-400 capitalize">{timeAgo}</span>
+                </div>
+            </TableCell>
 
-                        {!freeShipping && (
-                            <div>
-                                <label className="text-sm font-medium text-gray-700 mb-1.5 block">Biaya Ongkir (Rp)</label>
-                                <Input
-                                    type="number"
-                                    placeholder="Contoh: 50000"
-                                    value={shippingCost}
-                                    onChange={(e) => setShippingCost(e.target.value)}
-                                    min="0"
-                                />
-                            </div>
-                        )}
+            {/* Total */}
+            <TableCell className="py-5 text-right w-[165px]">
+                <div className="flex flex-col items-end gap-1">
+                    <span className="text-[15px] font-bold text-slate-900 font-mono tracking-tight">{fmtPrice(q.totalAmount)}</span>
+                    {q.specialDiscount > 0 && (
+                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100 shadow-sm">
+                            DISC {q.specialDiscount}%
+                        </span>
+                    )}
+                </div>
+            </TableCell>
 
-                        <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-                            <div className="flex justify-between text-sm mb-1">
-                                <span className="text-gray-600">Total Produk:</span>
-                                <span className="font-medium">Rp {fmtPrice(q.totalAmount)}</span>
-                            </div>
-                            <div className="flex justify-between text-sm mb-1">
-                                <span className="text-gray-600">Ongkir:</span>
-                                <span className="font-medium text-green-600">
-                                    {freeShipping ? "GRATIS" : `+ Rp ${fmtPrice(parseInt(shippingCost || "0"))}`}
-                                </span>
-                            </div>
-                            <div className="border-t border-gray-200 mt-2 pt-2 flex justify-between font-bold">
-                                <span>Total Tagihan:</span>
-                                <span>Rp {fmtPrice(q.totalAmount + (freeShipping ? 0 : parseInt(shippingCost || "0")))}</span>
-                            </div>
-                        </div>
+            {/* Status */}
+            <TableCell className="py-4 w-[185px]">
+                <div className="flex justify-center">
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium whitespace-nowrap ${cfg.pill}`}>
+                        <StatusIcon className="w-3.5 h-3.5 shrink-0" />
+                        {cfg.label}
+                    </span>
+                </div>
+            </TableCell>
+
+            {/* CTA */}
+            <TableCell className="py-5 pr-6 w-[48px]">
+                <div className="flex justify-end">
+                    <div className="w-8 h-8 rounded-xl bg-slate-50 group-hover:bg-red-600 flex items-center justify-center transition-all duration-300 group-hover:shadow-lg group-hover:shadow-red-200 group-hover:-translate-x-1">
+                        <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors" />
                     </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowConfirmDialog(false)}>Batal</Button>
-                        <Button onClick={handleConfirm} disabled={isUpdating} className="bg-indigo-600 hover:bg-indigo-700 text-white">
-                            {isUpdating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <ShieldCheck className="w-4 h-4 mr-2" />}
-                            Konfirmasi
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* Ship Dialog */}
-            <Dialog open={showShipDialog} onOpenChange={setShowShipDialog}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>Kirim Barang — {q.quotationNo}</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div>
-                            <label className="text-sm font-medium text-gray-700 mb-1.5 block">Nomor Resi (opsional)</label>
-                            <Input
-                                placeholder="Masukkan nomor resi pengiriman"
-                                value={trackingNumber}
-                                onChange={(e) => setTrackingNumber(e.target.value)}
-                            />
-                        </div>
-                        <div>
-                            <label className="text-sm font-medium text-gray-700 mb-1.5 block">Catatan Pengiriman (opsional)</label>
-                            <Textarea
-                                placeholder="Nama ekspedisi, estimasi tiba, dll."
-                                value={shippingNotes}
-                                onChange={(e) => setShippingNotes(e.target.value)}
-                                rows={3}
-                            />
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowShipDialog(false)}>Batal</Button>
-                        <Button onClick={handleShip} disabled={isUpdating} className="bg-sky-600 hover:bg-sky-700 text-white">
-                            {isUpdating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Truck className="w-4 h-4 mr-2" />}
-                            Konfirmasi Kirim
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-        </>
+                </div>
+            </TableCell>
+        </TableRow>
     );
 }
 
+
+
+// ─── Page ──────────────────────────────────────────────────────────────────
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+
 export default function SalesQuotationsPage() {
+    const router = useRouter();
     const [quotations, setQuotations] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [template, setTemplate] = useState<ExportTemplate>({});
-    const [filter, setFilter] = useState<string>("ALL");
+    const [search, setSearch] = useState("");
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
+    const [statusCounts, setStatusCounts] = useState<any>({});
+    const [pageSize, setPageSize] = useState(20);
+    const [sortField, setSortField] = useState<string>("createdAt");
+    const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
-    useEffect(() => {
-        loadData();
-    }, []);
+    useEffect(() => { loadData(); }, [currentPage, pageSize]);
 
     const loadData = async () => {
         setIsLoading(true);
-        const [qResult, tResult] = await Promise.all([
-            getAllQuotations(),
-            getSiteSetting("export_template") as Promise<Record<string, string> | null>,
+        const [qRes, cRes] = await Promise.all([
+            getAllQuotations(currentPage, pageSize, "ALL"),
+            getQuotationStatusCounts(),
         ]);
-        if (qResult.success) setQuotations(qResult.quotations);
-        if (tResult) setTemplate({ headerImage: tResult.headerImage || undefined, footerImage: tResult.footerImage || undefined });
+        if (qRes.success) {
+            setQuotations(qRes.quotations);
+            if (qRes.pagination) {
+                setTotalPages(qRes.pagination.pages);
+                setTotalItems(qRes.pagination.total);
+            }
+        }
+        if (cRes.success) setStatusCounts(cRes.counts);
         setIsLoading(false);
     };
 
-    const filtered = filter === "ALL" ? quotations : quotations.filter(q => q.status === filter);
-    const counts = {
-        total: quotations.length,
-        pending: quotations.filter(q => q.status === "PENDING").length,
-        processing: quotations.filter(q => q.status === "PROCESSING").length,
-        offered: quotations.filter(q => q.status === "OFFERED").length,
-        confirmed: quotations.filter(q => q.status === "CONFIRMED").length,
-        shipped: quotations.filter(q => q.status === "SHIPPED").length,
-        completed: quotations.filter(q => q.status === "COMPLETED").length,
+
+
+    const filtered = quotations
+        .filter(q =>
+            !search.trim() ||
+            q.quotationNo?.toLowerCase().replace(/\//g, "-").includes(search.toLowerCase().replace(/\//g, "-")) ||
+            q.email?.toLowerCase().includes(search.toLowerCase()) ||
+            q.customerName?.toLowerCase().includes(search.toLowerCase())
+        )
+        .sort((a, b) => {
+            const valA = a[sortField];
+            const valB = b[sortField];
+            if (valA < valB) return sortOrder === "asc" ? -1 : 1;
+            if (valA > valB) return sortOrder === "asc" ? 1 : -1;
+            return 0;
+        });
+
+    const toggleSort = (field: string) => {
+        if (sortField === field) {
+            setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+        } else {
+            setSortField(field);
+            setSortOrder("desc");
+        }
     };
 
-    const statCards = [
-        { key: "ALL", label: "Total", count: counts.total, icon: FileCheck, borderColor: "border-l-gray-400", iconBg: "bg-gray-100", iconColor: "text-gray-600", ringColor: "" },
-        { key: "PENDING", label: "Menunggu", count: counts.pending, icon: Clock, borderColor: "border-l-yellow-500", iconBg: "bg-yellow-100", iconColor: "text-yellow-600", ringColor: "ring-yellow-300" },
-        { key: "PROCESSING", label: "Diproses", count: counts.processing, icon: Package, borderColor: "border-l-blue-400", iconBg: "bg-blue-100", iconColor: "text-blue-500", ringColor: "ring-blue-300" },
-        { key: "OFFERED", label: "Ditawarkan", count: counts.offered, icon: Send, borderColor: "border-l-purple-500", iconBg: "bg-purple-100", iconColor: "text-purple-600", ringColor: "ring-purple-300" },
-        { key: "CONFIRMED", label: "Dikonfirmasi", count: counts.confirmed, icon: ShieldCheck, borderColor: "border-l-indigo-500", iconBg: "bg-indigo-100", iconColor: "text-indigo-600", ringColor: "ring-indigo-300" },
-        { key: "SHIPPED", label: "Dikirim", count: counts.shipped, icon: Truck, borderColor: "border-l-sky-500", iconBg: "bg-sky-100", iconColor: "text-sky-600", ringColor: "ring-sky-300" },
-        { key: "COMPLETED", label: "Selesai", count: counts.completed, icon: CheckCircle2, borderColor: "border-l-green-500", iconBg: "bg-green-100", iconColor: "text-green-600", ringColor: "ring-green-300" },
-    ];
-
     return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Penawaran Penjualan</h1>
-                    <p className="text-sm text-gray-500">Kelola permintaan penawaran harga dari customer</p>
+        <div className="space-y-8 pb-12 animate-in fade-in duration-700">
+
+            {/* ── Header ── */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div className="space-y-1">
+                    <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                        <div className="w-2 h-8 bg-red-600 rounded-full" />
+                        Penawaran Masuk
+                    </h1>
+                    <div className="flex items-center gap-3 pl-5">
+                        <span className="text-sm font-medium text-slate-400">Pusat kontrol transaksi HRSQ (Sales Quotation)</span>
+                    </div>
                 </div>
-                <Button variant="outline" onClick={loadData} disabled={isLoading}>
-                    <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
-                    Refresh
-                </Button>
+
+                <div className="flex items-center gap-3">
+                    <div className="relative group w-full md:w-[400px]">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400 group-focus-within:text-red-500 transition-colors" />
+                        <Input
+                            placeholder="Cari No. HRSQ, email, atau nama..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="pl-12 h-12 w-full text-sm bg-white border-slate-200 rounded-xl focus:ring-0 focus:border-red-300 shadow-sm transition-all"
+                        />
+                    </div>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={loadData}
+                        disabled={isLoading}
+                        className="h-12 w-12 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 shadow-sm"
+                    >
+                        <RefreshCw className={`w-5 h-5 ${isLoading ? "animate-spin" : ""}`} />
+                    </Button>
+                </div>
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-                {statCards.map(card => (
-                    <Card
-                        key={card.key}
-                        className={`border-l-4 ${card.borderColor} cursor-pointer hover:shadow-md transition-shadow ${filter === card.key && card.key !== "ALL" ? `ring-2 ${card.ringColor}` : ""}`}
-                        onClick={() => setFilter(f => f === card.key ? "ALL" : card.key)}
-                    >
-                        <CardContent className="pt-3 pb-3 px-3">
-                            <div className="flex items-center gap-2">
-                                <div className={`p-1.5 ${card.iconBg} rounded-lg`}>
-                                    <card.icon className={`h-4 w-4 ${card.iconColor}`} />
-                                </div>
-                                <div>
-                                    <p className="text-xl font-bold leading-none">{card.count}</p>
-                                    <p className="text-[10px] text-gray-500 mt-0.5">{card.label}</p>
+            {/* ── Table Card ── */}
+            <div className="bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden transition-all duration-500">
+
+                {/* Toolbar */}
+                <div className="flex items-center justify-between px-8 py-5 border-b border-slate-100 bg-slate-50/30 backdrop-blur-sm">
+                    <div className="flex items-center gap-4">
+                        <div className="p-2 bg-red-50 rounded-xl">
+                            <TrendingUp className="w-5 h-5 text-red-600" />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-sm font-bold text-slate-700">Tabel Monitoring HRSQ</span>
+                            <span className="text-[11px] text-slate-400 font-medium uppercase tracking-widest">{filtered.length} TRANSAKSI DITEMUKAN</span>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Per Halaman</span>
+                        <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setCurrentPage(1); }}>
+                            <SelectTrigger className="h-9 w-[100px] text-xs font-black rounded-xl border-slate-200 bg-white shadow-sm ring-red-500/10 focus:ring-4">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl border-slate-200">
+                                {PAGE_SIZE_OPTIONS.map(n => (
+                                    <SelectItem key={n} value={String(n)} className="text-xs font-medium">{n} Baris</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+
+                {/* Table */}
+                {isLoading ? (
+                    <div className="flex flex-col items-center justify-center py-20 bg-white/50 backdrop-blur-[2px]">
+                        <div className="relative">
+                            <Loader2 className="w-7 h-7 text-red-600 animate-spin" />
+                        </div>
+                        <p className="text-sm font-medium text-slate-500 mt-4 animate-pulse">Memuat data transaksi...</p>
+                    </div>
+                ) : filtered.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-32 bg-slate-50/20">
+                        <div className="relative mb-6">
+                            <div className="absolute inset-0 bg-red-100 rounded-full blur-2xl opacity-30 animate-pulse"></div>
+                            <div className="relative w-20 h-20 bg-white rounded-2xl shadow-xl flex items-center justify-center border border-slate-100 rotate-3 group-hover:rotate-0 transition-transform duration-500">
+                                <FileCheck className="h-10 w-10 text-slate-200" />
+                            </div>
+                        </div>
+                        <div className="text-center space-y-2">
+                            <h3 className="text-lg font-black text-slate-800 tracking-tight">Belum ada Penawaran</h3>
+                            <p className="text-sm font-medium text-slate-400 max-w-[280px]">
+                                {search
+                                    ? "Hasil pencarian tidak ditemukan. Coba gunakan kata kunci lain."
+                                    : "Semua penawaran masuk dari customer akan muncul secara otomatis di sini."}
+                            </p>
+                        </div>
+                    </div>
+                ) : (
+                    <>
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="border-b border-slate-100 bg-slate-50/30 hover:bg-slate-50/30">
+                                    <TableHead className="p-0 w-[4px]" />
+                                    <TableHead
+                                        className="pl-8 py-4 text-[11px] font-black uppercase tracking-[0.1em] text-slate-400 cursor-pointer hover:text-red-600 transition-colors"
+                                        onClick={() => toggleSort("quotationNo")}
+                                    >
+                                        No. HRSQ {sortField === "quotationNo" && (sortOrder === "asc" ? "↑" : "↓")}
+                                    </TableHead>
+                                    <TableHead className="py-4 text-[11px] font-black uppercase tracking-[0.1em] text-slate-400">Customer</TableHead>
+                                    <TableHead className="py-4 text-[11px] font-black uppercase tracking-[0.1em] text-slate-400 text-center">Qty</TableHead>
+                                    <TableHead
+                                        className="py-4 text-[11px] font-black uppercase tracking-[0.1em] text-slate-400 cursor-pointer hover:text-red-600 transition-colors"
+                                        onClick={() => toggleSort("createdAt")}
+                                    >
+                                        Tanggal {sortField === "createdAt" && (sortOrder === "asc" ? "↑" : "↓")}
+                                    </TableHead>
+                                    <TableHead
+                                        className="py-4 text-[11px] font-black uppercase tracking-[0.1em] text-slate-400 text-right cursor-pointer hover:text-red-600 transition-colors"
+                                        onClick={() => toggleSort("totalAmount")}
+                                    >
+                                        Total Nilai {sortField === "totalAmount" && (sortOrder === "asc" ? "↑" : "↓")}
+                                    </TableHead>
+                                    <TableHead className="py-4 text-[11px] font-black uppercase tracking-[0.1em] text-slate-400 text-center">Status</TableHead>
+                                    <TableHead className="w-[80px]" />
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {filtered.map((q, i) => (
+                                    <QuotationRow key={q.id} q={q} index={i} />
+                                ))}
+                            </TableBody>
+                        </Table>
+
+                        {/* Pagination */}
+                        {totalPages > 1 && (
+                            <div className="px-8 py-5 border-t border-slate-100 bg-slate-50/20 flex items-center justify-between">
+                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                                    Halaman <span className="text-slate-900">{currentPage}</span> / {totalPages}
+                                    <span className="mx-3 text-slate-200">|</span>
+                                    Total {totalItems} Data
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <Button variant="outline" size="sm"
+                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                        disabled={currentPage === 1 || isLoading}
+                                        className="h-10 w-10 p-0 rounded-xl border-slate-200 bg-white hover:bg-slate-50 shadow-sm">
+                                        <ChevronLeft className="w-5 h-5" />
+                                    </Button>
+                                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                        .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                                        .reduce<(number | "...")[]>((acc, page, i, arr) => {
+                                            if (i > 0 && (arr[i - 1] as number) !== page - 1) acc.push("...");
+                                            acc.push(page);
+                                            return acc;
+                                        }, [])
+                                        .map((item, i) =>
+                                            item === "..." ? (
+                                                <span key={`d${i}`} className="px-2 text-slate-300 font-bold">...</span>
+                                            ) : (
+                                                <Button key={item} size="sm"
+                                                    variant={currentPage === item ? "default" : "outline"}
+                                                    onClick={() => setCurrentPage(item as number)}
+                                                    disabled={isLoading}
+                                                    className={`h-10 w-10 p-0 text-sm font-black rounded-xl border-slate-200 transition-all duration-300 ${currentPage === item
+                                                        ? "bg-red-600 hover:bg-red-700 border-red-600 text-white shadow-lg shadow-red-200 scale-110 z-10"
+                                                        : "bg-white hover:bg-slate-50"}`}>
+                                                    {item}
+                                                </Button>
+                                            )
+                                        )}
+                                    <Button variant="outline" size="sm"
+                                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                        disabled={currentPage === totalPages || isLoading}
+                                        className="h-10 w-10 p-0 rounded-xl border-slate-200 bg-white hover:bg-slate-50 shadow-sm">
+                                        <ChevronRight className="w-5 h-5" />
+                                    </Button>
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
-                ))}
+                        )}
+                    </>
+                )}
             </div>
-
-            {/* Table Header */}
-            <div className="hidden md:grid grid-cols-12 items-center gap-3 px-5 text-xs font-semibold text-gray-400 uppercase">
-                <div className="col-span-2">No. SQ</div>
-                <div className="col-span-3">Customer</div>
-                <div className="col-span-2">Tanggal</div>
-                <div className="col-span-1 text-center">Item</div>
-                <div className="col-span-2 text-right">Total</div>
-                <div className="col-span-1 text-center">Status</div>
-                <div className="col-span-1"></div>
-            </div>
-
-            {/* Content */}
-            {isLoading ? (
-                <div className="flex flex-col items-center py-16">
-                    <Loader2 className="w-8 h-8 text-red-500 animate-spin mb-3" />
-                    <p className="text-sm text-gray-500">Memuat data...</p>
-                </div>
-            ) : filtered.length === 0 ? (
-                <Card>
-                    <CardContent className="text-center py-12 text-gray-500">
-                        <FileCheck className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                        <p className="text-lg font-medium">Belum ada penawaran</p>
-                        <p className="text-sm">Penawaran dari customer akan muncul di sini</p>
-                    </CardContent>
-                </Card>
-            ) : (
-                <div className="space-y-2">
-                    {filtered.map(q => (
-                        <QuotationRow key={q.id} q={q} template={template} onStatusChange={loadData} />
-                    ))}
-                </div>
-            )}
         </div>
     );
 }

@@ -21,6 +21,7 @@ export interface PriceInfo {
     hasDiscount: boolean;
     isCustomerDiscount: boolean;
     discounts: number[];
+    discountStr?: string;
     ruleName: string | null;
 }
 
@@ -106,10 +107,17 @@ export function calculatePriceInfo(
         }
     }
 
-    // Calculate Final Price
     let finalPrice = productPrice;
     for (const d of discounts) {
         finalPrice = finalPrice * (1 - d / 100);
+    }
+
+    let discountStr: string | undefined = undefined;
+    if (discounts.length > 0) {
+        // Find if any string rules were applied, if we didn't store the exact string, we can format it from the array
+        // However, we can also extract it from specificDiscountStr / rule.stockDiscount
+        // Actually, we can just join the discounts array into a string. e.g. [30, 24] -> "30+24"
+        discountStr = discounts.join("+");
     }
 
     return {
@@ -120,6 +128,7 @@ export function calculatePriceInfo(
         hasDiscount: discounts.length > 0,
         isCustomerDiscount: !!(ruleName && ruleName.toLowerCase().includes("customer")),
         discounts,
+        discountStr,
         ruleName
     };
 }

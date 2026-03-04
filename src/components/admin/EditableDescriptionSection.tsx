@@ -4,9 +4,9 @@ import { useState, useTransition } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Loader2, Pencil, Save, XCircle } from "lucide-react";
+import { Loader2, Pencil, Save, XCircle, Download } from "lucide-react";
 import { updateProductDetails } from "@/app/actions/product";
-import { ProductAutoUpdate } from "@/components/admin/ProductAutoUpdate";
+import { scrapeSiemensProduct } from "@/app/actions/scraper";
 import { useRouter } from "next/navigation";
 
 // Dynamically import ReactQuill to avoid SSR issues
@@ -15,13 +15,14 @@ import "react-quill-new/dist/quill.snow.css";
 
 interface EditableDescriptionSectionProps {
     productId: string;
-    sku: string;
+    sku?: string;
     initialDescription: string | null;
 }
 
 export function EditableDescriptionSection({ productId, sku, initialDescription }: EditableDescriptionSectionProps) {
     const router = useRouter();
     const [isEditing, setIsEditing] = useState(false);
+    const [isScraping, setIsScraping] = useState(false);
     const [description, setDescription] = useState(initialDescription || "");
     const [isPending, startTransition] = useTransition();
 
@@ -45,17 +46,47 @@ export function EditableDescriptionSection({ productId, sku, initialDescription 
     if (!isEditing) {
         return (
             <div className="space-y-4">
-                <div className="flex justify-between items-center bg-gray-50 p-2 rounded-t-lg border-b">
-                    <div className="flex items-center gap-2">
-                        <Label className="text-base font-semibold">Deskripsi Produk</Label>
-                        <ProductAutoUpdate productId={productId} sku={sku} targets={['description']} />
-                    </div>
-                    <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
-                        <Pencil className="h-4 w-4 mr-2" /> Edit Deskripsi
+                <div className="flex justify-end items-center gap-2 p-2 rounded-t-lg">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                            if (!sku) return alert("SKU tidak tersedia");
+                            setIsScraping(true);
+                            try {
+                                const res = await scrapeSiemensProduct(sku);
+                                const newDesc = res.data?.description;
+                                if (res.success && newDesc) {
+                                    startTransition(async () => {
+                                        const updateRes = await updateProductDetails(productId, { description: newDesc });
+                                        if (updateRes.success) {
+                                            router.refresh();
+                                        } else {
+                                            alert("Gagal menyimpan deskripsi.");
+                                        }
+                                    });
+                                } else {
+                                    alert(res.error || "Deskripsi tidak ditemukan di Sieportal.");
+                                }
+                            } catch (error) {
+                                console.error(error);
+                                alert("Terjadi kesalahan.");
+                            } finally {
+                                setIsScraping(false);
+                            }
+                        }}
+                        disabled={isScraping || isPending}
+                        className="h-8 border-red-50 text-red-600 hover:bg-red-50 hover:border-red-100 rounded-md font-bold text-[10px] uppercase tracking-widest transition-all px-3"
+                    >
+                        {isScraping ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <Download className="h-3 w-3 mr-1.5" />}
+                        Tarik dari Sieportal
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} disabled={isScraping || isPending} className="h-8 border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-md font-bold text-[10px] uppercase tracking-widest px-3">
+                        <Pencil className="h-3 w-3 mr-1.5 text-slate-400" /> Update Manual
                     </Button>
                 </div>
 
-                <div className="prose prose-sm max-w-none p-4">
+                <div className="prose prose-sm max-w-none p-4 pt-1">
                     {initialDescription ? (
                         <div dangerouslySetInnerHTML={{ __html: initialDescription }} />
                     ) : (

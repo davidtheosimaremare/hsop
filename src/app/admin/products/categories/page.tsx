@@ -1,6 +1,5 @@
 import { db } from "@/lib/db";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ArrowLeft, Plug2, CircuitBoard, Flashlight, Layers } from "lucide-react";
+import { ArrowLeft, Plug2, CircuitBoard, Zap, Layers, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { CategoryMappingKanban } from "@/components/admin/CategoryMappingKanban";
@@ -9,124 +8,146 @@ import { SyncCategoryButton } from "@/components/admin/SyncCategoryButton";
 export const dynamic = "force-dynamic";
 
 export default async function CategoryMappingPage() {
-    // Get all categories from Category table (Master Data)
-    const categoriesResult = await db.category.findMany({
-        orderBy: { name: "asc" },
-    });
+    const categoriesResult = await db.category.findMany({ orderBy: { name: "asc" } });
     const categories = categoriesResult.map((c) => c.name);
 
-    // Also get any categories from Products that might not be in the Master Data (Optional, but good for safety)
-    // const productCategoriesResult = await db.product.findMany({
-    //     where: { category: { not: null } },
-    //     distinct: ["category"],
-    //     select: { category: true },
-    // });
-    // const productCategories = productCategoriesResult.map(c => c.category!).filter(Boolean);
-    // const uniqueCategories = Array.from(new Set([...categories, ...productCategories])).sort();
-
-    // For now, let's stick to Master Data as the source of truth if Sync is used.
-    // If the user wants to see Product categories, they should Sync to create them in Category table? 
-    // Actually, syncCategoriesFromProducts (existing) does that.
-    // syncCategoriesFromAccurate does that too.
-    // So db.category should cover it.
-
-
-    // Get existing mappings
     const mappings = await db.categoryMapping.findMany();
-    const mappingMap = new Map(mappings.map(m => [m.categoryName, m.discountType]));
+    const mappingMap = new Map(mappings.map((m) => [m.categoryName, m.discountType]));
 
-    // Combine: all categories with their current discount type (if any)
-    const categoryData = categories.map(cat => ({
+    const categoryData = categories.map((cat) => ({
         categoryName: cat,
         discountType: mappingMap.get(cat) || null,
     }));
 
-    // Group by discount type for display
-    const lpCategories = categoryData.filter(c => c.discountType === "LP");
-    const cpCategories = categoryData.filter(c => c.discountType === "CP");
-    const lightingCategories = categoryData.filter(c => c.discountType === "LIGHTING");
-    const unmappedCategories = categoryData.filter(c => !c.discountType);
+    const lpCategories = categoryData.filter((c) => c.discountType === "LP");
+    const cpCategories = categoryData.filter((c) => c.discountType === "CP");
+    const lightingCategories = categoryData.filter((c) => c.discountType === "LIGHTING");
+    const unmappedCategories = categoryData.filter((c) => !c.discountType);
+    const totalMapped = lpCategories.length + cpCategories.length + lightingCategories.length;
+    const mappingPct = categories.length > 0 ? Math.round((totalMapped / categories.length) * 100) : 0;
+
+    const stats = [
+        {
+            label: "Belum Dipetakan",
+            value: unmappedCategories.length,
+            icon: Layers,
+            iconBg: "bg-gray-100",
+            iconColor: "text-gray-500",
+            valueCls: unmappedCategories.length > 0 ? "text-red-600" : "text-gray-800",
+            bar: "bg-gray-300",
+            barPct: categories.length > 0 ? (unmappedCategories.length / categories.length) * 100 : 0,
+        },
+        {
+            label: "Siemens LP",
+            value: lpCategories.length,
+            icon: Plug2,
+            iconBg: "bg-yellow-100",
+            iconColor: "text-yellow-600",
+            valueCls: "text-yellow-700",
+            bar: "bg-yellow-400",
+            barPct: categories.length > 0 ? (lpCategories.length / categories.length) * 100 : 0,
+        },
+        {
+            label: "Siemens CP",
+            value: cpCategories.length,
+            icon: CircuitBoard,
+            iconBg: "bg-blue-100",
+            iconColor: "text-blue-600",
+            valueCls: "text-blue-700",
+            bar: "bg-blue-400",
+            barPct: categories.length > 0 ? (cpCategories.length / categories.length) * 100 : 0,
+        },
+        {
+            label: "Portable Lighting",
+            value: lightingCategories.length,
+            icon: Zap,
+            iconBg: "bg-orange-100",
+            iconColor: "text-orange-600",
+            valueCls: "text-orange-700",
+            bar: "bg-orange-400",
+            barPct: categories.length > 0 ? (lightingCategories.length / categories.length) * 100 : 0,
+        },
+    ];
 
     return (
         <div className="space-y-6">
-
-
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <Button variant="outline" size="icon" asChild>
+            {/* ── Header ── */}
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div className="flex items-center gap-3">
+                    <Button variant="outline" size="icon" asChild className="h-9 w-9 rounded-xl border-gray-200 shadow-sm shrink-0">
                         <Link href="/admin/products">
                             <ArrowLeft className="h-4 w-4" />
                         </Link>
                     </Button>
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Pengaturan Kategori Diskon</h1>
-                        <p className="text-sm text-gray-500">Tentukan kategori produk mana yang termasuk LP, CP, atau Portable Lighting</p>
+                        <h1 className="text-xl font-bold text-gray-900 leading-tight">Pemetaan Kategori</h1>
+                        <p className="text-sm text-gray-500 mt-0.5">
+                            Tentukan tipe diskon tiap kategori produk dengan drag &amp; drop
+                        </p>
                     </div>
                 </div>
                 <SyncCategoryButton />
             </div>
 
-            {/* Summary Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <Card className="border-l-4 border-l-gray-400">
-                    <CardContent className="pt-4">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-gray-100 rounded-lg">
-                                <Layers className="h-5 w-5 text-gray-600" />
-                            </div>
-                            <div>
-                                <p className="text-2xl font-bold">{unmappedCategories.length}</p>
-                                <p className="text-sm text-gray-500">Belum Dikategorikan</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card className="border-l-4 border-l-yellow-500">
-                    <CardContent className="pt-4">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-yellow-100 rounded-lg">
-                                <Plug2 className="h-5 w-5 text-yellow-600" />
-                            </div>
-                            <div>
-                                <p className="text-2xl font-bold">{lpCategories.length}</p>
-                                <p className="text-sm text-gray-500">Siemens LP</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card className="border-l-4 border-l-blue-500">
-                    <CardContent className="pt-4">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-blue-100 rounded-lg">
-                                <CircuitBoard className="h-5 w-5 text-blue-600" />
-                            </div>
-                            <div>
-                                <p className="text-2xl font-bold">{cpCategories.length}</p>
-                                <p className="text-sm text-gray-500">Siemens CP</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card className="border-l-4 border-l-orange-500">
-                    <CardContent className="pt-4">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-orange-100 rounded-lg">
-                                <Flashlight className="h-5 w-5 text-orange-600" />
-                            </div>
-                            <div>
-                                <p className="text-2xl font-bold">{lightingCategories.length}</p>
-                                <p className="text-sm text-gray-500">Portable Lighting</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+            {/* ── Progress overview ── */}
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+                <div className="flex items-center justify-between mb-3">
+                    <div>
+                        <p className="text-sm font-semibold text-gray-700">Progress Pemetaan</p>
+                        <p className="text-xs text-gray-400">
+                            {totalMapped} dari {categories.length} kategori sudah dipetakan
+                        </p>
+                    </div>
+                    <span className={`text-2xl font-bold ${mappingPct === 100 ? "text-green-600" : "text-gray-800"}`}>
+                        {mappingPct}%
+                    </span>
+                </div>
+                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                        className={`h-full rounded-full transition-all duration-700 ${mappingPct === 100 ? "bg-green-500" : "bg-red-600"}`}
+                        style={{ width: `${mappingPct}%` }}
+                    />
+                </div>
+                {unmappedCategories.length > 0 && (
+                    <p className="text-xs text-amber-600 flex items-center gap-1.5 mt-3">
+                        <AlertCircle className="h-3.5 w-3.5" />
+                        {unmappedCategories.length} kategori belum dipetakan — kategori tersebut tidak akan mendapat diskon B2B.
+                    </p>
+                )}
             </div>
 
-            {/* Category Mapping Kanban */}
-            <CategoryMappingKanban categories={categoryData} />
+            {/* ── Stats cards ── */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {stats.map((s) => {
+                    const Icon = s.icon;
+                    return (
+                        <div key={s.label} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 space-y-3">
+                            <div className="flex items-center gap-2.5">
+                                <div className={`p-2 rounded-xl ${s.iconBg}`}>
+                                    <Icon className={`h-4 w-4 ${s.iconColor}`} />
+                                </div>
+                                <p className="text-xs text-gray-500 font-medium leading-tight">{s.label}</p>
+                            </div>
+                            <p className={`text-3xl font-black ${s.valueCls}`}>{s.value}</p>
+                            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                <div
+                                    className={`h-full rounded-full transition-all duration-700 ${s.bar}`}
+                                    style={{ width: `${s.barPct}%` }}
+                                />
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
 
-
+            {/* ── Kanban board ── */}
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+                <div className="mb-4">
+                    <p className="text-sm font-bold text-gray-800">Papan Pemetaan Kategori</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Gunakan search atau seret kartu kategori ke kolom yang sesuai</p>
+                </div>
+                <CategoryMappingKanban categories={categoryData} />
+            </div>
         </div>
     );
 }

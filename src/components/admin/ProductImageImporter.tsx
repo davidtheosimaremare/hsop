@@ -18,8 +18,25 @@ import { importProductImageBatchAction } from "@/app/actions/import-product-imag
 import Papa from "papaparse";
 import { Progress } from "@/components/ui/progress"; // Assuming you have a Progress component, or I will use standard HTML progress
 
-export function ProductImageImporter() {
-    const [open, setOpen] = useState(false);
+interface ProductImageImporterProps {
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+    hideTrigger?: boolean;
+}
+
+export function ProductImageImporter({ open: controlledOpen, onOpenChange: controlledOnOpenChange, hideTrigger }: ProductImageImporterProps = {}) {
+    const [internalOpen, setInternalOpen] = useState(false);
+
+    const isControlled = controlledOpen !== undefined;
+    const open = isControlled ? controlledOpen : internalOpen;
+    const onOpenChange = (v: boolean) => {
+        if (isControlled && controlledOnOpenChange) {
+            controlledOnOpenChange(v);
+        } else {
+            setInternalOpen(v);
+        }
+    };
+
     const [file, setFile] = useState<File | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -137,19 +154,21 @@ export function ProductImageImporter() {
     };
 
     const resetDialog = () => {
-        setOpen(false);
+        onOpenChange(false);
         setFile(null);
         resetStats();
     };
 
     return (
-        <Dialog open={open} onOpenChange={(v) => { if (!isLoading) setOpen(v); }}>
-            <DialogTrigger asChild>
-                <Button variant="outline" className="gap-2">
-                    <FileSpreadsheet className="h-4 w-4" />
-                    Import Gambar CSV
-                </Button>
-            </DialogTrigger>
+        <Dialog open={open} onOpenChange={(v) => { if (!isLoading) onOpenChange(v); }}>
+            {!hideTrigger && (
+                <DialogTrigger asChild>
+                    <Button variant="outline" className="gap-2">
+                        <FileSpreadsheet className="h-4 w-4" />
+                        Import Gambar CSV
+                    </Button>
+                </DialogTrigger>
+            )}
             <DialogContent className="sm:max-w-[600px]">
                 <DialogHeader>
                     <DialogTitle>Batch Import Images</DialogTitle>

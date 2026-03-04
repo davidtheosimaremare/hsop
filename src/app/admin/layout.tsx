@@ -17,6 +17,26 @@ export default function AdminLayout({
 
     const isFullWidth = pathname.startsWith("/admin/customers");
 
+    // Don't render sidebar on login page
+    if (isLoginPage) {
+        return (
+            <div className="min-h-screen bg-white">
+                <NextTopLoader
+                    color="#DC2626"
+                    initialPosition={0.08}
+                    crawlSpeed={200}
+                    height={3}
+                    crawl={true}
+                    showSpinner={false}
+                    easing="ease"
+                    speed={200}
+                    shadow="0 0 10px #DC2626,0 0 5px #DC2626"
+                />
+                {children}
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-gray-50 flex">
             <NextTopLoader
@@ -37,10 +57,10 @@ export default function AdminLayout({
             <main
                 className={cn(
                     "flex-1 transition-all duration-300 ease-in-out p-6 md:p-8",
-                    isSidebarOpen ? "ml-64" : "ml-20"
+                    isSidebarOpen ? "ml-64 md:ml-72" : "ml-[80px]"
                 )}
             >
-                <div className={cn("mx-auto", isFullWidth ? "max-w-full" : "max-w-6xl")}>
+                <div className={cn("mx-auto w-full", isFullWidth ? "max-w-full" : "max-w-7xl")}>
                     {children}
                 </div>
             </main>

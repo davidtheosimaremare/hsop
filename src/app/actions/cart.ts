@@ -3,20 +3,53 @@
 import { sendCartQuotation } from "@/lib/mail";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { createAccurateHSQ } from "@/lib/accurate";
+import { logActivity } from "./activity";
 
-// Generate sequential SQ-XXXXX quotation number
-async function generateQuotationNo(): Promise<string> {
+// Generate sequential EST/YY/MM/XXXXX quotation number for drafts (estimasi)
+async function generateEstimateNo(): Promise<string> {
+    const now = new Date();
+    const year = String(now.getFullYear()).substring(2); // 2 digit (e.g., 26)
+    const month = String(now.getMonth() + 1).padStart(2, '0'); // 2 digit (e.g., 02)
+    const prefix = `EST/${year}/${month}/`;
+
     const latest = await db.salesQuotation.findFirst({
-        where: { quotationNo: { startsWith: 'SQ-' } },
-        orderBy: { createdAt: 'desc' },
+        where: { quotationNo: { startsWith: prefix } },
+        orderBy: { quotationNo: 'desc' },
         select: { quotationNo: true },
     });
+
     let nextNum = 1;
     if (latest?.quotationNo) {
-        const num = parseInt(latest.quotationNo.replace('SQ-', ''), 10);
+        const parts = latest.quotationNo.split('/');
+        const lastPart = parts[parts.length - 1];
+        const num = parseInt(lastPart, 10);
         if (!isNaN(num)) nextNum = num + 1;
     }
-    return `SQ-${String(nextNum).padStart(5, '0')}`;
+    return `${prefix}${String(nextNum)}`;
+}
+
+// Generate sequential HRSQ/YY/MM/XXXXX quotation number for submitted quotations (penawaran)
+async function generateRFQNo(): Promise<string> {
+    const now = new Date();
+    const year = String(now.getFullYear()).substring(2); // 2 digit (e.g., 26)
+    const month = String(now.getMonth() + 1).padStart(2, '0'); // 2 digit (e.g., 02)
+    const prefix = `HRSQ/${year}/${month}/`;
+
+    const latest = await db.salesQuotation.findFirst({
+        where: { quotationNo: { startsWith: prefix } },
+        orderBy: { quotationNo: 'desc' },
+        select: { quotationNo: true },
+    });
+
+    let nextNum = 1;
+    if (latest?.quotationNo) {
+        const parts = latest.quotationNo.split('/');
+        const lastPart = parts[parts.length - 1];
+        const num = parseInt(lastPart, 10);
+        if (!isNaN(num)) nextNum = num + 1;
+    }
+    return `${prefix}${String(nextNum)}`;
 }
 
 // Helper: get notification settings from SiteSetting
@@ -40,9 +73,11 @@ interface CartItem {
     name: string;
     brand: string;
     price: number;
+    originalPrice?: number;
     quantity: number;
     readyStock?: number;
     indent?: number;
+    discountStr?: string;
 }
 
 // For guest users - send via email AND save to database
@@ -50,7 +85,8 @@ export async function submitCartQuotation(
     email: string,
     phone: string,
     items: CartItem[],
-    totalPrice: number
+    totalPrice: number,
+    address?: string
 ) {
     if (!email || !email.includes("@")) {
         return { success: false, error: "Email tidak valid" };
@@ -65,29 +101,81 @@ export async function submitCartQuotation(
     }
 
     try {
-        // Generate SQ number
-        const quotationNo = await generateQuotationNo();
+        // Save to database with retry logic for quotationNo collisions
+        let quotation;
+        let attempts = 0;
+        const maxAttempts = 5;
 
-        // Save to database (without userId for guest)
-        const quotation = await db.salesQuotation.create({
-            data: {
-                quotationNo,
-                email,
-                phone,
-                totalAmount: totalPrice,
-                status: "PENDING",
-                items: {
-                    create: items.map(item => ({
-                        productSku: item.sku,
-                        productName: item.name,
-                        brand: item.brand,
-                        quantity: item.quantity,
-                        price: item.price,
-                    })),
-                },
-            },
-        });
+        while (attempts < maxAttempts) {
+            try {
+                // Guest users always submit as RFQ (not draft)
+                const quotationNo = await generateRFQNo();
+                quotation = await db.salesQuotation.create({
+                    data: {
+                        quotationNo,
+                        email,
+                        phone,
+                        totalAmount: totalPrice,
+                        status: "PENDING",
+                        shippingAddress: address,
+                        items: {
+                            create: items.map(item => {
+                                const basePrice = item.originalPrice || item.price;
+                                const discountAmount = basePrice - item.price;
+                                const discountPercent = basePrice > 0 ? (discountAmount / basePrice) * 100 : 0;
+
+                                return {
+                                    productSku: item.sku,
+                                    productName: item.name,
+                                    brand: item.brand,
+                                    quantity: item.quantity,
+                                    price: item.price,
+                                    basePrice: basePrice,
+                                    discountPercent: discountPercent,
+                                    discountAmount: discountAmount,
+                                    discountStr: item.discountStr
+                                };
+                            }),
+                        },
+                    },
+                    include: { items: true }
+                });
+                break; // Success!
+            } catch (error: any) {
+                // P2002 is Prisma's unique constraint error code
+                if (error.code === 'P2002' && attempts < maxAttempts - 1) {
+                    attempts++;
+                    // Delay a bit before retrying
+                    await new Promise(resolve => setTimeout(resolve, Math.random() * 200));
+                    continue;
+                }
+                throw error;
+            }
+        }
+
+        if (!quotation) throw new Error("Failed to create quotation after multiple attempts");
+
         console.log("[submitCartQuotation] Guest quotation saved:", quotation.quotationNo);
+
+        // Log Activity
+        await logActivity(quotation.id, "HRSQ_CREATED", "HRSQ Baru Dibuat", `Guest (${email}) mengirimkan permintaan penawaran (HRSQ) nomor ${quotation.quotationNo}.`, "USER");
+
+        // Sync to Accurate
+        try {
+            const accRes = await createAccurateHSQ(quotation);
+            if (accRes && accRes.id) {
+                await db.salesQuotation.update({
+                    where: { id: quotation.id },
+                    data: {
+                        accurateHsqId: accRes.id,
+                        accurateHsqNo: accRes.number || null,
+                        accurateSyncStatus: "SUCCESS"
+                    }
+                });
+            }
+        } catch (accError) {
+            console.error("[submitCartQuotation] Failed to sync to Accurate:", accError);
+        }
 
         // Send email notification
         try {
@@ -98,11 +186,28 @@ export async function submitCartQuotation(
 
         // Send WhatsApp notification via Fontee
         const { salesPhone } = await getNotifSettings();
-        const message = `[RFQ Guest] Quotation baru dari ${email}\nNomor: ${quotation.quotationNo}\nTotal: Rp ${new Intl.NumberFormat("id-ID").format(totalPrice)}\nItem: ${items.length} produk\nHP: ${phone}`;
+        const message = `[HRSQ Guest] Quotation baru dari ${email}\nNomor: ${quotation.quotationNo}\nTotal: Rp ${new Intl.NumberFormat("id-ID").format(totalPrice)}\nItem: ${items.length} produk\nHP: ${phone}`;
         try {
             await sendFonteeMessage(salesPhone, message);
         } catch (waError) {
             console.error("[submitCartQuotation] WA failed:", waError);
+        }
+
+        // --- ACCURATE SYNC (Guest) ---
+        try {
+            const accRes = await createAccurateHSQ(quotation);
+            if (accRes) {
+                await db.salesQuotation.update({
+                    where: { id: quotation.id },
+                    data: {
+                        accurateHsqId: accRes.id,
+                        accurateHsqNo: accRes.number,
+                        accurateSyncStatus: "SUCCESS"
+                    }
+                });
+            }
+        } catch (accError) {
+            console.error("[submitCartQuotation] Accurate sync error:", accError);
         }
 
         return { success: true, quotationNo: quotation.quotationNo, error: undefined };
@@ -117,9 +222,13 @@ export async function submitCartQuotation(
 // For logged-in users - save to database and send notifications
 export async function saveQuotationToDb(
     items: CartItem[],
-    totalPrice: number
+    totalPrice: number,
+    status: 'PENDING' | 'DRAFT' = 'PENDING',
+    userClientId?: string,
+    clientNameSnapshot?: string,
+    address?: string
 ) {
-    console.log("[saveQuotationToDb] Starting...");
+    console.log("[saveQuotationToDb] Starting...", { status, userClientId, clientNameSnapshot });
     const session = await getSession();
     console.log("[saveQuotationToDb] Session:", session ? "Found" : "Null", session?.user?.id);
 
@@ -137,7 +246,16 @@ export async function saveQuotationToDb(
         console.log("[saveQuotationToDb] Fetching user:", session.user.id);
         const user = await db.user.findUnique({
             where: { id: session.user.id },
-            select: { id: true, email: true, name: true, phone: true }
+            select: {
+                id: true, email: true, name: true, phone: true, address: true, customerId: true,
+                customer: {
+                    select: {
+                        company: true,
+                        accurateCustomerCode: true,
+                        address: true
+                    }
+                }
+            }
         });
 
         if (!user) {
@@ -146,30 +264,123 @@ export async function saveQuotationToDb(
         }
         console.log("[saveQuotationToDb] User found:", user.email);
 
+        // Update user address if provided to keep profile up to date
+        if (address) {
+            await db.user.update({
+                where: { id: user.id },
+                data: { address }
+            });
+        }
+
+        // Determine final shipping address
+        let finalShippingAddress = address || user.address;
+
+        // If still no address, try to fetch primary address from address book
+        if (!finalShippingAddress && user.id) {
+            const dbUser = await db.user.findUnique({
+                where: { id: user.id },
+                include: {
+                    customer: {
+                        include: {
+                            addresses: {
+                                where: { isPrimary: true },
+                                take: 1
+                            }
+                        }
+                    }
+                }
+            });
+
+            if (dbUser?.customer?.addresses?.[0]) {
+                const primary = dbUser.customer.addresses[0];
+                finalShippingAddress = `${primary.label ? `[${primary.label}] ` : ""}${primary.address}${primary.recipient ? ` - UP: ${primary.recipient}` : ""}${primary.phone ? ` (${primary.phone})` : ""}`;
+            } else if (dbUser?.customer?.address) {
+                finalShippingAddress = dbUser.customer.address;
+            }
+        }
+
+        // If userClientId is provided, fetch client name for snapshot. 
+        // Otherwise use the provided snapshot if any.
+        let clientName = clientNameSnapshot;
+        if (userClientId) {
+            const client = await db.userClient.findUnique({
+                where: { id: userClientId },
+                select: { name: true }
+            });
+            clientName = client?.name;
+        }
+
         console.log("[saveQuotationToDb] Creating quotation...");
-        const quotationNo = await generateQuotationNo();
-        const quotation = await db.salesQuotation.create({
-            data: {
-                quotationNo,
-                userId: user.id,
-                email: user.email,
-                phone: user.phone || "",
-                totalAmount: totalPrice,
-                status: "PENDING",
-                items: {
-                    create: items.map(item => ({
-                        productSku: item.sku,
-                        productName: item.name,
-                        brand: item.brand,
-                        quantity: item.quantity,
-                        price: item.price,
-                        // Note: readyStock and indent are not currently saved to DB item lines if the schema doesn't support it,
-                        // but they will be passed to the email.
-                    })),
-                },
-            },
-        });
-        console.log("[saveQuotationToDb] Quotation created:", quotation.id, quotation.quotationNo);
+
+        let quotation;
+        let attempts = 0;
+        const maxAttempts = 5;
+
+        while (attempts < maxAttempts) {
+            try {
+                // Use EST number for drafts, RFQ number for submitted quotations
+                const quotationNo = status === 'DRAFT'
+                    ? await generateEstimateNo()
+                    : await generateRFQNo();
+
+                quotation = await db.salesQuotation.create({
+                    data: {
+                        quotationNo,
+                        userId: user.id,
+                        customerId: user.customerId,
+                        email: user.email,
+                        phone: user.phone || "",
+                        totalAmount: totalPrice,
+                        status: status,
+                        shippingAddress: finalShippingAddress,
+                        userClientId: userClientId,
+                        clientName: clientName,
+                        items: {
+                            create: items.map(item => {
+                                const basePrice = item.originalPrice || item.price;
+                                const discountAmount = basePrice - item.price;
+                                const discountPercent = basePrice > 0 ? (discountAmount / basePrice) * 100 : 0;
+
+                                return {
+                                    productSku: item.sku,
+                                    productName: item.name,
+                                    brand: item.brand,
+                                    quantity: item.quantity,
+                                    price: item.price,
+                                    basePrice: basePrice,
+                                    discountPercent: discountPercent,
+                                    discountAmount: discountAmount,
+                                    discountStr: item.discountStr
+                                };
+                            }),
+                        },
+                    },
+                    include: {
+                        items: true,
+                        customer: {
+                            select: { accurateCustomerCode: true }
+                        }
+                    }
+                });
+                break; // Success
+            } catch (error: any) {
+                if (error.code === 'P2002' && attempts < maxAttempts - 1) {
+                    attempts++;
+                    await new Promise(resolve => setTimeout(resolve, Math.random() * 200));
+                    continue;
+                }
+                throw error;
+            }
+        }
+
+        if (!quotation) throw new Error("Failed to create quotation after multiple attempts");
+
+        console.log("[saveQuotationToDb] Quotation saved:", quotation.quotationNo);
+
+        // Don't send notifications if it's a draft
+        if (status === 'DRAFT') {
+            return { success: true, quotationId: quotation.id, quotationNo: quotation.quotationNo };
+        }
 
         // Send email notification to sales and customer
         try {
@@ -188,7 +399,38 @@ export async function saveQuotationToDb(
 
         // Send WhatsApp notification via Fontee
         const { salesPhone } = await getNotifSettings();
-        const message = `[RFQ] Quotation baru dari ${user.name || user.email}\nNomor: ${quotation.quotationNo}\nTotal: Rp ${new Intl.NumberFormat("id-ID").format(totalPrice)}\nItem: ${items.length} produk`;
+        const message = `[HRSQ] Quotation baru dari ${user.name || user.email}\nNomor: ${quotation.quotationNo}\nTotal: Rp ${new Intl.NumberFormat("id-ID").format(totalPrice)}\nItem: ${items.length} produk`;
+
+        // --- ACCURATE SYNC (Logged In) ---
+        try {
+            // Prepare quotation data for Accurate
+            const quotationForAccurate = {
+                ...quotation,
+                customer: {
+                    accurateNo: user.customer?.accurateCustomerCode,
+                    address: user.customer?.address
+                }
+            };
+            const accRes = await createAccurateHSQ(quotationForAccurate);
+            if (accRes) {
+                await db.salesQuotation.update({
+                    where: { id: quotation.id },
+                    data: {
+                        accurateHsqId: accRes.id,
+                        accurateHsqNo: accRes.number,
+                        accurateSyncStatus: "SUCCESS"
+                    }
+                });
+            }
+        } catch (accError) {
+            console.error("[saveQuotationToDb] Accurate sync error:", accError);
+        }
+
+        // Log Activity with PT and User name
+        const performerInfo = user.customer?.company
+            ? `${user.customer.company} (${user.name || user.email})`
+            : (user.name || user.email);
+        await logActivity(quotation.id, "HRSQ_CREATED", "HRSQ Baru Dibuat", `User mengirimkan permintaan penawaran (HRSQ) nomor ${quotation.quotationNo}.`, performerInfo);
 
         try {
             console.log("[saveQuotationToDb] Sending WA to sales...");

@@ -163,8 +163,8 @@ export function RichTextEditor({ content, onChange, placeholder }: RichTextEdito
         `).run();
     }, [editor]);
 
-    // Handle local image upload
-    const handleImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Handle local media upload (image / video)
+    const handleMediaUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!editor) return;
 
         const file = e.target.files?.[0];
@@ -177,13 +177,23 @@ export function RichTextEditor({ content, onChange, placeholder }: RichTextEdito
             const result = await uploadNewsImage(formData);
 
             if (result.success && result.url) {
-                editor.chain().focus().setImage({ src: result.url }).run();
+                if (file.type.startsWith("video/")) {
+                    editor.chain().focus().insertContent(`
+                        <video controls class="w-full rounded-lg my-4 max-h-[500px] object-cover bg-black">
+                            <source src="${result.url}" type="${file.type}">
+                            Your browser does not support the video tag.
+                        </video>
+                        <p></p>
+                    `).run();
+                } else {
+                    editor.chain().focus().setImage({ src: result.url }).run();
+                }
             } else {
-                alert("Gagal upload gambar");
+                alert("Gagal upload file");
             }
         } catch (error) {
             console.error(error);
-            alert("Gagal upload gambar");
+            alert("Gagal upload file");
         } finally {
             setIsUploading(false);
             if (fileInputRef.current) {
@@ -192,7 +202,7 @@ export function RichTextEditor({ content, onChange, placeholder }: RichTextEdito
         }
     }, [editor]);
 
-    const addImage = useCallback(() => {
+    const addMedia = useCallback(() => {
         fileInputRef.current?.click();
     }, []);
 
@@ -206,9 +216,9 @@ export function RichTextEditor({ content, onChange, placeholder }: RichTextEdito
             <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/*,video/*"
                 className="hidden"
-                onChange={handleImageUpload}
+                onChange={handleMediaUpload}
             />
 
             {/* Toolbar */}
@@ -357,9 +367,9 @@ export function RichTextEditor({ content, onChange, placeholder }: RichTextEdito
                         variant="ghost"
                         size="sm"
                         className="h-8 w-8 p-0"
-                        onClick={addImage}
+                        onClick={addMedia}
                         disabled={isUploading}
-                        title="Image"
+                        title="Upload Image/Video"
                     >
                         {isUploading ? (
                             <Loader2 className="h-4 w-4 animate-spin" />

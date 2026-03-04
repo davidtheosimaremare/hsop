@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -67,11 +68,11 @@ export function PageForm({ initialData, isEdit = false }: PageFormProps) {
                 router.push("/admin/pages");
                 router.refresh();
             } else {
-                alert(result.error || "Terjadi kesalahan saat menyimpan halaman");
+                toast.error(result.error || "Terjadi kesalahan saat menyimpan halaman");
             }
         } catch (error) {
             console.error(error);
-            alert("Terjadi kesalahan sistem");
+            toast.error("Terjadi kesalahan sistem");
         } finally {
             setIsSubmitting(false);
         }

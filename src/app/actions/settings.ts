@@ -155,15 +155,24 @@ export async function updateCategory(id: string, data: any) {
 
 export async function createBanner(data: { title: string; image: string; link?: string; isActive?: boolean }) {
     try {
+        const lastBanner = await db.banner.findFirst({
+            orderBy: { order: 'desc' },
+            select: { order: true }
+        });
+
+        const nextOrder = (lastBanner?.order ?? -1) + 1;
+
         await db.banner.create({
             data: {
                 title: data.title,
                 image: data.image,
                 link: data.link,
-                isActive: data.isActive ?? true
+                isActive: data.isActive ?? true,
+                order: nextOrder
             }
         });
         revalidatePath("/admin/settings/banners");
+        revalidatePath("/");
         return { success: true };
     } catch (error) {
         console.error("Create banner failed:", error);

@@ -16,11 +16,28 @@ import {
     LogOut,
     Settings,
     LayoutDashboard,
-    Zap
+    Zap,
+    Bell,
+    ExternalLink,
+    ShoppingCart,
+    AlertTriangle,
+    Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/lib/useCart";
 import SearchBox from "./SearchBox";
+import NotificationDropdown from "./NotificationDropdown";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { getUserNotifications, markNotificationAsRead } from "@/app/actions/notification";
 // ... imports
 
 interface HeaderProps {
@@ -28,9 +45,13 @@ interface HeaderProps {
         name?: string;
         email?: string;
         role?: string;
+        customerId?: string;
+        id?: string;
     } | null;
     menuConfig?: any[];
     searchSuggestions?: string[];
+    customerImage?: string | null;
+    userId?: string;
 }
 
 const navCategories = [
@@ -67,13 +88,19 @@ const defaultMegaMenuCategories = [
     // I will use default if menuConfig is empty/null, so the site doesn't look broken immediately.
 ];
 
-export default function Header({ user, menuConfig, searchSuggestions = [] }: HeaderProps) {
+export default function Header({ user, menuConfig, searchSuggestions = [], customerImage, userId }: HeaderProps) {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isMegaMenuOpen, setIsMegaMenuOpen] = useState(false);
     const [activeCategory, setActiveCategory] = useState(0);
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+    const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+    const [notifications, setNotifications] = useState<any[]>([]);
+    const [unreadCount, setUnreadCount] = useState(0);
+    const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
     const megaMenuRef = useRef<HTMLDivElement>(null);
     const userMenuRef = useRef<HTMLDivElement>(null);
+    const notificationRef = useRef<HTMLDivElement>(null);
     const { totalItems } = useCart();
     const router = useRouter();
 
@@ -88,23 +115,41 @@ export default function Header({ user, menuConfig, searchSuggestions = [] }: Hea
             if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
                 setIsUserMenuOpen(false);
             }
+            if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+                setIsNotificationOpen(false);
+            }
         };
 
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    const handleLogout = async () => {
-        // We need to call a server action or API route to logout
-        // For now, let's redirect to a logout action route or use a server action if we passed one (prop drilling action is weird here)
-        // Or simpler: window.location.href = "/api/auth/logout" if we had one.
-        // Actually we have logoutAction in actions/auth.ts. 
-        // We can't import server action directly here if this is 'use client' ? 
-        // Next.js allows importing server actions in client components.
+    // Fetch notifications
+    useEffect(() => {
+        if (user) {
+            fetchNotifications();
+        }
+    }, [user]);
 
-        // Dynamic import to avoid initial bundle bloat if needed, or just standard import
+    async function fetchNotifications() {
+        const result = await getUserNotifications();
+        if (result.success) {
+            setNotifications(result.notifications.slice(0, 5)); // Only show latest 5
+            setUnreadCount(result.notifications.filter((n: any) => !n.read).length);
+        }
+    }
+
+    const handleLogout = async () => {
+        setIsLoggingOut(true);
         const { logoutAction } = await import("@/app/actions/auth");
         await logoutAction();
+        setIsLoggingOut(false);
+        setShowLogoutDialog(false);
+    };
+
+    const handleLogoutClick = () => {
+        setIsUserMenuOpen(false);
+        setShowLogoutDialog(true);
     };
 
     return (
@@ -151,25 +196,29 @@ export default function Header({ user, menuConfig, searchSuggestions = [] }: Hea
 
                     {/* Right Actions */}
                     <div className="flex items-center text-sm">
+                        {/* Spacer - untuk membuat icons di tengah */}
+                        <div className="flex-1"></div>
+
                         {/* Cart/Bag */}
                         <Link href="/keranjang">
                             <motion.button
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
-                                className="group relative p-2 mr-2 rounded-xl hover:bg-gray-100 transition-colors duration-200"
+                                className="group relative p-2 mx-3 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-all duration-200"
                             >
-                                <Image
-                                    src="/bag.png"
-                                    alt="Keranjang"
-                                    width={24}
-                                    height={24}
-                                    className="h-6 w-6 object-contain grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-200"
-                                />
-                                <span className="absolute -top-1 -right-1.5 h-[14px] min-w-[18px] px-1 bg-[#FF0000] border border-white rounded-sm text-[9px] text-white flex items-center justify-center font-semibold">
-                                    {totalItems}
-                                </span>
+                                <ShoppingCart className="h-6 w-6 transition-colors duration-200" />
+                                {totalItems > 0 && (
+                                    <span className="absolute top-1 right-1 h-4 w-4 bg-red-600 border-2 border-white rounded-full text-[9px] text-white flex items-center justify-center font-bold">
+                                        {totalItems > 99 ? '99+' : totalItems}
+                                    </span>
+                                )}
                             </motion.button>
                         </Link>
+
+                        {/* Notifications - Only if logged in */}
+                        {user && userId && (
+                            <NotificationDropdown userId={userId} />
+                        )}
 
                         {/* Separator */}
                         <div className="hidden sm:block h-8 w-px bg-gray-200 mx-4" />
@@ -182,8 +231,12 @@ export default function Header({ user, menuConfig, searchSuggestions = [] }: Hea
                                         onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                                         className="flex items-center gap-3 p-1.5 pr-3 rounded-xl hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-200"
                                     >
-                                        <div className="w-9 h-9 bg-red-100 rounded-lg flex items-center justify-center text-red-600 font-bold">
-                                            {user.name ? user.name.charAt(0).toUpperCase() : (user.email ? user.email.charAt(0).toUpperCase() : 'U')}
+                                        <div className="w-9 h-9 rounded-lg overflow-hidden bg-red-100 flex items-center justify-center text-red-600 font-bold flex-shrink-0">
+                                            {customerImage ? (
+                                                <img src={customerImage} alt={user.name || "User"} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <span>{user.name ? user.name.charAt(0).toUpperCase() : (user.email ? user.email.charAt(0).toUpperCase() : 'U')}</span>
+                                            )}
                                         </div>
                                         <div className="text-left hidden lg:block">
                                             <p className="text-sm font-bold text-gray-900 leading-none mb-1">
@@ -206,7 +259,6 @@ export default function Header({ user, menuConfig, searchSuggestions = [] }: Hea
                                             >
                                                 <div className="px-4 py-3 border-b border-gray-50 mb-1">
                                                     <p className="text-sm font-semibold text-gray-900">Akun Saya</p>
-                                                    <p className="text-xs text-green-600 font-medium mt-0.5">Verified Member</p>
                                                 </div>
 
                                                 <Link
@@ -224,13 +276,13 @@ export default function Header({ user, menuConfig, searchSuggestions = [] }: Hea
                                                     onClick={() => setIsUserMenuOpen(false)}
                                                 >
                                                     <Settings className="w-4 h-4" />
-                                                    Pengaturan & Upgrade
+                                                    Pengaturan
                                                 </Link>
 
                                                 <div className="border-t border-gray-50 my-1" />
 
                                                 <button
-                                                    onClick={handleLogout}
+                                                    onClick={handleLogoutClick}
                                                     className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
                                                 >
                                                     <LogOut className="w-4 h-4" />
@@ -326,12 +378,12 @@ export default function Header({ user, menuConfig, searchSuggestions = [] }: Hea
 
                         {/* Right Navigation */}
                         <div className="flex items-center gap-6">
-                            <a
-                                href="#"
+                            <Link
+                                href="/berita"
                                 className="text-sm font-medium text-gray-600 hover:text-red-600 transition-colors"
                             >
                                 Berita
-                            </a>
+                            </Link>
                             <a
                                 href="/pesanan-besar"
                                 className="text-sm font-medium text-gray-600 hover:text-red-600 transition-colors"
@@ -401,7 +453,7 @@ export default function Header({ user, menuConfig, searchSuggestions = [] }: Hea
                                             {categoriesToDisplay[activeCategory]?.subcategories.map((subcat: any) => (
                                                 <Link
                                                     key={subcat.id || subcat.name}
-                                                    href={`/pencarian?q=&category=${encodeURIComponent(subcat.name)}&page=1`}
+                                                    href={`/pencarian?q=&category=${encodeURIComponent(subcat.alias || subcat.name)}&page=1`}
                                                     onClick={() => setIsMegaMenuOpen(false)}
                                                     className="group flex items-center p-2 rounded-lg hover:bg-red-50 transition-all duration-200"
                                                 >
@@ -452,7 +504,7 @@ export default function Header({ user, menuConfig, searchSuggestions = [] }: Hea
                                 {categoriesToDisplay.map((category) => (
                                     <Link
                                         key={category.name}
-                                        href={`/pencarian?q=${encodeURIComponent(category.name)}`}
+                                        href={`/pencarian?q=&category=${encodeURIComponent(category.alias || category.name)}&page=1`}
                                         className="flex items-center justify-between px-3 py-2.5 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors"
                                         onClick={() => setIsMobileMenuOpen(false)}
                                     >
@@ -475,8 +527,9 @@ export default function Header({ user, menuConfig, searchSuggestions = [] }: Hea
                                     Lihat Semua Kategori
                                 </Link>
                                 <Link
-                                    href="#"
+                                    href="/berita"
                                     className="flex items-center px-3 py-2.5 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors font-medium"
+                                    onClick={() => setIsMobileMenuOpen(false)}
                                 >
                                     Berita
                                 </Link>
@@ -492,6 +545,38 @@ export default function Header({ user, menuConfig, searchSuggestions = [] }: Hea
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* Logout Confirmation Dialog */}
+            <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+                <AlertDialogContent className="max-w-md rounded-2xl">
+                    <AlertDialogHeader>
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                                <AlertTriangle className="w-5 h-5 text-red-600" />
+                            </div>
+                            <AlertDialogTitle className="text-lg">Konfirmasi Logout</AlertDialogTitle>
+                        </div>
+                        <AlertDialogDescription className="text-sm pt-2">
+                            Apakah Anda yakin ingin keluar dari akun? Anda akan diarahkan ke halaman login.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="gap-2">
+                        <AlertDialogCancel className="font-medium">Batal</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleLogout}
+                            className="bg-red-600 hover:bg-red-700 text-white font-medium"
+                            disabled={isLoggingOut}
+                        >
+                            {isLoggingOut ? (
+                                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                            ) : (
+                                <LogOut className="w-4 h-4 mr-2" />
+                            )}
+                            Ya, Keluar
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </header>
     );
 }

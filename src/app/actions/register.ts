@@ -78,7 +78,29 @@ export async function registerUser(prevState: RegisterState, formData: FormData)
         }
 
         const hashedPassword = await hash(password, 12);
-        const customerId = uuidv4();
+
+        // Generate sequential CO-XXXX ID
+        const lastCoCustomer = await db.customer.findFirst({
+            where: {
+                id: { startsWith: 'CO-' }
+            },
+            orderBy: {
+                id: 'desc'
+            },
+            select: { id: true }
+        });
+
+        let nextNum = 1;
+        if (lastCoCustomer) {
+            const parts = lastCoCustomer.id.split('-');
+            if (parts.length > 1) {
+                const lastNum = parseInt(parts[1]);
+                if (!isNaN(lastNum)) {
+                    nextNum = lastNum + 1;
+                }
+            }
+        }
+        const targetCustomerId = `CO-${nextNum.toString().padStart(4, '0')}`;
 
         // Generate OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -86,23 +108,24 @@ export async function registerUser(prevState: RegisterState, formData: FormData)
 
         // Determine Customer Data
         const customerName = isCompany ? companyName : name;
-        const customerType = isCompany ? "BISNIS" : "PERORANGAN";
+        const customerType = isCompany ? "CORPORATE" : "GENERAL";
         const customerCompany = isCompany ? companyName : null;
         const customerBusinessCategory = isCompany ? businessType : null;
 
-        // Check if customer exists
+        // Check if customer exists by email
         let existingCustomer = await db.customer.findUnique({
             where: { email }
         });
 
-        let targetCustomerId = existingCustomer ? existingCustomer.id : customerId;
+        // Use existing ID if found, otherwise use new sequential ID
+        const finalCustomerId = existingCustomer ? existingCustomer.id : targetCustomerId;
 
         await db.$transaction(async (tx) => {
             // 1. Create Customer if not exists
             if (!existingCustomer) {
                 await tx.customer.create({
                     data: {
-                        id: targetCustomerId,
+                        id: finalCustomerId,
                         name: customerName,
                         email: email,
                         phone: phone,
@@ -124,9 +147,9 @@ export async function registerUser(prevState: RegisterState, formData: FormData)
                     password: hashedPassword,
                     name: name,
                     phone: phone,
-                    role: "USER",
+                    role: "CUSTOMER",
                     customer: {
-                        connect: { id: targetCustomerId }
+                        connect: { id: finalCustomerId }
                     },
                     isActive: false, // Inactive until verified
                     isVerified: false,

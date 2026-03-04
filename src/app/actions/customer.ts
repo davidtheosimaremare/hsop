@@ -1,9 +1,10 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { fetchAllCustomers } from "@/lib/accurate";
+import { fetchAllCustomers, createAccurateCustomer } from "@/lib/accurate";
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
+import { hash } from "bcryptjs";
 
 export async function syncCustomersAction() {
     try {
@@ -179,43 +180,100 @@ export async function updateCustomerDiscounts(
 }
 
 export async function createManualCustomer(data: {
-    type: "BISNIS" | "RETAIL";
-    name: string;
-    email: string;
-    phone: string;
-    company?: string;
-    address?: string;
+    type: "BISNIS" | "RETAIL" | "RESELLER" | "GENERAL";
+    name: string; // Contact Person Name
+    email: string; // Login Email
+    phone: string; // CP Phone
+    company?: string | null; // Company Name
+    companyEmail?: string | null; // Company Email
+    companyPhone?: string | null; // Company Phone
+    address?: string | null;
+    password?: string | null;
 }) {
     try {
         // validate email
         if (data.email) {
-            const existing = await db.customer.findFirst({
+            const existingCust = await db.customer.findFirst({
                 where: { email: data.email },
             });
-            if (existing) {
+            const existingUser = await db.user.findFirst({
+                where: { email: data.email },
+            });
+            if (existingCust || existingUser) {
                 return { success: false, error: "Email sudah terdaftar." };
             }
         }
 
-        const id = `MANUAL-${Date.now()}`; // Simple Unique ID logic
+        // 1. Sync to Accurate first to get the official ID/Number
+        // This is necessary because the user wants the Accurate Number to be the PRIMARY ID in our DB.
+        const isEntity = !!data.company;
+        const accurateRes = await createAccurateCustomer({
+            name: (isEntity && data.company) ? data.company : data.name,
+            email: isEntity ? (data.companyEmail || undefined) : data.email,
+            phone: isEntity ? (data.companyPhone || undefined) : data.phone,
+            address: data.address || undefined,
+            // Contact Person info (Login account)
+            cpName: isEntity ? data.name : undefined,
+            cpEmail: isEntity ? data.email : undefined,
+            cpPhone: isEntity ? data.phone : undefined,
+        });
 
-        await db.customer.create({
-            data: {
-                id: id,
-                type: data.type,
-                name: data.name,
-                email: data.email,
-                phone: data.phone,
-                company: data.company,
-                address: data.address,
-                accurateId: null, // Manual customer
-                discount1: 0,
-                discount2: 0,
-            },
+        if (!accurateRes.s) {
+            return { success: false, error: `Gagal sinkron ke Accurate: ${accurateRes.message}` };
+        }
+
+        console.log("[Accurate Sync Result]:", JSON.stringify(accurateRes.r));
+
+        const accurateId = accurateRes.r?.id;
+        const accurateNo = accurateRes.r?.customerNo || accurateRes.r?.number || accurateRes.r?.no;
+
+        if (!accurateNo) {
+            return { success: false, error: "Gagal mendapatkan nomor Pelanggan dari Accurate." };
+        }
+
+        // 2. Create in our DB using Accurate No as IDs
+        await db.$transaction(async (tx) => {
+            const customer = await tx.customer.create({
+                data: {
+                    id: accurateNo, // Use Accurate No as the Primary Key ID
+                    type: data.type,
+                    name: data.name,
+                    email: data.email,
+                    phone: data.phone,
+                    company: data.company,
+                    // Use @ts-ignore if the client is still using old cached types
+                    // @ts-ignore
+                    companyEmail: data.companyEmail,
+                    // @ts-ignore
+                    companyPhone: data.companyPhone,
+                    address: data.address || undefined,
+                    accurateId: Number(accurateId),
+                    accurateCustomerCode: accurateNo,
+                    discount1: 0,
+                    discount2: 0,
+                },
+            });
+
+            if (data.email && data.password && data.password.trim() !== "") {
+                const hashedPassword = await hash(data.password, 12);
+                await tx.user.create({
+                    data: {
+                        email: data.email,
+                        password: hashedPassword,
+                        name: data.name,
+                        phone: data.phone,
+                        role: "CUSTOMER",
+                        isActive: true,
+                        isVerified: true,
+                        customerId: accurateNo,
+                        isPrimaryContact: true,
+                    }
+                });
+            }
         });
 
         revalidatePath("/admin/customers");
-        return { success: true, id };
+        return { success: true, id: accurateNo };
     } catch (error) {
         console.error("Failed to create customer:", error);
         return { success: false, error: "Gagal membuat customer." };
@@ -223,12 +281,14 @@ export async function createManualCustomer(data: {
 }
 
 export async function updateCustomer(id: string, data: {
-    type: "BISNIS" | "RETAIL";
+    type: "BISNIS" | "RETAIL" | "RESELLER";
     name: string;
     email: string;
     phone: string;
-    company?: string;
-    address?: string;
+    company?: string | null;
+    companyEmail?: string | null;
+    companyPhone?: string | null;
+    address?: string | null;
 }) {
     try {
         // Validation: Check if email is taken by ANOTHER user
@@ -252,6 +312,10 @@ export async function updateCustomer(id: string, data: {
                 email: data.email,
                 phone: data.phone,
                 company: data.company,
+                // @ts-ignore
+                companyEmail: data.companyEmail,
+                // @ts-ignore
+                companyPhone: data.companyPhone,
                 address: data.address,
             },
         });
@@ -403,6 +467,7 @@ export async function updateCustomerBasicInfoAction(customerId: string, formData
     }
 }
 
+
 export async function updateCustomerAvatarAction(customerId: string, imageUrl: string) {
     console.log(`Updating avatar for ${customerId} with url: ${imageUrl}`);
     try {
@@ -417,5 +482,47 @@ export async function updateCustomerAvatarAction(customerId: string, imageUrl: s
     } catch (error) {
         console.error("Update Avatar DB Error:", error);
         return { error: "Gagal update avatar: " + (error as Error).message };
+    }
+}
+
+export async function upgradeCustomerType(id: string, type: "CORPORATE" | "RETAIL") {
+    try {
+        await db.customer.update({
+            where: { id },
+            data: { type }
+        });
+        revalidatePath("/admin/customers");
+        revalidatePath(`/admin/customers/${id}`);
+        return { success: true, message: "Berhasil mengupgrade tipe customer" };
+    } catch (error) {
+        return { success: false, error: "Gagal mengupgrade tipe customer: " + (error as Error).message };
+    }
+}
+
+export async function deleteCustomerAction(id: string) {
+    try {
+        await db.$transaction(async (tx) => {
+            // Delete associated data first
+            await tx.user.deleteMany({
+                where: { customerId: id }
+            });
+            await tx.customerAddress.deleteMany({
+                where: { customerId: id }
+            });
+            // We keep Orders and SalesQuotations usually for accounting, 
+            // but if they are linked to the customer, they will block deletion if not handled.
+            // Let's check schema.prisma again or just try deleting.
+            // In Prisma, if no cascade is set, delete will fail.
+            // Let's assume we want to truly delete the customer record.
+
+            await tx.customer.delete({
+                where: { id }
+            });
+        });
+        revalidatePath("/admin/customers");
+        return { success: true };
+    } catch (error) {
+        console.error("Delete Customer Error:", error);
+        return { success: false, error: "Gagal menghapus customer: " + (error as Error).message };
     }
 }

@@ -11,6 +11,7 @@ import Image from "next/image";
 import { uploadFile } from "@/app/actions/upload";
 import { updateHomeCTA, getHomeCTAs } from "@/app/actions/cta";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 interface CTAData {
     id?: string;
@@ -107,7 +108,7 @@ export default function HomeCTAManager() {
         if (!file) return;
 
         if (file.size > 10 * 1024 * 1024) {
-            alert("Ukuran file terlalu besar (Max 10MB)");
+            toast.error("Ukuran file terlalu besar (Max 10MB)");
             return;
         }
 
@@ -122,12 +123,13 @@ export default function HomeCTAManager() {
                 } else {
                     setRightCTA(prev => ({ ...prev, image: res.url! }));
                 }
+                toast.success("Gambar berhasil diupload");
             } else {
-                alert("Gagal upload gambar: " + res.error);
+                toast.error("Gagal upload gambar: " + res.error);
             }
         } catch (error) {
             console.error("Upload error:", error);
-            alert("Terjadi kesalahan saat upload gambar.");
+            toast.error("Terjadi kesalahan saat upload gambar.");
         }
     };
 
@@ -138,14 +140,14 @@ export default function HomeCTAManager() {
             const res = await updateHomeCTA(position, data);
 
             if (res.success) {
-                alert("Berhasil menyimpan perubahan!");
+                toast.success("Berhasil menyimpan perubahan!");
                 router.refresh();
             } else {
-                alert("Gagal menyimpan: " + res.error);
+                toast.error("Gagal menyimpan: " + res.error);
             }
         } catch (error) {
             console.error("Save error:", error);
-            alert("Terjadi kesalahan saat menyimpan.");
+            toast.error("Terjadi kesalahan saat menyimpan.");
         } finally {
             setIsSaving(false);
         }

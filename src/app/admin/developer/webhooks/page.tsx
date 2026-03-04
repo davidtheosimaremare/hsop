@@ -64,7 +64,7 @@ const EXAMPLES = {
     "SALES_QUOTATION": JSON.stringify({
         "event": "SALES_QUOTATION",
         "action": "INSERT",
-        "detail": { "id": 8000, "number": "SQ-2025-001", "customerNo": "CUST-001", "totalAmount": 1000000, "status": "DRAFT" }
+        "detail": { "id": 8000, "number": "HRSQ-2025-001", "customerNo": "CUST-001", "totalAmount": 1000000, "status": "DRAFT" }
     }, null, 2),
     "SALES_ORDER": JSON.stringify({
         "event": "SALES_ORDER",

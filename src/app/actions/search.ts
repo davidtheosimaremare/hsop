@@ -18,9 +18,16 @@ export async function quickSearch(query: string): Promise<QuickSearchResult[]> {
 
     const terms = query.trim().split(/\s+/).filter(Boolean);
 
+    const hiddenCategories = await db.category.findMany({
+        where: { isVisible: false },
+        select: { name: true }
+    });
+    const hiddenCategoryNames = hiddenCategories.map(c => c.name);
+
     const products = await db.product.findMany({
         where: {
             isVisible: true,
+            category: hiddenCategoryNames.length > 0 ? { notIn: hiddenCategoryNames } : undefined,
             AND: terms.map(term => ({
                 OR: [
                     { name: { contains: term, mode: "insensitive" } },
