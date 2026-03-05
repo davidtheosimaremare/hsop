@@ -5,7 +5,7 @@ import { join } from "path";
 import { v4 as uuidv4 } from "uuid";
 import path from "path";
 
-export async function uploadFile(formData: FormData) {
+export async function uploadFile(formData: FormData, skipUuid: boolean = false) {
     console.log("Starting uploadFile action...");
     const file = formData.get("file") as File;
     if (!file) {
@@ -19,7 +19,9 @@ export async function uploadFile(formData: FormData) {
     const buffer = Buffer.from(bytes);
 
     // Create unique filename
-    const uniqueName = `${uuidv4()}-${file.name.replace(/\s+/g, "_")}`;
+    const uniqueName = skipUuid
+        ? file.name.replace(/\s+/g, "_")
+        : `${uuidv4()}-${file.name.replace(/\s+/g, "_")}`;
 
     // Organize by Year/Month to avoid massive folders
     const date = new Date();

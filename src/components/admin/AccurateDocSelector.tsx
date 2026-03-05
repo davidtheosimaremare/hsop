@@ -76,7 +76,7 @@ export function AccurateDocSelector({ type, value, onSelect, disabled }: Accurat
                         {value?.no ? (
                             <span className="font-mono">{value.no}</span>
                         ) : (
-                            <span className="text-gray-400">Pilih {type === "HSQ" ? "HRSQ" : type} dari Accurate...</span>
+                            <span className="text-gray-400">Pilih {type === "HSQ" ? "SQ" : type} dari Accurate...</span>
                         )}
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
@@ -84,7 +84,7 @@ export function AccurateDocSelector({ type, value, onSelect, disabled }: Accurat
                 <PopoverContent className="w-[400px] p-0">
                     <Command shouldFilter={false}>
                         <CommandInput
-                            placeholder={`Cari nomor ${type === "HSQ" ? "HRSQ" : type}, nama customer...`}
+                            placeholder={`Cari nomor ${type === "HSQ" ? "SQ" : type}, nama customer...`}
                             onValueChange={(val) => {
                                 setSearch(val);
                             }}

@@ -81,7 +81,7 @@ export default function CartPage() {
                 toast.success("Estimasi berhasil disimpan!");
                 setTimeout(() => router.push('/dashboard/estimasi'), 1500);
             } else {
-                toast.success(`HRSQ #${result.quotationNo?.slice(-8).toUpperCase()} berhasil dibuat!`);
+                toast.success(`SQ #${result.quotationNo?.slice(-8).toUpperCase()} berhasil dibuat!`);
                 setTimeout(() => router.push('/dashboard/transaksi'), 2000);
             }
         } else {

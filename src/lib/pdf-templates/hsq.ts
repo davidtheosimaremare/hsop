@@ -163,7 +163,7 @@ export function renderHsqTemplate(data: HsqTemplateData): string {
   <!-- PAGE FOOTER -->
   <div class="doc-footer">
     <span>${data.company.name} &mdash; Dokumen ini dibuat secara otomatis oleh sistem</span>
-    <span>HRSQ &bull; ${data.documentNo}</span>
+    <span>SQ &bull; ${data.documentNo}</span>
   </div>
 
 </div>

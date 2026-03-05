@@ -30,7 +30,7 @@ export async function adminConfirmQuotation(
         const logPromises: Promise<any>[] = [];
         if (accurateHsqNo) {
             logPromises.push(
-                logActivity(quotationId, "OFFER_SENT", "Penawaran (HRSQ) dikirim ke user", `Admin mengirimkan Sales Quotation resmi nomor ${accurateHsqNo}.`, "ADMIN")
+                logActivity(quotationId, "OFFER_SENT", "Penawaran (SQ) dikirim ke user", `Admin mengirimkan Sales Quotation resmi nomor ${accurateHsqNo}.`, "ADMIN")
             );
         } else {
             logPromises.push(
@@ -39,7 +39,7 @@ export async function adminConfirmQuotation(
         }
         if (adminQuotePdfPath) {
             logPromises.push(
-                logActivity(quotationId, "SQ_UPLOADED", "Dokumen HRSQ diupload", `Admin mengunggah dokumen penawaran resmi (HRSQ).`, "ADMIN")
+                logActivity(quotationId, "SQ_UPLOADED", "Dokumen SQ diupload", `Admin mengunggah dokumen penawaran resmi (SQ).`, "ADMIN")
             );
         }
         await Promise.all(logPromises);

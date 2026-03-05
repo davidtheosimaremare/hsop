@@ -109,3 +109,55 @@ export async function getCustomerPricingData(): Promise<CustomerPricingData> {
     }
 }
 
+
+/**
+ * Get pricing data for a specific customer (BY ID)
+ * Used by admin to calculate discount for a specific customer
+ */
+export async function getCustomerPricingDataById(customerId: string): Promise<CustomerPricingData> {
+    try {
+        const customerData = await db.customer.findUnique({
+            where: { id: customerId },
+            select: {
+                discount1: true,
+                discount2: true,
+                discountLP: true,
+                discountLPIndent: true,
+                discountCP: true,
+                discountCPIndent: true,
+                discountLighting: true,
+                discountLightingIndent: true,
+            }
+        });
+
+        const customer = customerData ? {
+            discount1: customerData.discount1 || 0,
+            discount2: customerData.discount2 || 0,
+            discountLP: customerData.discountLP || "0",
+            discountLPIndent: customerData.discountLPIndent || "0",
+            discountCP: customerData.discountCP || "0",
+            discountCPIndent: customerData.discountCPIndent || "0",
+            discountLighting: customerData.discountLighting || "0",
+            discountLightingIndent: customerData.discountLightingIndent || "0",
+        } : null;
+
+        // Get category mappings
+        const mappings = await db.categoryMapping.findMany();
+
+        // Get discount rules
+        const discountRules = await db.discountRule.findMany();
+
+        return {
+            customer,
+            categoryMappings: mappings,
+            discountRules,
+        };
+    } catch (error) {
+        console.error("Failed to get customer pricing data by ID:", error);
+        return {
+            customer: null,
+            categoryMappings: [],
+            discountRules: [],
+        };
+    }
+}

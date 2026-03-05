@@ -77,12 +77,12 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const STATUS_LABELS: Record<string, string> = {
-    DRAFT: "Draft Penawaran",
-    PENDING: "Menunggu",
-    PROCESSING: "Diproses",
+    DRAFT: "Penawaran",
+    PENDING: "Penawaran",
+    PROCESSING: "Pembayaran",
     PROCESSED: "Diproses",
-    OFFERED: "Penawaran Masuk",
-    CONFIRMED: "Pesanan Dikonfirmasi",
+    OFFERED: "Penawaran Resmi",
+    CONFIRMED: "Pesanan (HSO)",
     SHIPPED: "Dikirim",
     COMPLETED: "Selesai",
     CANCELLED: "Dibatalkan",
@@ -284,37 +284,27 @@ export default function TransaksiPage() {
                                                 <span className="text-sm font-black text-gray-900 leading-none mb-1">
                                                     {(() => {
                                                         const no = q.quotationNo || "";
-                                                        const itemIsRetail = q.customerType === 'RETAIL' || q.customerType === 'RITEL' || q.customerType !== 'CORPORATE';
+                                                        // Strip existing prefix (SQ/, RFQ/, etc.), rebuild with new one
+                                                        const baseNo = no.replace(/^[A-Z]+\//, ""); // "SQ/26/03/1" → "26/03/1"
+                                                        const fmt = (p: string) => `${p}/${baseNo}`;
 
-                                                        // Helper to replace prefix
-                                                        const fmt = (p: string) => no.startsWith('SQ-') ? no.replace('SQ-', p + '-') : (no.startsWith('RFQ/') ? no.replace('RFQ/', p + '/') : no);
-
-                                                        if (q.status === 'PENDING' || q.status === 'DRAFT') return fmt('RFQ');
-
-                                                        if (itemIsRetail) {
-                                                            if (['OFFERED', 'PROCESSING', 'CONFIRMED'].includes(q.status)) return fmt('HSO');
-                                                            if (q.status === 'SHIPPED') return fmt('HDO');
-                                                            if (q.status === 'COMPLETED') return fmt('INV');
-                                                            return no;
-                                                        }
-
-                                                        // B2B Logic (Non-Draft)
-                                                        if (['PROCESSING', 'OFFERED'].includes(q.status)) return fmt('HRSQ');
-                                                        if (q.status === 'CONFIRMED') return fmt('HSO');
-                                                        if (q.status === 'SHIPPED') return fmt('HDO');
+                                                        if (q.status === 'PENDING' || q.status === 'DRAFT') return fmt('SQ');
+                                                        if (q.status === 'OFFERED') return q.accurateHsqNo || fmt('HSQ');
+                                                        if (q.status === 'CONFIRMED') return q.accurateHsoNo || fmt('HSO');
+                                                        if (q.status === 'SHIPPED') return q.accurateDoNo || fmt('HDO');
                                                         if (q.status === 'COMPLETED') return fmt('INV');
-                                                        return fmt('T');
+                                                        return fmt('SQ');
                                                     })()}
                                                 </span>
                                                 <div className="flex flex-col gap-0.5">
                                                     {q.status === 'PENDING' && (
                                                         <span className="text-[9px] text-orange-600 font-black uppercase tracking-tighter">
-                                                            Draft Penawaran
+                                                            Draf — Belum dikirim
                                                         </span>
                                                     )}
-                                                    {(q.status === 'OFFERED' && (q.customerType === 'RETAIL' || q.customerType === 'RITEL')) && (
+                                                    {q.status === 'OFFERED' && (
                                                         <span className="text-[9px] text-violet-600 font-black uppercase tracking-tighter">
-                                                            Siap Pesan
+                                                            Penawaran Tersedia
                                                         </span>
                                                     )}
                                                     {q.clientName && (
@@ -362,13 +352,7 @@ export default function TransaksiPage() {
                                                 variant="outline"
                                                 className={`text-[10px] px-2 py-0.5 rounded-md font-bold border-none ${STATUS_COLORS[q.status] || "bg-gray-100 text-gray-600"}`}
                                             >
-                                                {((q.customerType === 'RETAIL' || q.customerType === 'RITEL' || q.customerType !== 'CORPORATE') && q.status === 'PENDING')
-                                                    ? 'Draft Penawaran'
-                                                    : ((q.customerType === 'RETAIL' || q.customerType === 'RITEL' || q.customerType !== 'CORPORATE') && q.status === 'OFFERED')
-                                                        ? 'Siap Bayar'
-                                                        : ((q.customerType === 'RETAIL' || q.customerType === 'RITEL' || q.customerType !== 'CORPORATE') && q.status === 'PROCESSING')
-                                                            ? 'Pembayaran'
-                                                            : (STATUS_LABELS[q.status] || q.status)}
+                                                {STATUS_LABELS[q.status] || q.status}
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="py-4 text-right">
@@ -405,7 +389,7 @@ export default function TransaksiPage() {
                                                             }}
                                                             className="gap-2 cursor-pointer font-bold py-2 text-red-600 focus:text-red-600 focus:bg-red-50"
                                                         >
-                                                            <Trash className="w-4 h-4" /> Batalkan HRSQ
+                                                            <Trash className="w-4 h-4" /> Batalkan SQ
                                                         </DropdownMenuItem>
                                                     )}
                                                     {q.status === 'DRAFT' && (
@@ -556,7 +540,7 @@ export default function TransaksiPage() {
                     <DialogHeader className="p-6 pb-2">
                         <DialogTitle className="text-xl font-bold flex items-center gap-2 text-gray-900">
                             <XCircle className="w-5 h-5 text-red-500" />
-                            Batalkan HRSQ
+                            Batalkan SQ
                         </DialogTitle>
                         <DialogDescription className="text-sm text-gray-500 mt-1">
                             Pilih alasan pembatalan untuk memproses pembatalan penawaran ini.
@@ -616,7 +600,7 @@ export default function TransaksiPage() {
                                     Membatalkan...
                                 </>
                             ) : (
-                                "Batalkan HRSQ"
+                                "Batalkan SQ"
                             )}
                         </Button>
                     </DialogFooter>

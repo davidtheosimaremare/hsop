@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, RefreshCw, Send, CheckCircle, XCircle } from "lucide-react";
+import { Loader2, RefreshCw, Send, CheckCircle, XCircle, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { processWebhook, getWebhookLogs, processQueueAction, getQueueStatsAction } from "@/app/actions/webhook";
 import { format } from "date-fns";
@@ -66,16 +67,39 @@ const EXAMPLES = {
         "action": "INSERT",
         "detail": { "id": 8000, "number": "HRSQ-2025-001", "customerNo": "CUST-001", "totalAmount": 1000000, "status": "DRAFT" }
     }, null, 2),
-    "SALES_ORDER": JSON.stringify({
-        "event": "SALES_ORDER",
-        "action": "INSERT",
-        "detail": { "id": 8001, "number": "SO-2025-0001", "customerNo": "CUST-001", "totalAmount": 1500000, "status": "OPEN" }
-    }, null, 2),
-    "DELIVERY_ORDER": JSON.stringify({
-        "event": "DELIVERY_ORDER",
-        "action": "INSERT",
-        "detail": { "id": 8002, "number": "DO-2025-001", "customerNo": "CUST-001", "status": "SENT" }
-    }, null, 2),
+    "SALES_ORDER": JSON.stringify([
+        {
+            "databaseId": 976817,
+            "type": "SALES_ORDER",
+            "timestamp": "04/03/2026 15:06:54",
+            "uuid": "1234f602-f008-4282-b23e-82599acae416",
+            "appKey": "70a5d9f9-ff37-45ba-aca1-a93ee4ea64f1",
+            "data": [
+                {
+                    "salesOrderId": 16650,
+                    "salesOrderNo": "HSO/26/03/051",
+                    "salesOrderTotalAmount": "3894915.000000",
+                    "action": "WRITE",
+                    "_hsqRef": "HRSQ/26/03/01"
+                }
+            ]
+        }
+    ], null, 2),
+    "DELIVERY_ORDER": JSON.stringify([
+        {
+            "databaseId": 976817,
+            "type": "DELIVERY_ORDER",
+            "timestamp": "04/03/2026 15:08:24",
+            "uuid": "28efd6e5-5e57-4d28-9392-fe725a46e376",
+            "data": [
+                {
+                    "deliveryOrderId": 23300,
+                    "deliveryOrderNo": "HDO/26/03/078",
+                    "action": "WRITE"
+                }
+            ]
+        }
+    ], null, 2),
     "SALES_INVOICE": JSON.stringify({
         "event": "SALES_INVOICE",
         "action": "INSERT",
@@ -172,6 +196,7 @@ export default function WebhookSimulator() {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [stats, setStats] = useState({ pendingCount: 0 });
     const [selectedLog, setSelectedLog] = useState<any | null>(null);
+    const [quickOrderNo, setQuickOrderNo] = useState("");
 
     useEffect(() => {
         fetchLogs(pagination.page);
@@ -192,6 +217,35 @@ export default function WebhookSimulator() {
     const handleEventChange = (val: string) => {
         setEventType(val);
         setPayload(EXAMPLES[val as keyof typeof EXAMPLES] || "{}");
+        setQuickOrderNo(""); // reset quick fill
+    };
+
+    // Auto-generate payload from the quick-fill order number
+    const handleQuickFill = (orderNo: string) => {
+        setQuickOrderNo(orderNo);
+        if (!orderNo) return;
+        const ts = new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }).replace(/\./g, "/").replace(",", "");
+        if (eventType === "SALES_ORDER") {
+            setPayload(JSON.stringify([
+                {
+                    databaseId: 976817,
+                    type: "SALES_ORDER",
+                    timestamp: ts,
+                    uuid: crypto.randomUUID(),
+                    data: [{ salesOrderId: Math.floor(Math.random() * 99999), salesOrderNo: orderNo, salesOrderTotalAmount: "0", action: "WRITE" }]
+                }
+            ], null, 2));
+        } else if (eventType === "DELIVERY_ORDER") {
+            setPayload(JSON.stringify([
+                {
+                    databaseId: 976817,
+                    type: "DELIVERY_ORDER",
+                    timestamp: ts,
+                    uuid: crypto.randomUUID(),
+                    data: [{ deliveryOrderId: Math.floor(Math.random() * 99999), deliveryOrderNo: orderNo, action: "WRITE" }]
+                }
+            ], null, 2));
+        }
     };
 
     const handleSimulate = async () => {
@@ -267,9 +321,33 @@ export default function WebhookSimulator() {
                                     <SelectItem value="ITEM">ITEM (Create/Update)</SelectItem>
                                     <SelectItem value="ITEM_QUANTITY">ITEM_QUANTITY (Stock Change)</SelectItem>
                                     <SelectItem value="CUSTOMER">CUSTOMER (Create/Update)</SelectItem>
+                                    <SelectItem value="SALES_ORDER">SALES_ORDER (HSQ → HSO)</SelectItem>
+                                    <SelectItem value="DELIVERY_ORDER">DELIVERY_ORDER (HSO → HDO)</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
+
+                        {/* Quick Fill for SO/DO */}
+                        {(eventType === "SALES_ORDER" || eventType === "DELIVERY_ORDER") && (
+                            <div className="space-y-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                <label className="text-xs font-semibold text-blue-700 flex items-center gap-1">
+                                    <Zap className="w-3 h-3" />
+                                    Quick Fill — Nomor {eventType === "SALES_ORDER" ? "HSO" : "HDO"}
+                                </label>
+                                <div className="flex gap-2">
+                                    <Input
+                                        placeholder={eventType === "SALES_ORDER" ? "HSO/26/03/051" : "HDO/26/03/078"}
+                                        value={quickOrderNo}
+                                        onChange={(e) => handleQuickFill(e.target.value)}
+                                        className="font-mono text-sm border-blue-300 bg-white"
+                                    />
+                                </div>
+                                <p className="text-[11px] text-blue-600">
+                                    Masukkan nomor {eventType === "SALES_ORDER" ? "HSO" : "HDO"} dari Accurate → payload akan terisi otomatis.
+                                    Sistem akan mencocokkan suffix nomor ke data SQ yang ada.
+                                </p>
+                            </div>
+                        )}
 
                         <div className="space-y-2">
                             <label className="text-sm font-medium">JSON Payload</label>

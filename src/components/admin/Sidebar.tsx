@@ -137,7 +137,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
 
     if (!mounted) {
         return (
-            <aside className={cn("fixed left-0 top-0 z-40 h-screen bg-white border-r border-gray-200 w-20 flex flex-col")}>
+            <aside className={cn("fixed left-0 top-14 z-40 h-[calc(100vh-56px)] bg-white border-r border-gray-200 w-20 flex flex-col")}>
                 <div className="h-16 flex items-center justify-center border-b border-gray-100">
                     <Image src="/logo-H.png" alt="Logo" width={32} height={32} className="h-8 w-8 object-contain" />
                 </div>
@@ -148,44 +148,35 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     return (
         <aside
             className={cn(
-                "fixed left-0 top-0 z-40 h-screen bg-white border-r border-gray-200 transition-all duration-300 ease-in-out flex flex-col",
+                "fixed left-0 top-14 z-40 h-[calc(100vh-56px)] bg-white border-r border-gray-200 transition-all duration-300 ease-in-out flex flex-col",
                 isOpen ? "w-64" : "w-20"
             )}
         >
-            {/* Header / Logo */}
-            <div className="h-16 flex items-center justify-center border-b border-gray-100 relative">
-                <div className={cn("transition-opacity duration-200", isOpen ? "opacity-100" : "opacity-0 hidden")}>
-                    <Image
-                        src="/logo.png"
-                        alt="Hokiindo Logo"
-                        width={120}
-                        height={40}
-                        className="h-8 w-auto object-contain"
-                    />
-                </div>
-                {!isOpen && (
-                    <Image
-                        src="/logo-H.png"
-                        alt="Hokiindo Logo"
-                        width={32}
-                        height={32}
-                        className="h-8 w-8 object-contain"
-                    />
-                )}
+            {/* Toggle button — floats on the right edge, vertically centered */}
+            <Button
+                variant="ghost"
+                size="icon"
+                className="absolute -right-3 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full border border-gray-200 bg-white shadow-sm hover:bg-gray-100 hidden lg:flex z-10"
+                onClick={() => setIsOpen(!isOpen)}
+            >
+                {isOpen ? <ChevronLeft className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            </Button>
 
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute -right-3 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full border border-gray-200 bg-white shadow-sm hover:bg-gray-100 hidden lg:flex"
-                    onClick={() => setIsOpen(!isOpen)}
-                >
-                    {isOpen ? <ChevronLeft className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                </Button>
-            </div>
-
-            {/* Navigation */}
-            <nav className="flex-1 py-6 px-3 space-y-1 overflow-y-auto">
+            <nav className="flex-1 py-4 px-3 space-y-0.5 overflow-y-auto">
                 {sidebarMenuItems.map((item) => {
+                    // ── Section Divider ────────────────────────────────────
+                    if (item.title === "__divider__") {
+                        if (!isOpen) return <div key={item.href} className="my-3 mx-3 border-t border-gray-100" />;
+                        return (
+                            <div key={item.href} className="pt-5 pb-1.5 px-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-400/80">{(item as any).label}</span>
+                                    <div className="flex-1 h-px bg-gray-100" />
+                                </div>
+                            </div>
+                        );
+                    }
+
                     // Check if user has permission to view this menu item
                     if (!shouldShowMenuItem(item.requiredPermission)) {
                         return null;
@@ -213,13 +204,13 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                                 key={item.href}
                                 open={isSubmenuOpen}
                                 onOpenChange={() => toggleSubmenu(item.href)}
-                                className="space-y-1"
+                                className="space-y-0.5"
                             >
                                 <CollapsibleTrigger asChild>
                                     <button
                                         suppressHydrationWarning
                                         className={cn(
-                                            "w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 group relative select-none",
+                                            "w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all duration-200 group relative select-none",
                                             isParentActive
                                                 ? "bg-red-50 text-red-600"
                                                 : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
@@ -227,10 +218,10 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                                     >
                                         <div className="flex items-center gap-3">
                                             <IconComponent className={cn(
-                                                "h-5 w-5 flex-shrink-0 transition-colors",
-                                                isParentActive ? "text-red-600" : "text-gray-500 group-hover:text-gray-700"
+                                                "h-[18px] w-[18px] flex-shrink-0 transition-colors",
+                                                isParentActive ? "text-red-600" : "text-gray-400 group-hover:text-gray-600"
                                             )} />
-                                            <span className="font-medium text-sm whitespace-nowrap">{item.title}</span>
+                                            <span className="font-semibold text-[13px] whitespace-nowrap">{item.title}</span>
                                             {(() => {
                                                 const totalBadge = (visibleChildren as any).reduce((sum: number, child: any) => sum + (child.badgeKey && badgeCounts[child.badgeKey] ? badgeCounts[child.badgeKey] : 0), 0);
                                                 return totalBadge > 0 ? (
@@ -240,10 +231,10 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                                                 ) : null;
                                             })()}
                                         </div>
-                                        <ChevronDown className={cn("h-4 w-4 transition-transform", isSubmenuOpen ? "rotate-180" : "")} />
+                                        <ChevronDown className={cn("h-3.5 w-3.5 text-gray-400 transition-transform", isSubmenuOpen ? "rotate-180" : "")} />
                                     </button>
                                 </CollapsibleTrigger>
-                                <CollapsibleContent className="space-y-1 pl-4">
+                                <CollapsibleContent className="space-y-0.5 pl-4">
                                     {visibleChildren.map((child) => {
                                         const ChildIcon = iconMap[child.icon] || FileText;
                                         const isChildActive = pathname === child.href;
@@ -252,13 +243,13 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                                                 key={child.href}
                                                 href={child.href}
                                                 className={cn(
-                                                    "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm",
+                                                    "flex items-center gap-2.5 px-3 py-1.5 rounded-lg transition-all duration-200 text-[13px]",
                                                     isChildActive
-                                                        ? "text-red-600 bg-red-50/50 font-medium"
+                                                        ? "text-red-600 bg-red-50/50 font-semibold"
                                                         : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
                                                 )}
                                             >
-                                                <ChildIcon className="h-4 w-4" />
+                                                <ChildIcon className="h-3.5 w-3.5" />
                                                 <span>{child.title}</span>
                                                 {(child as any).badgeKey && badgeCounts[(child as any).badgeKey] ? (
                                                     <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 animate-pulse">
@@ -278,7 +269,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                             key={item.href}
                             href={item.href}
                             className={cn(
-                                "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group relative",
+                                "flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200 group relative",
                                 isParentActive
                                     ? "bg-red-50 text-red-600"
                                     : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
@@ -286,12 +277,12 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                             title={!isOpen ? item.title : undefined}
                         >
                             <IconComponent className={cn(
-                                "h-5 w-5 flex-shrink-0 transition-colors",
-                                isParentActive ? "text-red-600" : "text-gray-500 group-hover:text-gray-700"
+                                "h-[18px] w-[18px] flex-shrink-0 transition-colors",
+                                isParentActive ? "text-red-600" : "text-gray-400 group-hover:text-gray-600"
                             )} />
 
                             <span className={cn(
-                                "font-medium text-sm whitespace-nowrap transition-all duration-300 origin-left",
+                                "font-semibold text-[13px] whitespace-nowrap transition-all duration-300 origin-left",
                                 isOpen ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4 overflow-hidden w-0"
                             )}>
                                 {item.title}
@@ -299,7 +290,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
 
                             {/* Active Indicator Strip */}
                             {isParentActive && (
-                                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-red-600 rounded-r-full" />
+                                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-red-600 rounded-r-full" />
                             )}
                         </Link>
                     );

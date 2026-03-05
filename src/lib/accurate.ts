@@ -432,8 +432,8 @@ async function fetchDocumentList(endpoint: string, page: number = 1, pageSize: n
 }
 
 
-export async function fetchAccurateHSQ(page: number = 1, search?: string) {
-    return fetchDocumentList('sales-quotation/list.do', page, 20, search);
+export async function fetchAccurateHSQ(page: number = 1, search?: string, pageSize: number = 20) {
+    return fetchDocumentList('sales-quotation/list.do', page, pageSize, search);
 }
 
 export async function fetchAllAccurateHSQ(): Promise<AccurateDocument[]> {
@@ -500,6 +500,8 @@ export async function fetchAccurateSODetail(soId: number): Promise<{
     toAddress?: string;
     termName?: string;
     number?: string;
+    salesQuotationNumber?: string;
+    salesQuotationId?: number;
 } | null> {
     const host = process.env.ACCURATE_API_HOST || "https://zeus.accurate.id";
     const url = new URL(`${host}/accurate/api/sales-order/detail.do`);
@@ -519,11 +521,20 @@ export async function fetchAccurateSODetail(soId: number): Promise<{
         if (!result.s) return null;
 
         const d = result.d;
+
+        // Extract source HSQ reference — Accurate stores this in various fields
+        // depending on version: salesQuotation, sourceSQ, or sourceDocument fields
+        const sqRef = d.salesQuotation || d.sourceSQ || d.sourceDocument || null;
+        const sqNumber = sqRef?.number || sqRef?.no || d.salesQuotationNo || d.sqNumber || null;
+        const sqId = sqRef?.id || d.salesQuotationId || null;
+
         return {
             description: d.description || d.memo || "",
             toAddress: d.toAddress || "",
             termName: d.term?.name || d.termName || "",
             number: d.number || d.no || "",
+            salesQuotationNumber: sqNumber || undefined,
+            salesQuotationId: sqId || undefined,
         };
     } catch (err) {
         console.error("Failed to fetch SO detail:", err);
@@ -596,7 +607,8 @@ export async function createAccurateHSQ(quotation: any) {
         }
 
         if (!result.s) {
-            console.error(`Accurate API returned unsuccessful response: ${result.d?.[0] || result.message}`);
+            console.error(`Accurate API returned unsuccessful response for HRSQ Creation:`, result.d?.[0] || result.message);
+            console.error(`Payload Sent:`, JSON.stringify(payload, null, 2));
             return null;
         }
 
@@ -633,7 +645,7 @@ export async function updateAccurateHSQ(accurateHsqId: number, quotation: any) {
                 if (disc > 0) itemDiscPercent = parseFloat(disc.toFixed(2)).toString();
             }
 
-            // Main item (only if available or null)
+            // Main item (Finalized selection)
             if (item.isAvailable !== false) {
                 detailItem.push({
                     itemNo: item.productSku,
@@ -643,23 +655,11 @@ export async function updateAccurateHSQ(accurateHsqId: number, quotation: any) {
                     detailName: item.productName
                 });
             }
-
-            // Alternative items offered to customer
-            const alts = item.SalesQuotationItemAlternative || item.alternatives || [];
-            if (alts.length > 0) {
-                for (const alt of alts) {
-                    detailItem.push({
-                        itemNo: alt.productSku,
-                        unitPrice: alt.price,
-                        quantity: alt.quantity || item.quantity,
-                        detailName: `[ALT] ${alt.productName}`
-                    });
-                }
-            }
         }
 
         const payload: any = {
             id: accurateHsqId,
+            useReplacement: true,
             detailItem,
         };
 

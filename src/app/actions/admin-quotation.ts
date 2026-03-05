@@ -41,11 +41,11 @@ export async function createAdminQuotation(data: {
             return { success: false, error: "Customer tidak ditemukan" };
         }
 
-        // Generate HRSQ/YY/MM/XXXXX
+        // Generate SQ/YY/MM/XXXXX
         const now = new Date();
         const year = String(now.getFullYear()).substring(2);
         const month = String(now.getMonth() + 1).padStart(2, "0");
-        const prefix = `HRSQ/${year}/${month}/`;
+        const prefix = `SQ/${year}/${month}/`;
 
         const latest = await db.salesQuotation.findFirst({
             where: { quotationNo: { startsWith: prefix } },
@@ -114,7 +114,7 @@ export async function createAdminQuotation(data: {
             }
         }
 
-        await logActivity(newQuotation.id, "SALES_QUOTATION_CREATED", "HRSQ Dibuat", `Admin membuat HRSQ ${quotationNo} untuk customer ${customer.company || customer.name}`, "ADMIN");
+        await logActivity(newQuotation.id, "SQ_CREATED", "SQ Dibuat", `Admin membuat SQ ${quotationNo} untuk customer ${customer.company || customer.name}`, "ADMIN");
 
         revalidatePath("/admin/sales/quotations");
         return { success: true, id: newQuotation.id };

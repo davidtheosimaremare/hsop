@@ -34,7 +34,7 @@ async function generateRFQNo(): Promise<string> {
     const now = new Date();
     const year = String(now.getFullYear()).substring(2); // 2 digit (e.g., 26)
     const month = String(now.getMonth() + 1).padStart(2, '0'); // 2 digit (e.g., 02)
-    const prefix = `HRSQ/${year}/${month}/`;
+    const prefix = `SQ/${year}/${month}/`;
 
     const latest = await db.salesQuotation.findFirst({
         where: { quotationNo: { startsWith: prefix } },
@@ -158,24 +158,7 @@ export async function submitCartQuotation(
         console.log("[submitCartQuotation] Guest quotation saved:", quotation.quotationNo);
 
         // Log Activity
-        await logActivity(quotation.id, "HRSQ_CREATED", "HRSQ Baru Dibuat", `Guest (${email}) mengirimkan permintaan penawaran (HRSQ) nomor ${quotation.quotationNo}.`, "USER");
-
-        // Sync to Accurate
-        try {
-            const accRes = await createAccurateHSQ(quotation);
-            if (accRes && accRes.id) {
-                await db.salesQuotation.update({
-                    where: { id: quotation.id },
-                    data: {
-                        accurateHsqId: accRes.id,
-                        accurateHsqNo: accRes.number || null,
-                        accurateSyncStatus: "SUCCESS"
-                    }
-                });
-            }
-        } catch (accError) {
-            console.error("[submitCartQuotation] Failed to sync to Accurate:", accError);
-        }
+        await logActivity(quotation.id, "SQ_CREATED", "SQ Baru Dibuat", `Guest (${email}) mengirimkan permintaan penawaran (SQ) nomor ${quotation.quotationNo}.`, "USER");
 
         // Send email notification
         try {
@@ -186,28 +169,11 @@ export async function submitCartQuotation(
 
         // Send WhatsApp notification via Fontee
         const { salesPhone } = await getNotifSettings();
-        const message = `[HRSQ Guest] Quotation baru dari ${email}\nNomor: ${quotation.quotationNo}\nTotal: Rp ${new Intl.NumberFormat("id-ID").format(totalPrice)}\nItem: ${items.length} produk\nHP: ${phone}`;
+        const message = `[SQ Guest] Quotation baru dari ${email}\nNomor: ${quotation.quotationNo}\nTotal: Rp ${new Intl.NumberFormat("id-ID").format(totalPrice)}\nItem: ${items.length} produk\nHP: ${phone}`;
         try {
             await sendFonteeMessage(salesPhone, message);
         } catch (waError) {
             console.error("[submitCartQuotation] WA failed:", waError);
-        }
-
-        // --- ACCURATE SYNC (Guest) ---
-        try {
-            const accRes = await createAccurateHSQ(quotation);
-            if (accRes) {
-                await db.salesQuotation.update({
-                    where: { id: quotation.id },
-                    data: {
-                        accurateHsqId: accRes.id,
-                        accurateHsqNo: accRes.number,
-                        accurateSyncStatus: "SUCCESS"
-                    }
-                });
-            }
-        } catch (accError) {
-            console.error("[submitCartQuotation] Accurate sync error:", accError);
         }
 
         return { success: true, quotationNo: quotation.quotationNo, error: undefined };
@@ -399,38 +365,13 @@ export async function saveQuotationToDb(
 
         // Send WhatsApp notification via Fontee
         const { salesPhone } = await getNotifSettings();
-        const message = `[HRSQ] Quotation baru dari ${user.name || user.email}\nNomor: ${quotation.quotationNo}\nTotal: Rp ${new Intl.NumberFormat("id-ID").format(totalPrice)}\nItem: ${items.length} produk`;
-
-        // --- ACCURATE SYNC (Logged In) ---
-        try {
-            // Prepare quotation data for Accurate
-            const quotationForAccurate = {
-                ...quotation,
-                customer: {
-                    accurateNo: user.customer?.accurateCustomerCode,
-                    address: user.customer?.address
-                }
-            };
-            const accRes = await createAccurateHSQ(quotationForAccurate);
-            if (accRes) {
-                await db.salesQuotation.update({
-                    where: { id: quotation.id },
-                    data: {
-                        accurateHsqId: accRes.id,
-                        accurateHsqNo: accRes.number,
-                        accurateSyncStatus: "SUCCESS"
-                    }
-                });
-            }
-        } catch (accError) {
-            console.error("[saveQuotationToDb] Accurate sync error:", accError);
-        }
+        const message = `[SQ] Quotation baru dari ${user.name || user.email}\nNomor: ${quotation.quotationNo}\nTotal: Rp ${new Intl.NumberFormat("id-ID").format(totalPrice)}\nItem: ${items.length} produk`;
 
         // Log Activity with PT and User name
         const performerInfo = user.customer?.company
             ? `${user.customer.company} (${user.name || user.email})`
             : (user.name || user.email);
-        await logActivity(quotation.id, "HRSQ_CREATED", "HRSQ Baru Dibuat", `User mengirimkan permintaan penawaran (HRSQ) nomor ${quotation.quotationNo}.`, performerInfo);
+        await logActivity(quotation.id, "SQ_CREATED", "SQ Baru Dibuat", `User mengirimkan permintaan penawaran (SQ) nomor ${quotation.quotationNo}.`, performerInfo);
 
         try {
             console.log("[saveQuotationToDb] Sending WA to sales...");

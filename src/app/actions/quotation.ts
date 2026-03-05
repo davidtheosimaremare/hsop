@@ -3,8 +3,33 @@
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { updateAccurateHSQ } from "@/lib/accurate";
+import { updateAccurateHSQ, fetchAccurateHSQ } from "@/lib/accurate";
 import { logActivity } from "./activity";
+
+export async function deleteQuotation(id: string) {
+    try {
+        const session = await getSession();
+        const adminRoles = ["SUPER_ADMIN", "ADMIN", "MANAGER"];
+        if (!session?.user?.role || !adminRoles.includes(session.user.role)) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        // Delete associated invoice if exists (Prisma doesn't have cascade for this in schema shown)
+        await db.salesInvoice.deleteMany({
+            where: { quotationId: id }
+        });
+
+        await db.salesQuotation.delete({
+            where: { id }
+        });
+
+        revalidatePath("/admin/sales/quotations");
+        return { success: true };
+    } catch (error) {
+        console.error("[deleteQuotation] Error:", error);
+        return { success: false, error: "Gagal menghapus penawaran" };
+    }
+}
 
 export async function getUserQuotations() {
     const session = await getSession();
@@ -186,12 +211,22 @@ export async function getQuotationDetail(idOrNo: string) {
         // Decode in case it's a URL-encoded quotation number
         const decodedIdOrNo = decodeURIComponent(idOrNo);
 
+        // Extract base number securely for cross-prefix lookup (e.g., "SQ-26-03-1" -> "26/03/1")
+        const baseNo = decodedIdOrNo.replace(/^[A-Z]+-/, "").replace(/-/g, "/");
+
         const quotation = await db.salesQuotation.findFirst({
             where: {
                 OR: [
                     { id: decodedIdOrNo },
                     { quotationNo: decodedIdOrNo },
-                    { quotationNo: decodedIdOrNo.replace(/-/g, "/") }
+                    { quotationNo: decodedIdOrNo.replace(/-/g, "/") },
+                    // Strip the leading prefix and try as SQ/xx/xx
+                    { quotationNo: "SQ/" + baseNo },
+                    // Match any prefix if the base number matches (helps with old overwritten HSQ/... DB records)
+                    { quotationNo: { endsWith: baseNo } },
+                    // Also check accurate fields to be safe
+                    { accurateHsqNo: decodedIdOrNo.replace(/-/g, "/") },
+                    { accurateHsoNo: decodedIdOrNo.replace(/-/g, "/") }
                 ]
             },
             include: {
@@ -286,19 +321,43 @@ export async function getQuotationDetail(idOrNo: string) {
 }
 
 // ── Admin: Start processing a quotation ──
-export async function processQuotation(idOrNo: string) {
+export async function processQuotation(idOrNo: string, data?: {
+    officialNo?: string;
+    accurateId?: number;
+    pdfPath?: string;
+}) {
     try {
         const decodedIdOrNo = decodeURIComponent(idOrNo);
+        const baseNo = decodedIdOrNo.replace(/^[A-Z]+-/, "").replace(/-/g, "/");
         const q = await db.salesQuotation.findFirst({
             where: {
                 OR: [
                     { id: decodedIdOrNo },
                     { quotationNo: decodedIdOrNo },
-                    { quotationNo: decodedIdOrNo.replace(/-/g, "/") }
+                    { quotationNo: decodedIdOrNo.replace(/-/g, "/") },
+                    { quotationNo: "SQ/" + baseNo },
+                    { quotationNo: { endsWith: baseNo } },
+                    { accurateHsqNo: decodedIdOrNo.replace(/-/g, "/") }
                 ]
             }
         });
         if (!q) return { success: false, error: "Not found" };
+
+        // Cek apakah nomor HSQ sudah dipakai quotation lain
+        if (data?.officialNo) {
+            const existing = await db.salesQuotation.findFirst({
+                where: {
+                    quotationNo: data.officialNo,
+                    id: { not: q.id },
+                },
+            });
+            if (existing) {
+                return {
+                    success: false,
+                    error: `Nomor ${data.officialNo} sudah terdaftar pada penawaran lain. Silakan gunakan nomor yang berbeda.`,
+                };
+            }
+        }
 
         const session = await getSession();
         const adminName = session?.user?.name || session?.user?.email || "Admin";
@@ -306,19 +365,234 @@ export async function processQuotation(idOrNo: string) {
         await db.salesQuotation.update({
             where: { id: q.id },
             data: {
-                status: "PROCESSING",
+                status: "OFFERED",
                 processedBy: adminName,
                 processedAt: new Date(),
+                // DO NOT overwrite quotationNo to preserve the SQ/ reference
+                accurateHsqNo: data?.officialNo || null,
+                accurateHsqId: data?.accurateId || null,
+                adminQuotePdfPath: data?.pdfPath || null,
             },
         });
 
-        await logActivity(q.id, "PROCESSING", "Mulai diproses", `Admin ${adminName} mulai memproses penawaran ini.`, "ADMIN");
+        let msg = `Admin mengirimkan penawaran resmi.`;
+        if (data?.pdfPath) {
+            msg += ` Download file pdf berikut: [Buka PDF Resmi](${data.pdfPath})`;
+        } else if (data?.officialNo) {
+            msg += ` Nomor resmi: ${data.officialNo}`;
+        }
+
+        await logActivity(q.id, "PROCESSING", "Penawaran Resmi", msg, "ADMIN");
+
+        // Use accurateHsqNo if provided, otherwise the original SQ no
+        const newlyAssignedNo = data?.officialNo || q.quotationNo;
 
         revalidatePath(`/admin/sales/quotations/${decodeURIComponent(idOrNo)}`);
-        return { success: true };
-    } catch (error) {
+        return { success: true, quotationNo: newlyAssignedNo };
+    } catch (error: any) {
         console.error("[processQuotation] Error:", error);
+        if (error?.code === "P2002") {
+            return { success: false, error: "Nomor HSQ tersebut sudah terdaftar. Silakan gunakan nomor yang berbeda." };
+        }
         return { success: false, error: "Gagal memproses quotation" };
+    }
+}
+
+
+// ── Admin: Update HSQ (edit penawaran saat masih HSQ, belum ada HSO) ──
+export async function updateQuotationHSQ(idOrNo: string, data: {
+    officialNo?: string;
+    accurateId?: number;
+    pdfPath?: string;
+    adminNotes?: string;
+    specialDiscount?: number;
+    specialDiscountNote?: string;
+    items?: Array<{
+        id: string;
+        productSku: string;
+        productName: string;
+        brand: string;
+        quantity: number;
+        price: number;
+        basePrice?: number | null;
+        isAvailable: boolean | null;
+        availableQty: number | null;
+        adminNote: string;
+        alternatives?: Array<{
+            productSku: string;
+            productName: string;
+            brand?: string;
+            quantity: number;
+            price: number;
+            note?: string;
+        }>;
+    }>;
+}) {
+    try {
+        const decodedIdOrNo = decodeURIComponent(idOrNo);
+        const baseNo = decodedIdOrNo.replace(/^[A-Z]+-/, "").replace(/-/g, "/");
+        const q = await db.salesQuotation.findFirst({
+            where: {
+                OR: [
+                    { id: decodedIdOrNo },
+                    { quotationNo: decodedIdOrNo },
+                    { quotationNo: decodedIdOrNo.replace(/-/g, "/") },
+                    { quotationNo: "SQ/" + baseNo },
+                    { quotationNo: { endsWith: baseNo } },
+                    { accurateHsqNo: decodedIdOrNo.replace(/-/g, "/") },
+                ]
+            }
+        });
+        if (!q) return { success: false, error: "Not found" };
+
+        // Hanya boleh edit jika OFFERED dan belum ada HSO
+        if (q.status !== "OFFERED") {
+            return { success: false, error: "Hanya bisa diedit saat status Penawaran Resmi (HSQ)" };
+        }
+        if (q.accurateHsoNo || q.accurateHsoId) {
+            return { success: false, error: "Penawaran sudah dikonversi ke HSO, tidak bisa diedit" };
+        }
+
+        // Cek duplikat nomor HSQ jika diubah
+        if (data.officialNo && data.officialNo !== q.accurateHsqNo) {
+            const existing = await db.salesQuotation.findFirst({
+                where: {
+                    accurateHsqNo: data.officialNo,
+                    id: { not: q.id },
+                },
+            });
+            if (existing) {
+                return {
+                    success: false,
+                    error: `Nomor HSQ ${data.officialNo} sudah terdaftar pada penawaran lain.`,
+                };
+            }
+        }
+
+        const session = await getSession();
+        const adminName = session?.user?.name || session?.user?.email || "Admin";
+
+        await db.$transaction(async (tx) => {
+            // Update header quotation
+            const updateData: Record<string, any> = {
+                adminNotes: data.adminNotes,
+                specialDiscount: data.specialDiscount,
+                specialDiscountNote: data.specialDiscountNote,
+            };
+            if (data.officialNo !== undefined) {
+                updateData.accurateHsqNo = data.officialNo || null;
+            }
+            if (data.accurateId !== undefined) {
+                updateData.accurateHsqId = data.accurateId || null;
+            }
+            if (data.pdfPath !== undefined) {
+                updateData.adminQuotePdfPath = data.pdfPath || null;
+            }
+
+            await tx.salesQuotation.update({
+                where: { id: q.id },
+                data: updateData,
+            });
+
+            // Update items jika diberikan
+            if (data.items) {
+                const itemIds = data.items.map((i) => i.id).filter((id) => !id.startsWith("new-"));
+
+                // Hapus items yang tidak ada di data baru
+                await tx.salesQuotationItem.deleteMany({
+                    where: {
+                        quotationId: q.id,
+                        id: { notIn: itemIds }
+                    }
+                });
+
+                // Upsert items
+                for (const item of data.items) {
+                    let dbItem;
+                    if (item.id.startsWith("new-")) {
+                        dbItem = await tx.salesQuotationItem.create({
+                            data: {
+                                quotationId: q.id,
+                                productSku: item.productSku,
+                                productName: item.productName,
+                                brand: item.brand || "",
+                                quantity: item.quantity,
+                                price: item.price,
+                                basePrice: item.basePrice || item.price,
+                                isAvailable: item.isAvailable,
+                                availableQty: item.availableQty,
+                                adminNote: item.adminNote,
+                            }
+                        });
+                    } else {
+                        dbItem = await tx.salesQuotationItem.update({
+                            where: { id: item.id },
+                            data: {
+                                productSku: item.productSku,
+                                productName: item.productName,
+                                brand: item.brand || "",
+                                quantity: item.quantity,
+                                price: item.price,
+                                basePrice: item.basePrice || item.price,
+                                isAvailable: item.isAvailable,
+                                availableQty: item.availableQty,
+                                adminNote: item.adminNote,
+                            }
+                        });
+                    }
+
+                    // Handle alternatives
+                    if (item.alternatives !== undefined) {
+                        await tx.salesQuotationItemAlternative.deleteMany({
+                            where: { quotationItemId: dbItem.id }
+                        });
+                        for (const alt of item.alternatives) {
+                            await tx.salesQuotationItemAlternative.create({
+                                data: {
+                                    quotationItemId: dbItem.id,
+                                    productSku: alt.productSku,
+                                    productName: alt.productName,
+                                    brand: alt.brand || "",
+                                    quantity: alt.quantity,
+                                    price: alt.price,
+                                    note: alt.note,
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+        });
+
+        let actMsg = `Admin memperbarui penawaran HSQ`;
+        if (data.officialNo && data.officialNo !== q.accurateHsqNo) {
+            actMsg += `. Nomor HSQ diubah ke: ${data.officialNo}`;
+        }
+        if (data.pdfPath && data.pdfPath !== q.adminQuotePdfPath) {
+            actMsg += `. File penawaran diperbarui: [Buka PDF Terbaru](${data.pdfPath})`;
+        }
+        if (data.specialDiscountNote) {
+            actMsg += `. Diskon spesial: ${data.specialDiscountNote}`;
+        }
+
+        await logActivity(q.id, "HSQ_UPDATED", "Penawaran Diperbarui", actMsg, adminName);
+
+        const returnNo = data.officialNo || q.accurateHsqNo || q.quotationNo;
+        revalidatePath(`/admin/sales/quotations/${encodeURIComponent(idOrNo)}`);
+        return { success: true, quotationNo: returnNo };
+    } catch (error: any) {
+        console.error("[updateQuotationHSQ] Error:", error);
+        return { success: false, error: "Gagal memperbarui penawaran" };
+    }
+}
+
+export async function fetchAccurateQuotationList(search?: string, page: number = 1) {
+    try {
+        const pageSize = 20;
+        const docs = await fetchAccurateHSQ(page, search, pageSize);
+        return { success: true, docs, hasMore: docs.length === pageSize };
+    } catch (error) {
+        return { success: false, error: "Gagal mengambil data dari Accurate" };
     }
 }
 
@@ -343,41 +617,71 @@ export async function saveQuotationDraft(idOrNo: string, data: any) {
             await tx.salesQuotation.update({
                 where: { id: q.id },
                 data: {
-                    // Move from PENDING → PROCESSING when admin first saves draft
-                    status: q.status === "PENDING" ? "PROCESSING" : q.status,
                     adminNotes: data.adminNotes,
                     specialDiscount: data.specialDiscount,
                     specialDiscountNote: data.specialDiscountNote,
-                    processedAt: q.status === "PENDING" ? new Date() : q.processedAt,
                 }
             });
 
+            // Handle items: Update existing, Create new, Delete removed
+            const itemIds = data.items.map((i: any) => i.id).filter((id: string) => !id.startsWith("new-"));
+
+            // 1. Delete items not in data
+            await tx.salesQuotationItem.deleteMany({
+                where: {
+                    quotationId: q.id,
+                    id: { notIn: itemIds }
+                }
+            });
+
+            // 2. Upsert items
             for (const item of data.items) {
-                await tx.salesQuotationItem.update({
-                    where: { id: item.id },
-                    data: {
-                        isAvailable: item.isAvailable,
-                        availableQty: item.availableQty,
-                        adminNote: item.adminNote,
-                    }
-                });
-
-                // Handle alternatives if provided
-                if (item.alternatives) {
-                    // Delete old alternatives
-                    await tx.salesQuotationItemAlternative.deleteMany({
-                        where: { quotationItemId: item.id }
+                let dbItem;
+                if (item.id.startsWith("new-")) {
+                    dbItem = await tx.salesQuotationItem.create({
+                        data: {
+                            quotationId: q.id,
+                            productSku: item.productSku,
+                            productName: item.productName,
+                            brand: item.brand || "",
+                            quantity: item.quantity,
+                            price: item.price,
+                            basePrice: item.basePrice || item.price,
+                            isAvailable: item.isAvailable,
+                            availableQty: item.availableQty,
+                            adminNote: item.adminNote,
+                        }
                     });
+                } else {
+                    dbItem = await tx.salesQuotationItem.update({
+                        where: { id: item.id },
+                        data: {
+                            productSku: item.productSku,
+                            productName: item.productName,
+                            brand: item.brand || "",
+                            quantity: item.quantity,
+                            price: item.price,
+                            basePrice: item.basePrice || item.price,
+                            isAvailable: item.isAvailable,
+                            availableQty: item.availableQty,
+                            adminNote: item.adminNote,
+                        }
+                    });
+                }
 
-                    // Create new alternatives
+                // Handle alternatives
+                if (item.alternatives) {
+                    await tx.salesQuotationItemAlternative.deleteMany({
+                        where: { quotationItemId: dbItem.id }
+                    });
                     if (item.alternatives.length > 0) {
                         for (const alt of item.alternatives) {
                             await tx.salesQuotationItemAlternative.create({
                                 data: {
-                                    quotationItemId: item.id,
+                                    quotationItemId: dbItem.id,
                                     productSku: alt.productSku,
                                     productName: alt.productName,
-                                    brand: alt.brand,
+                                    brand: alt.brand || "",
                                     quantity: alt.quantity,
                                     price: alt.price,
                                     note: alt.note
@@ -391,28 +695,8 @@ export async function saveQuotationDraft(idOrNo: string, data: any) {
 
         const actMsg = hasAlternatives
             ? `Admin memperbarui draft penawaran. Terdapat produk alternatif yang ditawarkan kepada customer.`
-            : `Admin memperbarui detail draft penawaran (stok/diskon/catatan).`;
+            : `Admin memperbarui detail draft penawaran.`;
         await logActivity(q.id, "DRAFT_UPDATED", "Draft Diperbarui", actMsg, "ADMIN");
-
-        // --- Sync to Accurate HSQ ---
-        if (q.accurateHsqId) {
-            try {
-                const updatedQ = await db.salesQuotation.findUnique({
-                    where: { id: q.id },
-                    include: {
-                        items: {
-                            include: { SalesQuotationItemAlternative: true }
-                        }
-                    }
-                });
-                if (updatedQ) {
-                    await updateAccurateHSQ(q.accurateHsqId, updatedQ);
-                }
-            } catch (syncErr) {
-                console.error("[saveQuotationDraft] Accurate sync failed:", syncErr);
-                // Non-blocking: draft was saved successfully regardless
-            }
-        }
 
         revalidatePath(`/admin/sales/quotations/${idOrNo}`);
         return { success: true };
@@ -452,28 +736,63 @@ export async function submitQuotationOffer(idOrNo: string, data: any) {
                 }
             });
 
+            const itemIds = data.items.map((i: any) => i.id).filter((id: string) => !id.startsWith("new-"));
+
+            // 1. Delete items not in data
+            await tx.salesQuotationItem.deleteMany({
+                where: {
+                    quotationId: q.id,
+                    id: { notIn: itemIds }
+                }
+            });
+
+            // 2. Upsert items
             for (const item of data.items) {
-                await tx.salesQuotationItem.update({
-                    where: { id: item.id },
-                    data: {
-                        isAvailable: item.isAvailable,
-                        availableQty: item.availableQty,
-                        adminNote: item.adminNote,
-                    }
-                });
+                let dbItem;
+                if (item.id.startsWith("new-")) {
+                    dbItem = await tx.salesQuotationItem.create({
+                        data: {
+                            quotationId: q.id,
+                            productSku: item.productSku,
+                            productName: item.productName,
+                            brand: item.brand || "",
+                            quantity: item.quantity,
+                            price: item.price,
+                            basePrice: item.basePrice || item.price,
+                            isAvailable: item.isAvailable,
+                            availableQty: item.availableQty,
+                            adminNote: item.adminNote,
+                        }
+                    });
+                } else {
+                    dbItem = await tx.salesQuotationItem.update({
+                        where: { id: item.id },
+                        data: {
+                            productSku: item.productSku,
+                            productName: item.productName,
+                            brand: item.brand || "",
+                            quantity: item.quantity,
+                            price: item.price,
+                            basePrice: item.basePrice || item.price,
+                            isAvailable: item.isAvailable,
+                            availableQty: item.availableQty,
+                            adminNote: item.adminNote,
+                        }
+                    });
+                }
 
                 if (item.alternatives) {
                     await tx.salesQuotationItemAlternative.deleteMany({
-                        where: { quotationItemId: item.id }
+                        where: { quotationItemId: dbItem.id }
                     });
                     if (item.alternatives.length > 0) {
                         for (const alt of item.alternatives) {
                             await tx.salesQuotationItemAlternative.create({
                                 data: {
-                                    quotationItemId: item.id,
+                                    quotationItemId: dbItem.id,
                                     productSku: alt.productSku,
                                     productName: alt.productName,
-                                    brand: alt.brand,
+                                    brand: alt.brand || "",
                                     quantity: alt.quantity,
                                     price: alt.price,
                                     note: alt.note
@@ -486,11 +805,25 @@ export async function submitQuotationOffer(idOrNo: string, data: any) {
 
             return await tx.salesQuotation.findUnique({
                 where: { id: q.id },
-                include: { items: true }
+                include: {
+                    customer: true,
+                    items: {
+                        include: { SalesQuotationItemAlternative: true }
+                    }
+                }
             });
         });
 
         await logActivity(q.id, "OFFER_SENT", "Penawaran dikirim", "Admin telah mengirimkan penawaran harga kepada pelanggan.", "ADMIN");
+
+        // --- Sync to Accurate HSQ ---
+        if (q.accurateHsqId && updatedQuotation) {
+            try {
+                await updateAccurateHSQ(q.accurateHsqId, updatedQuotation);
+            } catch (syncErr) {
+                console.error("[submitQuotationOffer] Accurate sync failed:", syncErr);
+            }
+        }
 
         // Send notifications
         if (updatedQuotation) {
@@ -501,6 +834,18 @@ export async function submitQuotationOffer(idOrNo: string, data: any) {
 
         revalidatePath(`/admin/sales/quotations/${decodeURIComponent(idOrNo)}`);
         revalidatePath(`/dashboard/transaksi`);
+        // Revalidate the customer's detail page for all possible URL slugs
+        revalidatePath(`/dashboard/transaksi/${q.id}`);
+        if (q.quotationNo) {
+            const no = q.quotationNo;
+            const baseNo = no.replace(/^[A-Z]+\//, "");
+            const sqSlug = no.replace(/\//g, "-");
+            const hsqSlug = updatedQuotation?.accurateHsqNo
+                ? updatedQuotation.accurateHsqNo.replace(/\//g, "-")
+                : ("HSQ-" + baseNo.replace(/\//g, "-"));
+            revalidatePath(`/dashboard/transaksi/${sqSlug}`);
+            revalidatePath(`/dashboard/transaksi/${hsqSlug}`);
+        }
         return { success: true };
     } catch (error) {
         console.error("[submitQuotationOffer] Error:", error);
@@ -736,7 +1081,19 @@ async function sendOfferNotifications(quotation: any) {
             const discountAmount = quotation.totalAmount * (discountPercent / 100);
             const finalTotal = quotation.totalAmount - discountAmount;
 
-            let message = `*Penawaran Harga - ${quotation.quotationNo}*\n\nYth. Pelanggan,\nBerikut penawaran harga dari Hokiindo:\n\n`;
+            // Compute the HSQ slug for the link
+            const no = quotation.quotationNo || "";
+            const baseNo = no.replace(/^[A-Z]+\//, "");
+            const hsqSlug = quotation.accurateHsqNo
+                ? quotation.accurateHsqNo.replace(/\//g, "-")
+                : ("HSQ-" + baseNo.replace(/\//g, "-"));
+            const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "https://hokiindo.com";
+            const detailUrl = `${appUrl}/dashboard/transaksi/${hsqSlug}`;
+            const hsqDisplay = quotation.accurateHsqNo || hsqSlug;
+
+            let message = `🎉 *Penawaran Resmi Hokiindo*\n`;
+            message += `📄 *No. HSQ: ${hsqDisplay}*\n\n`;
+            message += `Yth. ${quotation.customerName || "Pelanggan"},\nPenawaran harga resmi dari Hokiindo telah siap.\n\n`;
 
             message += `📦 *Daftar Produk:*\n`;
             quotation.items.forEach((item: any, idx: number) => {
@@ -756,7 +1113,8 @@ async function sendOfferNotifications(quotation: any) {
                 message += `\n\n💬 *Catatan:* ${quotation.adminNotes}`;
             }
 
-            message += `\n\n✅ Penawaran berlaku 7 hari kerja.\nHubungi kami untuk konfirmasi pesanan.\n\n_Hokiindo Shop_`;
+            message += `\n\n👉 *Lihat Penawaran Lengkap:*\n${detailUrl}`;
+            message += `\n\n✅ Penawaran berlaku 7 hari kerja.\nSegera konfirmasi untuk memproses pesanan Anda.\n\n_Hokiindo Shop_`;
 
             await sendWAMessage(cleanPhone, message);
         } catch (err) {
@@ -904,5 +1262,66 @@ export async function completeQuotationOrder(id: string) {
     } catch (error) {
         console.error("[completeQuotationOrder] Error:", error);
         return { success: false, error: "Gagal menyelesaikan pesanan" };
+    }
+}
+
+// ── Customer: Upload HPO (Purchase Order dari customer) ──
+export async function uploadCustomerHPO(
+    idOrNo: string,
+    hpoUrl: string,
+    poNotes?: string
+) {
+    try {
+        const session = await getSession();
+        if (!session?.user?.id) {
+            return { success: false, error: "Tidak terautentikasi" };
+        }
+
+        const decodedIdOrNo = decodeURIComponent(idOrNo);
+        const quotation = await db.salesQuotation.findFirst({
+            where: {
+                OR: [
+                    { id: decodedIdOrNo },
+                    { quotationNo: decodedIdOrNo },
+                    { quotationNo: decodedIdOrNo.replace(/-/g, "/") },
+                ],
+            },
+            include: { customer: { select: { type: true } } },
+        });
+
+        if (!quotation) {
+            return { success: false, error: "Quotation tidak ditemukan" };
+        }
+
+        // Ensure customer owns this quotation
+        if (quotation.userId !== session.user.id && quotation.userClientId !== session.user.id) {
+            return { success: false, error: "Akses ditolak" };
+        }
+
+        // Allow all customer types to upload HPO/PO
+        // (both BISNIS and retail are allowed)
+
+        // Only allow upload when quotation is in relevant statuses
+        const allowedStatuses = ["OFFERED", "CONFIRMED", "PROCESSING"];
+        if (!allowedStatuses.includes(quotation.status)) {
+            return { success: false, error: "HPO hanya dapat diunggah saat penawaran sedang aktif" };
+        }
+
+        await db.salesQuotation.update({
+            where: { id: quotation.id },
+            data: {
+                userPoPath: hpoUrl,
+                poNotes: poNotes || null,
+            },
+        });
+
+        await logActivity(quotation.id, "HPO Diunggah", `Customer mengunggah dokumen HPO${poNotes ? `: ${poNotes}` : ""}`, session.user.name || session.user.email || "Customer");
+
+        revalidatePath(`/dashboard/transaksi/${idOrNo}`);
+        revalidatePath(`/admin/sales/quotations/${idOrNo}`);
+        return { success: true };
+    } catch (error) {
+        console.error("[uploadCustomerHPO] Error:", error);
+        return { success: false, error: "Gagal mengunggah HPO" };
     }
 }

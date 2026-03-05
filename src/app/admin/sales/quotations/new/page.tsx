@@ -103,7 +103,7 @@ export default function NewQuotationPage() {
         });
 
         if (res.success) {
-            toast.success("Penawaran (HRSQ) berhasil dibuat!");
+            toast.success("Penawaran (SQ) berhasil dibuat!");
             router.push(`/admin/sales/quotations/${res.id}`);
         } else {
             toast.error(res.error || "Gagal membuat penawaran");
@@ -131,7 +131,7 @@ export default function NewQuotationPage() {
                     </Button>
                     <div>
                         <h1 className="text-2xl font-black text-slate-900 tracking-tight">Buat Penawaran Baru</h1>
-                        <p className="text-sm font-medium text-slate-500">Draft HRSQ akan otomatis dikirimkan ke Accurate setelah disubmit.</p>
+                        <p className="text-sm font-medium text-slate-500">Draft SQ akan otomatis dikirimkan ke Accurate setelah disubmit.</p>
                     </div>
                 </div>
                 <Button

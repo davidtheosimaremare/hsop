@@ -44,26 +44,26 @@ export function useUnsavedChangesWarning(shouldWarn: boolean) {
 
         // Override pushState
         window.history.pushState = function (...args) {
-            if (shouldWarn) {
-                const url = args[2]?.toString();
-                if (url && url !== pathname) {
+            const url = args[2]?.toString();
+            if (shouldWarn && url && url !== pathname) {
+                setTimeout(() => {
                     setNextUrl(url);
                     setShowWarning(true);
-                    return;
-                }
+                }, 0);
+                return;
             }
             return originalPushState.apply(this, args);
         };
 
         // Override replaceState
         window.history.replaceState = function (...args) {
-            if (shouldWarn) {
-                const url = args[2]?.toString();
-                if (url && url !== pathname) {
+            const url = args[2]?.toString();
+            if (shouldWarn && url && url !== pathname) {
+                setTimeout(() => {
                     setNextUrl(url);
                     setShowWarning(true);
-                    return;
-                }
+                }, 0);
+                return;
             }
             return originalReplaceState.apply(this, args);
         };

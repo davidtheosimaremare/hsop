@@ -366,15 +366,15 @@ export const sidebarMenuItems = [
     requiredPermission: "dashboard:view",
   },
 
-  // ── Customers ─────────────────────────────────────────────────────────────
+  // ── Pelanggan ─────────────────────────────────────────────────────────────
   {
-    title: "Customers",
+    title: "Pelanggan",
     href: "/admin/customers",
     icon: "Users",
     requiredPermission: "customers:view",
     children: [
       { title: "Database Pelanggan", href: "/admin/customers", icon: "Users", requiredPermission: "customers:view" },
-      { title: "General to Retail", href: "/admin/upgrades", icon: "ArrowUpCircle", requiredPermission: "upgrades:view" },
+      { title: "Upgrade Akun", href: "/admin/upgrades", icon: "ArrowUpCircle", requiredPermission: "upgrades:view" },
     ],
   },
 
@@ -392,7 +392,7 @@ export const sidebarMenuItems = [
     ],
   },
 
-  // ── Penjualan ─────────────────────────────────────────────────────────────────
+  // ── Penjualan ─────────────────────────────────────────────────────────────
   {
     title: "Penjualan",
     href: "/admin/sales/quotations",
@@ -400,69 +400,91 @@ export const sidebarMenuItems = [
     requiredPermission: "quotations:view",
     children: [
       { title: "Penawaran", href: "/admin/sales/quotations", icon: "FileCheck", badgeKey: "pendingQuotations", requiredPermission: "quotations:view" },
-      { title: "Pesanan", href: "/admin/sales/orders", icon: "ClipboardList", requiredPermission: "sales_orders:view" },
-      { title: "Pembayaran", href: "/admin/sales/payments", icon: "CreditCard", requiredPermission: "invoices:view" },
-      { title: "Retur", href: "/admin/sales/returns", icon: "RotateCcw", requiredPermission: "returns:view" },
+      { title: "Pesanan", href: "/admin/orders", icon: "ClipboardList", requiredPermission: "orders:view" },
+      { title: "Pembayaran", href: "/admin/sales/payments", icon: "Receipt", requiredPermission: "invoices:view" },
+      { title: "Retur", href: "/admin/sales/returns", icon: "Package", requiredPermission: "returns:view" },
     ],
   },
 
-  // ── Content ──────────────────────────────────────────────────────────────
+  // ── Konten ──────────────────────────────────────────────────────────────
   {
-    title: "Content",
+    title: "Konten",
     href: "/admin/news",
     icon: "Newspaper",
     requiredPermission: "news:view",
     children: [
-      {
-        title: "News",
-        href: "/admin/news",
-        icon: "Newspaper",
-        requiredPermission: "news:view",
-      },
-      {
-        title: "Pages",
-        href: "/admin/pages",
-        icon: "FileText",
-        requiredPermission: "pages:view",
-      },
+      { title: "Berita", href: "/admin/news", icon: "Newspaper", requiredPermission: "news:view" },
+      { title: "Halaman", href: "/admin/pages", icon: "FileText", requiredPermission: "pages:view" },
     ],
   },
 
-  // ── Settings ─────────────────────────────────────────────────────────────
+  // ═══ SECTION DIVIDER: Tampilan ═══
+  { title: "__divider__", href: "__tampilan__", icon: "", label: "Tampilan" },
+
+  // ── Tampilan ────────────────────────────────────────────────────────────
   {
-    title: "Settings",
+    title: "Tampilan",
+    href: "/admin/settings/banners",
+    icon: "LayoutTemplate",
+    requiredPermission: "settings:view",
+    children: [
+      { title: "Banner Slide", href: "/admin/settings/banners", icon: "ImageIcon", requiredPermission: "banners:manage" },
+      { title: "Kategori Utama", href: "/admin/settings/categories", icon: "ListTree", requiredPermission: "categories:manage" },
+      { title: "Kategori Dropdown", href: "/admin/settings/categories-menu", icon: "ListTree", requiredPermission: "categories_menu:manage" },
+      { title: "Home CTA", href: "/admin/settings/cta", icon: "LayoutTemplate", requiredPermission: "cta:manage" },
+      { title: "Grid Kategori", href: "/admin/settings/grid-categories", icon: "LayoutDashboard", requiredPermission: "grid_categories:manage" },
+      { title: "Saran Pencarian", href: "/admin/settings/search", icon: "Search", requiredPermission: "search:manage" },
+      { title: "Portfolio", href: "/admin/settings/portfolio", icon: "Briefcase", requiredPermission: "portfolio:manage" },
+      { title: "Footer", href: "/admin/settings/footer", icon: "LayoutTemplate", requiredPermission: "footer:manage" },
+    ],
+  },
+
+  // ═══ SECTION DIVIDER: Pengaturan ═══
+  { title: "__divider__", href: "__pengaturan__", icon: "", label: "Pengaturan" },
+
+  // ── Pengaturan ──────────────────────────────────────────────────────────
+  {
+    title: "Pengaturan",
     href: "/admin/settings",
     icon: "Settings",
     requiredPermission: "settings:view",
     children: [
-      { title: "Banners", href: "/admin/settings/banners", icon: "ImageIcon", requiredPermission: "banners:manage" },
-      { title: "Categories", href: "/admin/settings/categories", icon: "ListTree", requiredPermission: "categories:manage" },
-      { title: "Categories Menu", href: "/admin/settings/categories-menu", icon: "ListTree", requiredPermission: "categories_menu:manage" },
-      { title: "Portfolio", href: "/admin/settings/portfolio", icon: "Briefcase", requiredPermission: "portfolio:manage" },
-      { title: "Sections", href: "/admin/settings/sections", icon: "LayoutTemplate", requiredPermission: "sections:manage" },
-      { title: "Home CTA", href: "/admin/settings/cta", icon: "LayoutTemplate", requiredPermission: "cta:manage" },
-      { title: "Grid Categories", href: "/admin/settings/grid-categories", icon: "LayoutDashboard", requiredPermission: "grid_categories:manage" },
-      { title: "Search", href: "/admin/settings/search", icon: "Search", requiredPermission: "search:manage" },
+      { title: "Profil Perusahaan", href: "/admin/settings/company", icon: "Briefcase", requiredPermission: "settings:edit" },
+      { title: "Tampilan Email", href: "/admin/settings/email-template", icon: "FileText", requiredPermission: "settings:edit" },
+      { title: "Notifikasi", href: "/admin/settings", icon: "Bell", requiredPermission: "settings:view" },
+      { title: "Chat WhatsApp", href: "/admin/settings/whatsapp", icon: "Activity", requiredPermission: "settings:edit" },
       { title: "Format File", href: "/admin/settings/format-file", icon: "FileText", requiredPermission: "format_file:manage" },
-      { title: "Footer", href: "/admin/settings/footer", icon: "LayoutTemplate", requiredPermission: "footer:manage" },
-      { title: "Roles & Permissions", href: "/admin/settings/roles", icon: "ShieldCheck", requiredPermission: "settings:edit" },
     ],
   },
 
-  // ── Users & Developer ─────────────────────────────────────────────────────
+  // ── Pengguna ────────────────────────────────────────────────────────────
   {
-    title: "Users",
+    title: "Pengguna",
     href: "/admin/users",
     icon: "ShieldCheck",
     requiredPermission: "users:view",
+    children: [
+      { title: "Hak Akses & Peran", href: "/admin/settings/roles", icon: "ShieldCheck", requiredPermission: "settings:edit" },
+      { title: "Kelola Admin", href: "/admin/users", icon: "UserPlus", requiredPermission: "users:view" },
+    ],
   },
+
+  // ═══ SECTION DIVIDER: Developer ═══
+  { title: "__divider__", href: "__developer__", icon: "", label: "Developer" },
+
+  // ── Developer ───────────────────────────────────────────────────────────
   {
     title: "Developer",
     href: "/admin/developer/webhooks",
     icon: "Webhook",
-    requiredPermission: "webhooks:view",
+    requiredPermission: "developer:view",
+    children: [
+      { title: "Webhook Simulator", href: "/admin/developer/webhooks", icon: "Webhook", requiredPermission: "webhooks:view" },
+      { title: "Backup Data", href: "/admin/developer/backup", icon: "Activity", requiredPermission: "developer:view" },
+    ],
   },
 ];
+
 
 /**
  * Get filtered sidebar menu items based on role

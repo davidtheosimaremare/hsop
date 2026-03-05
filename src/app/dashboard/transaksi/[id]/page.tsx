@@ -65,8 +65,8 @@ import {
 } from "@/components/ui/dialog";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; stage: number }> = {
-    DRAFT: { label: "Draft Penawaran", color: "text-gray-700", bg: "bg-gray-100 border-gray-200", stage: 1 },
-    PENDING: { label: "Draft Penawaran", color: "text-amber-700", bg: "bg-amber-50 border-amber-200", stage: 1 },
+    DRAFT: { label: "Penawaran", color: "text-gray-700", bg: "bg-gray-100 border-gray-200", stage: 1 },
+    PENDING: { label: "Penawaran", color: "text-amber-700", bg: "bg-amber-50 border-amber-200", stage: 1 },
     OFFERED: { label: "Penawaran Ditinjau", color: "text-violet-700", bg: "bg-violet-50 border-violet-200", stage: 2 },
     CONFIRMED: { label: "Menunggu Verifikasi", color: "text-indigo-700", bg: "bg-indigo-50 border-indigo-200", stage: 3 },
     PROCESSING: { label: "Pembayaran", color: "text-blue-700", bg: "bg-blue-50 border-blue-200", stage: 4 },
@@ -77,7 +77,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; 
 
 const STATUS_DESCRIPTIONS: Record<string, string> = {
     DRAFT: "Simpan pesanan sebagai draft untuk dilengkapi nanti. Draft akan disimpan dan dapat dilanjutkan kapan saja.",
-    PENDING: "Draft penawaran telah berhasil dikirimkan ke Hokiindo. Admin akan segera memverifikasi data dan mengirimkan dokumen HSQ resmi.",
+    PENDING: "Draft penawaran telah berhasil dikirimkan ke Hokiindo. Admin akan segera memverifikasi data dan mengirimkan dokumen SQ resmi.",
     OFFERED: "Tim sales sedang meninjau permintaan Anda. Harga dan ketersediaan akan dikonfirmasi secepatnya.",
     CONFIRMED: "Penawaran telah dikonfirmasi. Tim kami akan memverifikasi data pesanan sebelum diproses ke pembayaran.",
     PROCESSING: "Silakan lakukan pembayaran sesuai tagihan. Upload bukti pembayaran untuk mempercepat proses verifikasi.",
@@ -87,8 +87,8 @@ const STATUS_DESCRIPTIONS: Record<string, string> = {
 };
 
 const STEPS = [
-    { s: 1, l: "Draft Penawaran", icon: FileText },
-    { s: 2, l: "Konfirmasi", icon: Send },
+    { s: 1, l: "Penawaran", icon: FileText },
+    { s: 2, l: "Penawaran Resmi", icon: Send },
     { s: 3, l: "Verifikasi", icon: ShieldCheck },
     { s: 4, l: "Pembayaran", icon: CreditCard },
     { s: 5, l: "Pengiriman", icon: Truck },
@@ -135,6 +135,9 @@ export default function UserTransactionDetailPage() {
     const [otherReason, setOtherReason] = useState("");
     const [isCancelling, setIsCancelling] = useState(false);
 
+    // HPO State (all account types can upload)
+    const [hpoFile, setHpoFile] = useState<File | null>(null);
+
     const CANCEL_REASONS = [
         "Ingin mengubah rincian pesanan (produk, jumlah, dll)",
         "Menemukan harga yang lebih murah di tempat lain",
@@ -171,6 +174,28 @@ export default function UserTransactionDetailPage() {
         }
         setIsLoading(false);
     }, [id, loadAddresses]);
+
+    // ── Redirect to pretty slug after data loads ──
+    useEffect(() => {
+        if (!quotation) return;
+        const no = quotation.quotationNo || "";
+        const toSlug = (s: string) => s.replace(/\//g, "-");
+        // fmt: strip any existing prefix (SQ/, HSQ/, RFQ/, etc.) then add new prefix
+        const baseNo = no.replace(/^[A-Z]+\//, ""); // e.g. "SQ/26/03/1" → "26/03/1"
+        const fmt = (p: string) => toSlug(`${p}/${baseNo}`);
+
+        let slug: string;
+        if (["PENDING", "DRAFT"].includes(quotation.status)) slug = fmt("SQ");
+        else if (quotation.status === "OFFERED") slug = toSlug(quotation.accurateHsqNo || fmt("HSQ").replace(/\//g, "-"));
+        else if (quotation.status === "CONFIRMED") slug = toSlug(quotation.accurateHsoNo || fmt("HSO").replace(/\//g, "-"));
+        else if (quotation.status === "SHIPPED") slug = toSlug(quotation.accurateDoNo || fmt("HDO").replace(/\//g, "-"));
+        else if (quotation.status === "COMPLETED") slug = fmt("INV");
+        else slug = fmt("SQ");
+
+        if (decodeURIComponent(id) !== slug) {
+            router.replace(`/dashboard/transaksi/${encodeURIComponent(slug)}`);
+        }
+    }, [quotation]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         loadData();
@@ -243,15 +268,34 @@ export default function UserTransactionDetailPage() {
     };
 
     const handleSubmitPO = async () => {
-        if (!poPath && !specialDiscountRequest) {
-            toast.error("Mohon upload PO atau isi request diskon.");
-            return;
-        }
         setIsSubmitting(true);
-        // Note: Make sure the quotation has ID
-        await userSubmitPO(id, poPath, specialDiscountRequest, specialDiscountNote);
-        await loadData();
-        toast.success("Konfirmasi pesanan terkirim");
+        let finalPoPath = quotation.userPoPath || "";
+
+        // If a new file is selected, upload it first
+        if (hpoFile) {
+            try {
+                const formData = new FormData();
+                formData.append("file", hpoFile);
+                const uploadResult = await uploadFile(formData);
+                if (uploadResult.success && uploadResult.url) {
+                    finalPoPath = uploadResult.url;
+                } else {
+                    toast.error("Gagal mengupload file PO. Melanjutkan dengan PO lama/tanpa PO.");
+                }
+            } catch (err) {
+                console.error("Upload error:", err);
+                toast.error("Terjadi masalah saat mengunggah PO.");
+            }
+        }
+
+        const result = await userSubmitPO(id, finalPoPath, specialDiscountRequest, specialDiscountNote);
+        if (result.success) {
+            toast.success("Konfirmasi pesanan terkirim");
+            setHpoFile(null);
+            await loadData();
+        } else {
+            toast.error(result.error || "Gagal mengirim konfirmasi");
+        }
         setIsSubmitting(false);
     };
 
@@ -323,6 +367,8 @@ export default function UserTransactionDetailPage() {
         setViewStage(targetStage);
     };
 
+
+
     const handleCancel = async () => {
         const finalReason = cancelReason === "Lainnya" ? otherReason : cancelReason;
         if (!finalReason) {
@@ -365,7 +411,10 @@ export default function UserTransactionDetailPage() {
         );
     }
 
-    const isRetail = (quotation?.accountType || quotation?.customer?.type) === "RITEL" || (quotation?.customerType || quotation?.customer?.type) !== "CORPORATE";
+    const custType = (quotation?.customerType || quotation?.customer?.type || "").toUpperCase();
+    const isCorporate = ["CORPORATE", "BISNIS", "B2B", "COMPANY"].includes(custType);
+    const isRetail = ["RITEL", "RETAIL", "PERSONAL"].includes(custType);
+    const isGeneralCustomer = !isCorporate && !isRetail;
     const items = quotation.items || [];
     const hasDiscount = quotation.specialDiscount && quotation.specialDiscount > 0;
     const discountAmount = hasDiscount ? quotation.totalAmount * (quotation.specialDiscount / 100) : 0;
@@ -373,44 +422,56 @@ export default function UserTransactionDetailPage() {
 
     const displayNo = (() => {
         const no = quotation.quotationNo || "";
-        const fmt = (p: string) => no.startsWith('SQ-') ? no.replace('SQ-', p + '-') : (no.startsWith('RFQ/') ? no.replace('RFQ/', p + '/') : no);
-
-        if (quotation.status === 'PENDING' || quotation.status === 'DRAFT') return fmt('RFQ');
-
-        if (isRetail) {
-            if (['OFFERED', 'PROCESSING', 'CONFIRMED'].includes(quotation.status)) return fmt('HSO');
-            if (quotation.status === 'SHIPPED') return fmt('HDO');
-            if (quotation.status === 'COMPLETED') return fmt('INV');
-            return no;
-        }
-
-        // B2B Logic (Non-Draft)
-        if (['PROCESSING', 'OFFERED'].includes(quotation.status)) return fmt('HRSQ');
-        if (quotation.status === 'CONFIRMED') return fmt('HSO');
-        if (quotation.status === 'SHIPPED') return fmt('HDO');
-        if (quotation.status === 'COMPLETED') return fmt('INV');
-        return fmt('T');
+        // Strip any existing SQ/ HSQ/ RFQ/ etc. prefix, then rebuild
+        const baseNo = no.replace(/^[A-Z]+\//, ""); // "SQ/26/03/1" → "26/03/1"
+        const fmt = (p: string) => `${p}/${baseNo}`;
+        if (quotation.status === "PENDING" || quotation.status === "DRAFT") return fmt("SQ");
+        if (quotation.status === "OFFERED") return quotation.accurateHsqNo || fmt("HSQ");
+        if (quotation.status === "CONFIRMED") return quotation.accurateHsoNo || fmt("HSO");
+        if (quotation.status === "SHIPPED") return quotation.accurateDoNo || fmt("HDO");
+        if (quotation.status === "COMPLETED") return fmt("INV");
+        return fmt("SQ");
     })();
 
     let status = STATUS_CONFIG[quotation.status] || STATUS_CONFIG.PENDING;
-    // Override labels for Retail
-    if (isRetail) {
-        if (quotation.status === "PENDING") status = { ...status, label: "Draft Penawaran" };
-        if (quotation.status === "OFFERED") status = { ...status, label: "Pesanan" };
-        if (quotation.status === "CONFIRMED") status = { ...status, label: "Diproses" };
-        if (quotation.status === "PROCESSING") status = { ...status, label: "Pembayaran" };
-    }
+    // Override labels to reflect document naming
+    if (quotation.status === "OFFERED") status = { ...status, label: "Penawaran (HSQ)" };
+    if (quotation.status === "CONFIRMED") status = { ...status, label: isRetail ? "Diproses" : "Pesanan (HSO)" };
+    if (quotation.status === "PROCESSING") status = { ...status, label: "Pembayaran" };
 
     const currentStage = status.stage;
 
-    // Filter steps for Retail - remove Verification stage + rename
-    const filteredSteps = isRetail
+    // Filter steps for Retail/General - remove Verification stage + rename
+    const filteredSteps = isGeneralCustomer
         ? STEPS.filter(s => s.s !== 3).map(step => {
-            if (step.s === 1) return { ...step, l: "Draft Penawaran" };
-            if (step.s === 2) return { ...step, l: "Pesanan" };
+            if (step.s === 4) return { ...step, l: "Pembayaran" };
             return step;
         })
-        : STEPS;
+        : STEPS.filter(s => s.s !== 4 && s.s !== 3).map(step => {
+            // For Corporate/Retail: 1(Penawaran), 2(Penawaran Resmi), 3(Pesanan), 5(Pengiriman), 6(Selesai)
+            // Wait, the user wants: Penawaran -> Penawaran Resmi -> Pesanan -> Pengiriman -> Selesai
+            // So we take 1, 2, 3(renamed to Pesanan), 5, 6
+            return { ...step };
+        }).concat([
+            { s: 3, l: "Pesanan", icon: ShieldCheck }
+        ]).sort((a, b) => a.s - b.s).filter(s => s.s !== 4);
+
+    // Let's refine the logic to be exactly as requested:
+    const finalSteps = isGeneralCustomer
+        ? [
+            { s: 1, l: "Penawaran", icon: FileText },
+            { s: 2, l: "Penawaran Resmi", icon: Send },
+            { s: 4, l: "Pembayaran", icon: CreditCard },
+            { s: 5, l: "Pengiriman", icon: Truck },
+            { s: 6, l: "Selesai", icon: CheckCircle2 }
+        ]
+        : [
+            { s: 1, l: "Penawaran", icon: FileText },
+            { s: 2, l: "Penawaran Resmi", icon: Send },
+            { s: 3, l: "Pesanan", icon: PackageCheck },
+            { s: 5, l: "Pengiriman", icon: Truck },
+            { s: 6, l: "Selesai", icon: CheckCircle2 }
+        ];
 
     return (
         <div className="max-w-5xl mx-auto pb-20 px-4 md:px-0 mt-4">
@@ -439,7 +500,7 @@ export default function UserTransactionDetailPage() {
                                         onClick={() => setIsCancelOpen(true)}
                                         className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 px-3"
                                     >
-                                        Batalkan HRSQ
+                                        Batalkan SQ
                                     </Button>
                                 )}
                             </div>
@@ -465,7 +526,7 @@ export default function UserTransactionDetailPage() {
             {/* ─── Progress Stepper ─── */}
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-6 overflow-x-auto">
                 <div className="flex items-center min-w-[480px]">
-                    {filteredSteps.map((step, idx) => {
+                    {finalSteps.map((step, idx) => {
                         const StepIcon = step.icon;
                         const isCurrentStatusStage = currentStage === step.s;
                         const isCompletedStatusStage = currentStage > step.s;
@@ -498,7 +559,7 @@ export default function UserTransactionDetailPage() {
                                         {step.l}
                                     </span>
                                 </div>
-                                {idx < filteredSteps.length - 1 && (
+                                {idx < finalSteps.length - 1 && (
                                     <div className={`h-[2px] flex-1 mx-3 -mt-5 rounded-full transition-colors ${currentStage > step.s ? "bg-emerald-400" : "bg-gray-100"
                                         }`} />
                                 )}
@@ -508,22 +569,50 @@ export default function UserTransactionDetailPage() {
                 </div>
             </div>
 
-            {/* ─── Status Description Box ─── */}
-            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6">
-                <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <Info className="w-4 h-4 text-blue-600" />
-                    </div>
-                    <div>
-                        <p className="text-sm font-semibold text-blue-900 mb-1">
-                            {STATUS_CONFIG[quotation.status]?.label}
-                        </p>
-                        <p className="text-sm text-blue-700 leading-relaxed">
-                            {STATUS_DESCRIPTIONS[quotation.status] || "Proses pesanan sedang berjalan."}
-                        </p>
+            {/* ─── OFFERED: Penawaran Resmi Banner ─── */}
+            {quotation.status === "OFFERED" && (
+                <div className="bg-white border border-red-200 rounded-xl p-3 mb-6 shadow-md shadow-red-100/30">
+                    <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 bg-red-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <FileText className="w-4.5 h-4.5 text-red-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-black font-bold text-sm">
+                                    <span className="text-red-700">🎉 Penawaran Resmi</span> Telah Dikirim!
+                                </p>
+                                {displayNo && (
+                                    <span className="bg-gray-100 px-2 py-0.5 rounded text-[10px] font-mono font-bold text-gray-800 border border-gray-200">
+                                        {displayNo}
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-gray-900 text-[11px] mt-0.5 leading-tight opacity-80">
+                                Tinjau rincian &amp; dokumen di bawah, lalu klik <strong className="text-red-600">Setuju &amp; Konfirmasi</strong> untuk memesan.
+                            </p>
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
+
+            {/* ─── Status Description Box (for other statuses) ─── */}
+            {quotation.status !== "OFFERED" && (
+                <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6">
+                    <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <Info className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-semibold text-blue-900 mb-1">
+                                {STATUS_CONFIG[quotation.status]?.label}
+                            </p>
+                            <p className="text-sm text-blue-700 leading-relaxed">
+                                {STATUS_DESCRIPTIONS[quotation.status] || "Proses pesanan sedang berjalan."}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* ─── Main Content Grid ─── */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -913,18 +1002,15 @@ export default function UserTransactionDetailPage() {
                             )}
                         </div>
                     )}
-                </div>
 
-                {/* ─── Sidebar ─── */}
-                <div className="space-y-5">
-                    {/* ─── Alamat Pengiriman ─── */}
-                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-                        <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white">
+                    {/* Shipping Address - MOVED TO BOTTOM */}
+                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mt-5">
+                        <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-blue-50/50">
                             <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-md bg-sky-50 flex items-center justify-center">
-                                    <Truck className="w-3 h-3 text-sky-600" />
+                                <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                                    <Truck className="w-4 h-4 text-blue-600" />
                                 </div>
-                                <h3 className="font-semibold text-gray-900 text-sm">Alamat Pengiriman</h3>
+                                <h3 className="font-bold text-sm text-blue-900">Alamat Pengiriman</h3>
                             </div>
                             {(quotation.status === "DRAFT" || quotation.status === "PENDING") && (
                                 <Button variant="ghost" size="sm" className="h-7 text-[10px] text-blue-600 font-bold hover:text-blue-700 hover:bg-blue-50" onClick={() => setIsAddressModalOpen(true)}>
@@ -950,113 +1036,178 @@ export default function UserTransactionDetailPage() {
                             )}
                         </div>
                     </div>
+                </div>
 
-                    {/* Stage 2: Upload PO / Accept Proforma*/}
+                {/* ─── Sidebar ─── */}
+                <div className="space-y-5">
+
+
+
+                    {/* Stage 2: HSQ Issued — show document + HPO upload for ALL */}
                     {viewStage === 2 && (
-                        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-                            <div className={`px-5 py-3.5 border-b border-gray-100 ${currentStage > 2 ? 'bg-gradient-to-r from-emerald-50 to-emerald-100/50' : 'bg-gradient-to-r from-violet-50 to-purple-50'}`}>
-                                <h3 className={`font-semibold text-sm ${currentStage > 2 ? 'text-emerald-900' : 'text-violet-900'}`}>
-                                    {currentStage > 2 ? 'Pesanan Terkonfirmasi' : isRetail ? 'Pesanan Siap' : 'Konfirmasi Penawaran'}
-                                </h3>
-                                <p className={`text-[11px] mt-0.5 ${currentStage > 2 ? 'text-emerald-700 font-medium' : 'text-violet-600'}`}>
-                                    {currentStage > 2 ? 'Data pesanan telah berhasil dikonfirmasi' : isRetail ? 'Tinjau pesanan Anda dan lanjutkan ke pembayaran' : 'Upload PO untuk memproses pesanan'}
-                                </p>
-                            </div>
-                            <div className="p-5 space-y-4">
+                        <div className="space-y-4">
+                            {/* HSQ Document Card */}
+                            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                                <div className={`px-5 py-3.5 border-b border-gray-100 ${currentStage > 2
+                                    ? "bg-gradient-to-r from-emerald-50 to-emerald-100/50"
+                                    : "bg-gradient-to-r from-red-50 to-red-100/50"
+                                    }`}>
+                                    <div className="flex items-center gap-2">
+                                        <div className={`w-6 h-6 rounded-md flex items-center justify-center ${currentStage > 2 ? "bg-emerald-100" : "bg-red-100"
+                                            }`}>
+                                            <FileText className={`w-3 h-3 ${currentStage > 2 ? "text-emerald-600" : "text-red-600"}`} />
+                                        </div>
+                                        <div>
+                                            <h3 className={`font-bold text-sm ${currentStage > 2 ? "text-emerald-900" : "text-red-900"}`}>
+                                                {currentStage > 2 ? "Penawaran Disetujui" : "Dokumen Penawaran (HSQ)"}
+                                            </h3>
+                                            <p className={`text-[10px] mt-0.5 ${currentStage > 2 ? "text-emerald-600" : "text-red-500"}`}>
+                                                {currentStage > 2
+                                                    ? "Penawaran telah dikonfirmasi & dilanjutkan ke pesanan"
+                                                    : "Tinjau dokumen penawaran resmi dari Hokiindo"}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="p-4 space-y-3">
+                                    {/* PO / Konfirmasi action — only when currently at stage 2 — MOVED TO TOP */}
+                                    {currentStage === 2 && (
+                                        <div className="space-y-3 pb-3 mb-3 border-b border-gray-100">
+                                            {isGeneralCustomer ? (
+                                                <div className="space-y-3">
+                                                    <p className="text-xs text-red-700">
+                                                        Silakan tinjau kembali daftar produk dan detail penawaran. Jika sesuai, silakan setujui untuk melanjutkan ke tahap pesanan.
+                                                    </p>
+                                                    <Button
+                                                        className="w-full h-10 bg-red-600 hover:bg-red-700 text-white shadow-sm text-xs font-semibold"
+                                                        onClick={handleSubmitPO}
+                                                        disabled={isSubmitting}
+                                                    >
+                                                        {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+                                                        Lanjutkan Pemesanan & Pembayaran
+                                                    </Button>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    {/* Upload HPO (for corporate & retail) */}
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-xs font-semibold text-gray-700">Upload Purchase Order (PO) Perusahaan</Label>
+                                                        <div className="relative">
+                                                            <label className={`flex items-center gap-2 cursor-pointer border-2 border-dashed rounded-lg px-3 py-2.5 transition-colors ${hpoFile ? "border-red-400 bg-red-50" : "border-gray-200 hover:border-red-300 hover:bg-red-50/30"
+                                                                }`}>
+                                                                <input
+                                                                    type="file"
+                                                                    accept=".pdf,.jpg,.jpeg,.png"
+                                                                    className="hidden"
+                                                                    disabled={currentStage > 2}
+                                                                    onChange={(e) => {
+                                                                        const file = e.target.files?.[0];
+                                                                        if (file) setHpoFile(file);
+                                                                    }}
+                                                                />
+                                                                <FileUp className="w-4 h-4 text-red-400 flex-shrink-0" />
+                                                                <span className="text-xs text-gray-600 flex-1 min-w-0 truncate">
+                                                                    {hpoFile ? hpoFile.name : (quotation.userPoPath ? "Ganti dokumen PO" : "Pilih PDF/Gambar (opsional)")}
+                                                                </span>
+                                                            </label>
+                                                        </div>
+                                                        {quotation.userPoPath && !hpoFile && (
+                                                            <div className="flex items-center gap-2 text-xs text-emerald-600 bg-emerald-50 px-2 py-1.5 rounded-md border border-emerald-100">
+                                                                <CheckCircle2 className="w-3 h-3" />
+                                                                <span>PO sudah diunggah —</span>
+                                                                <a href={quotation.userPoPath} target="_blank" rel="noreferrer" className="underline font-semibold hover:text-emerald-800">Lihat</a>
+                                                            </div>
+                                                        )}
+                                                    </div>
 
-                                {!isRetail && (
-                                    <>
-                                        <div className="space-y-1.5">
-                                            <Label className="text-xs font-semibold">Upload Purchase Order (PO)</Label>
-                                            <Input
-                                                type="file"
-                                                accept=".pdf,.jpg,.png"
-                                                onChange={(e) => handleFileUpload(e, setPoPath)}
-                                                disabled={isUploading || currentStage > 2}
-                                                className="text-xs"
-                                            />
-                                            {isUploading && <Loader2 className="w-4 h-4 animate-spin text-gray-400" />}
-                                            {poPath && (
-                                                <div className="text-xs text-emerald-600 flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100 font-medium">
-                                                    <CheckCircle2 className="w-3 h-3" /> {currentStage > 2 ? 'PO berhasil dikonfirmasi' : 'File terupload'}
+                                                    {/* Special Discount Request */}
+                                                    <div className="space-y-3 pt-1">
+                                                        <div className="flex items-center space-x-2 bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+                                                            <Checkbox
+                                                                id="special-discount"
+                                                                checked={specialDiscountRequest}
+                                                                onCheckedChange={(checked) => setSpecialDiscountRequest(!!checked)}
+                                                            />
+                                                            <label
+                                                                htmlFor="special-discount"
+                                                                className="text-xs font-semibold text-gray-700 cursor-pointer flex items-center gap-1.5"
+                                                            >
+                                                                <Tag className="w-3.5 h-3.5 text-red-500" />
+                                                                Ajukan Diskon Tambahan
+                                                            </label>
+                                                        </div>
+
+                                                        {specialDiscountRequest && (
+                                                            <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                                                                <Label className="text-[10px] font-bold text-gray-500 uppercase">Keterangan / Alasan Diskon</Label>
+                                                                <Textarea
+                                                                    placeholder="Tuliskan alasan atau catatan tambahan untuk tim sales..."
+                                                                    value={specialDiscountNote}
+                                                                    onChange={(e) => setSpecialDiscountNote(e.target.value)}
+                                                                    className="text-xs min-h-[60px] resize-none bg-white border-gray-200 focus:border-red-400 focus:ring-red-400"
+                                                                />
+                                                                <p className="text-[10px] text-gray-400 leading-tight italic">
+                                                                    *Permintaan diskon akan ditinjau oleh tim sales kami.
+                                                                </p>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             )}
-                                        </div>
 
-                                        <div className="flex items-center space-x-2">
-                                            <input
-                                                type="checkbox"
-                                                id="reqDiscount"
-                                                className="rounded border-gray-300 text-violet-600 focus:ring-violet-500 disabled:opacity-50"
-                                                checked={specialDiscountRequest}
-                                                disabled={currentStage > 2}
-                                                onChange={e => setSpecialDiscountRequest(e.target.checked)}
-                                            />
-                                            <Label htmlFor="reqDiscount" className="text-xs font-normal cursor-pointer text-gray-700">Ajukan Diskon Tambahan?</Label>
-                                        </div>
-
-                                        {(specialDiscountRequest || (currentStage > 2 && specialDiscountNote)) && (
-                                            <Textarea
-                                                placeholder="Catatan untuk pengajuan diskon..."
-                                                className={`text-sm h-20 resize-none ${currentStage > 2 ? 'bg-gray-50 text-gray-600 text-[11px] leading-relaxed italic' : ''}`}
-                                                value={specialDiscountNote}
-                                                disabled={currentStage > 2}
-                                                onChange={e => setSpecialDiscountNote(e.target.value)}
-                                            />
-                                        )}
-                                    </>
-                                )}
-
-                                {currentStage === 2 && (
-                                    isRetail ? (
-                                        <AlertDialog>
-                                            <AlertDialogTrigger asChild>
+                                            {/* Submit Button */}
+                                            <div className="flex gap-2 pt-1">
+                                                {/* Confirm & proceed */}
                                                 <Button
-                                                    className="w-full bg-violet-600 hover:bg-violet-700 text-white shadow-sm"
+                                                    className="flex-1 h-9 bg-red-600 hover:bg-red-700 text-white shadow-sm text-xs font-semibold"
+                                                    onClick={handleSubmitPO}
                                                     disabled={isSubmitting}
                                                 >
-                                                    {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
-                                                    Setuju & Lanjut Pembayaran
+                                                    {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />}
+                                                    Setuju & Konfirmasi
                                                 </Button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent className="rounded-2xl">
-                                                <AlertDialogHeader>
-                                                    <AlertDialogTitle className="flex items-center gap-2 text-violet-700">
-                                                        <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                                                        Konfirmasi Persetujuan
-                                                    </AlertDialogTitle>
-                                                    <AlertDialogDescription>
-                                                        Dengan menyetujui, Anda siap melanjutkan ke proses pembayaran. Lanjutkan ke langkah berikutnya?
-                                                    </AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                    <AlertDialogCancel className="rounded-xl">Batal</AlertDialogCancel>
-                                                    <AlertDialogAction
-                                                        onClick={handleAcceptProformaAction}
-                                                        className="bg-violet-600 hover:bg-violet-700 text-white rounded-xl"
-                                                    >
-                                                        Lanjutkan
-                                                    </AlertDialogAction>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
-                                    ) : (
-                                        <Button
-                                            className="w-full bg-violet-600 hover:bg-violet-700 text-white shadow-sm"
-                                            onClick={handleSubmitPO}
-                                            disabled={isSubmitting || (!poPath && !specialDiscountRequest)}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* HSQ Number badge */}
+                                    {quotation.accurateHsqNo && (
+                                        <div className="flex items-center justify-between bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                                            <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest">Nomor HSQ</span>
+                                            <span className="font-mono font-bold text-red-900 text-sm">{quotation.accurateHsqNo}</span>
+                                        </div>
+                                    )}
+
+                                    {/* HSQ PDF download */}
+                                    {quotation.adminQuotePdfPath ? (
+                                        <a
+                                            href={quotation.adminQuotePdfPath}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="flex items-center gap-3 p-3 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors group"
                                         >
-                                            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
-                                            Kirim PO
-                                        </Button>
-                                    )
-                                )}
+                                            <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                                <FileText className="w-4 h-4 text-white" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-bold text-red-900">Dokumen Penawaran Resmi</p>
+                                                <p className="text-[10px] text-red-500 truncate">{quotation.adminQuotePdfPath.split("/").pop()}</p>
+                                            </div>
+                                            <ArrowUpRight className="w-4 h-4 text-red-500 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                                        </a>
+                                    ) : (
+                                        <div className="text-center py-4 text-xs text-gray-400">
+                                            Dokumen HSQ sedang disiapkan oleh tim sales
+                                        </div>
+                                    )}
+
+                                </div>
                             </div>
                         </div>
                     )}
 
                     {/* Stage 3: Verification Waiting */}
-                    {viewStage === 3 && (
+                    {viewStage === 3 && !isGeneralCustomer && (
                         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
                             <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-blue-50">
                                 <h3 className="font-semibold text-indigo-900 text-sm">Verifikasi Pesanan</h3>
@@ -1076,12 +1227,12 @@ export default function UserTransactionDetailPage() {
                         </div>
                     )}
 
-                    {/* Stage 4: Processing - Invoice & Payment */}
-                    {viewStage === 4 && (
+                    {/* Stage 4: Processing - Invoice & Payment (Also Stage 3 for General Customers) */}
+                    {(viewStage === 4 || (viewStage === 3 && isGeneralCustomer)) && (
                         <div className="space-y-4">
 
                             {/* Dokumen HSO khusus B2B */}
-                            {!isRetail && quotation.adminSoPdfPath && (
+                            {isCorporate && quotation.adminSoPdfPath && (
                                 <div className="bg-indigo-50 rounded-xl border border-indigo-200 p-4 mb-4">
                                     <div className="flex items-center gap-2 mb-2">
                                         <FileText className="w-5 h-5 text-indigo-600" />
@@ -1194,11 +1345,12 @@ export default function UserTransactionDetailPage() {
                                     </div>
                                 )}
 
-                                {currentStage === 4 && (
+                                {(currentStage === 4 || (currentStage === 3 && isGeneralCustomer)) && (
                                     <div className="px-5 pb-5">
                                         <Button
                                             className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-sm h-11 font-semibold"
                                             onClick={() => setIsPaymentModalOpen(true)}
+                                            disabled={isPaymentUploading}
                                         >
                                             <CreditCard className="w-4 h-4 mr-2" />
                                             {quotation.paymentProofPath ? 'Ganti Bukti Pembayaran' : 'Upload Bukti Pembayaran'}
@@ -1412,106 +1564,108 @@ export default function UserTransactionDetailPage() {
             </div>
 
             {/* ─── Dokumen Pesanan (Bottom Placement) ─── */}
-            {(quotation.adminQuotePdfPath || quotation.userPoPath || quotation.adminSoPdfPath || quotation.adminInvoicePdfPath || quotation.adminDoPdfPath || quotation.taxInvoiceUrl) && (
-                <div className="mt-6 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                    <div className="px-6 py-6 border-b border-gray-50 flex flex-col items-start gap-4">
-                        <FileText className="w-6 h-6 text-slate-600" />
-                        <h2 className="text-xl font-bold text-slate-900 tracking-tight">Dokumen Pesanan</h2>
+            {
+                (quotation.adminQuotePdfPath || quotation.userPoPath || quotation.adminSoPdfPath || quotation.adminInvoicePdfPath || quotation.adminDoPdfPath || quotation.taxInvoiceUrl) && (
+                    <div className="mt-6 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                        <div className="px-6 py-6 border-b border-gray-50 flex flex-col items-start gap-4">
+                            <FileText className="w-6 h-6 text-slate-600" />
+                            <h2 className="text-xl font-bold text-slate-900 tracking-tight">Dokumen Pesanan</h2>
+                        </div>
+                        <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                            {quotation.adminQuotePdfPath && (
+                                <a href={quotation.adminQuotePdfPath} target="_blank" rel="noreferrer"
+                                    className="flex items-center justify-between p-4 rounded-2xl border border-gray-100 hover:border-blue-100 hover:bg-blue-50/50 transition-all group">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+                                            <FileText className="w-5 h-5 text-blue-600" />
+                                        </div>
+                                        <div className="text-left">
+                                            <p className="text-sm font-bold text-slate-900 leading-none">Penawaran Resmi</p>
+                                            <p className="text-[11px] text-slate-500 mt-1.5 font-medium">Official Quotation (SQ)</p>
+                                        </div>
+                                    </div>
+                                    <Download className="w-5 h-5 text-slate-300 group-hover:text-blue-600 transition-colors" />
+                                </a>
+                            )}
+                            {quotation.userPoPath && (
+                                <a href={quotation.userPoPath} target="_blank" rel="noreferrer"
+                                    className="flex items-center justify-between p-4 rounded-2xl border border-gray-100 hover:border-emerald-100 hover:bg-emerald-50/50 transition-all group">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+                                            <Send className="w-5 h-5 text-emerald-600" />
+                                        </div>
+                                        <div className="text-left">
+                                            <p className="text-sm font-bold text-slate-900 leading-none">Purchase Order</p>
+                                            <p className="text-[11px] text-slate-500 mt-1.5 font-medium">Pesanan User (PO)</p>
+                                        </div>
+                                    </div>
+                                    <Download className="w-5 h-5 text-slate-300 group-hover:text-emerald-600 transition-colors" />
+                                </a>
+                            )}
+                            {quotation.adminSoPdfPath && (
+                                <a href={quotation.adminSoPdfPath} target="_blank" rel="noreferrer"
+                                    className="flex items-center justify-between p-4 rounded-2xl border border-gray-100 hover:border-indigo-100 hover:bg-indigo-50/50 transition-all group">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
+                                            <Package className="w-5 h-5 text-indigo-600" />
+                                        </div>
+                                        <div className="text-left">
+                                            <p className="text-sm font-bold text-slate-900 leading-none">Konfirmasi Pesanan</p>
+                                            <p className="text-[11px] text-slate-500 mt-1.5 font-medium">Sales Order (SO)</p>
+                                        </div>
+                                    </div>
+                                    <Download className="w-5 h-5 text-slate-300 group-hover:text-indigo-600 transition-colors" />
+                                </a>
+                            )}
+                            {quotation.adminDoPdfPath && (
+                                <a href={quotation.adminDoPdfPath} target="_blank" rel="noreferrer"
+                                    className="flex items-center justify-between p-4 rounded-2xl border border-gray-100 hover:border-sky-100 hover:bg-sky-50/50 transition-all group">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-xl bg-sky-50 flex items-center justify-center shrink-0">
+                                            <Truck className="w-5 h-5 text-sky-600" />
+                                        </div>
+                                        <div className="text-left">
+                                            <p className="text-sm font-bold text-slate-900 leading-none">Surat Jalan</p>
+                                            <p className="text-[11px] text-slate-500 mt-1.5 font-medium">Delivery Order (DO)</p>
+                                        </div>
+                                    </div>
+                                    <Download className="w-5 h-5 text-slate-300 group-hover:text-sky-600 transition-colors" />
+                                </a>
+                            )}
+                            {quotation.adminInvoicePdfPath && (
+                                <a href={quotation.adminInvoicePdfPath} target="_blank" rel="noreferrer"
+                                    className="flex items-center justify-between p-4 rounded-2xl border border-gray-100 hover:border-violet-100 hover:bg-violet-50/50 transition-all group">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
+                                            <ShieldCheck className="w-5 h-5 text-violet-600" />
+                                        </div>
+                                        <div className="text-left">
+                                            <p className="text-sm font-bold text-slate-900 leading-none">Faktur Penjualan</p>
+                                            <p className="text-[11px] text-slate-500 mt-1.5 font-medium">Invoice / Faktur</p>
+                                        </div>
+                                    </div>
+                                    <Download className="w-5 h-5 text-slate-300 group-hover:text-violet-600 transition-colors" />
+                                </a>
+                            )}
+                            {quotation.taxInvoiceUrl && (
+                                <a href={quotation.taxInvoiceUrl} target="_blank" rel="noreferrer"
+                                    className="flex items-center justify-between p-4 rounded-2xl border border-gray-100 hover:border-emerald-100 hover:bg-emerald-50/50 transition-all group">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+                                            <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                                        </div>
+                                        <div className="text-left">
+                                            <p className="text-sm font-bold text-slate-900 leading-none">Faktur Pajak</p>
+                                            <p className="text-[11px] text-slate-500 mt-1.5 font-medium">e-Faktur Resmi</p>
+                                        </div>
+                                    </div>
+                                    <Download className="w-5 h-5 text-slate-300 group-hover:text-emerald-600 transition-colors" />
+                                </a>
+                            )}
+                        </div>
                     </div>
-                    <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                        {quotation.adminQuotePdfPath && (
-                            <a href={quotation.adminQuotePdfPath} target="_blank" rel="noreferrer"
-                                className="flex items-center justify-between p-4 rounded-2xl border border-gray-100 hover:border-blue-100 hover:bg-blue-50/50 transition-all group">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
-                                        <FileText className="w-5 h-5 text-blue-600" />
-                                    </div>
-                                    <div className="text-left">
-                                        <p className="text-sm font-bold text-slate-900 leading-none">Penawaran Resmi</p>
-                                        <p className="text-[11px] text-slate-500 mt-1.5 font-medium">Official Quotation (HRSQ)</p>
-                                    </div>
-                                </div>
-                                <Download className="w-5 h-5 text-slate-300 group-hover:text-blue-600 transition-colors" />
-                            </a>
-                        )}
-                        {quotation.userPoPath && (
-                            <a href={quotation.userPoPath} target="_blank" rel="noreferrer"
-                                className="flex items-center justify-between p-4 rounded-2xl border border-gray-100 hover:border-emerald-100 hover:bg-emerald-50/50 transition-all group">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
-                                        <Send className="w-5 h-5 text-emerald-600" />
-                                    </div>
-                                    <div className="text-left">
-                                        <p className="text-sm font-bold text-slate-900 leading-none">Purchase Order</p>
-                                        <p className="text-[11px] text-slate-500 mt-1.5 font-medium">Pesanan User (PO)</p>
-                                    </div>
-                                </div>
-                                <Download className="w-5 h-5 text-slate-300 group-hover:text-emerald-600 transition-colors" />
-                            </a>
-                        )}
-                        {quotation.adminSoPdfPath && (
-                            <a href={quotation.adminSoPdfPath} target="_blank" rel="noreferrer"
-                                className="flex items-center justify-between p-4 rounded-2xl border border-gray-100 hover:border-indigo-100 hover:bg-indigo-50/50 transition-all group">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
-                                        <Package className="w-5 h-5 text-indigo-600" />
-                                    </div>
-                                    <div className="text-left">
-                                        <p className="text-sm font-bold text-slate-900 leading-none">Konfirmasi Pesanan</p>
-                                        <p className="text-[11px] text-slate-500 mt-1.5 font-medium">Sales Order (SO)</p>
-                                    </div>
-                                </div>
-                                <Download className="w-5 h-5 text-slate-300 group-hover:text-indigo-600 transition-colors" />
-                            </a>
-                        )}
-                        {quotation.adminDoPdfPath && (
-                            <a href={quotation.adminDoPdfPath} target="_blank" rel="noreferrer"
-                                className="flex items-center justify-between p-4 rounded-2xl border border-gray-100 hover:border-sky-100 hover:bg-sky-50/50 transition-all group">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-xl bg-sky-50 flex items-center justify-center shrink-0">
-                                        <Truck className="w-5 h-5 text-sky-600" />
-                                    </div>
-                                    <div className="text-left">
-                                        <p className="text-sm font-bold text-slate-900 leading-none">Surat Jalan</p>
-                                        <p className="text-[11px] text-slate-500 mt-1.5 font-medium">Delivery Order (DO)</p>
-                                    </div>
-                                </div>
-                                <Download className="w-5 h-5 text-slate-300 group-hover:text-sky-600 transition-colors" />
-                            </a>
-                        )}
-                        {quotation.adminInvoicePdfPath && (
-                            <a href={quotation.adminInvoicePdfPath} target="_blank" rel="noreferrer"
-                                className="flex items-center justify-between p-4 rounded-2xl border border-gray-100 hover:border-violet-100 hover:bg-violet-50/50 transition-all group">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
-                                        <ShieldCheck className="w-5 h-5 text-violet-600" />
-                                    </div>
-                                    <div className="text-left">
-                                        <p className="text-sm font-bold text-slate-900 leading-none">Faktur Penjualan</p>
-                                        <p className="text-[11px] text-slate-500 mt-1.5 font-medium">Invoice / Faktur</p>
-                                    </div>
-                                </div>
-                                <Download className="w-5 h-5 text-slate-300 group-hover:text-violet-600 transition-colors" />
-                            </a>
-                        )}
-                        {quotation.taxInvoiceUrl && (
-                            <a href={quotation.taxInvoiceUrl} target="_blank" rel="noreferrer"
-                                className="flex items-center justify-between p-4 rounded-2xl border border-gray-100 hover:border-emerald-100 hover:bg-emerald-50/50 transition-all group">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
-                                        <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                                    </div>
-                                    <div className="text-left">
-                                        <p className="text-sm font-bold text-slate-900 leading-none">Faktur Pajak</p>
-                                        <p className="text-[11px] text-slate-500 mt-1.5 font-medium">e-Faktur Resmi</p>
-                                    </div>
-                                </div>
-                                <Download className="w-5 h-5 text-slate-300 group-hover:text-emerald-600 transition-colors" />
-                            </a>
-                        )}
-                    </div>
-                </div>
-            )}
+                )
+            }
             {/* ─── Address Selection Modal ─── */}
             <Dialog open={isAddressModalOpen} onOpenChange={setIsAddressModalOpen}>
                 <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden rounded-2xl border-none shadow-2xl [&>button]:text-white">
@@ -1655,7 +1809,7 @@ export default function UserTransactionDetailPage() {
                 <DialogContent className="sm:max-w-[425px] rounded-2xl overflow-hidden p-0 border-none shadow-2xl">
                     <DialogHeader className="p-6 pb-2">
                         <DialogTitle className="text-xl font-bold flex items-center gap-2 text-gray-900">
-                            Batalkan HRSQ
+                            Batalkan SQ
                         </DialogTitle>
                         <DialogDescription className="text-sm text-gray-500 mt-1">
                             Pilih alasan pembatalan untuk memproses pembatalan penawaran ini.
@@ -1715,12 +1869,12 @@ export default function UserTransactionDetailPage() {
                                     Membatalkan...
                                 </>
                             ) : (
-                                "Batalkan HRSQ"
+                                "Batalkan SQ"
                             )}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </div >
+        </div>
     );
 }
