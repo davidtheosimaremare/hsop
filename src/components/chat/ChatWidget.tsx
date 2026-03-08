@@ -10,11 +10,6 @@ export default function ChatWidget() {
     const [phoneNumber, setPhoneNumber] = useState("6281234567890");
     const [message, setMessage] = useState("Halo Admin Hokiindo, saya mau tanya tentang produk...");
 
-    // Hide on admin pages
-    if (pathname?.startsWith("/admin")) {
-        return null;
-    }
-
     useEffect(() => {
         const loadConfig = async () => {
             try {
@@ -27,6 +22,11 @@ export default function ChatWidget() {
         };
         loadConfig();
     }, []);
+
+    // Hide on admin pages - move below hooks
+    if (pathname?.startsWith("/admin")) {
+        return null;
+    }
 
     const handleWhatsAppClick = () => {
         // Ensure proper format for WA link (remove + or spaces if any)

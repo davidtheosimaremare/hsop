@@ -1,12 +1,21 @@
-import { getSession } from "@/lib/auth";
-import { getCategoryMenuConfig, getSearchSuggestions } from "@/app/actions/settings";
-import Header from "./Header";
+import { getCategoryMenuConfig, getSearchSuggestions, getSiteSetting } from "@/app/actions/settings";
+import { getCurrentUserWithCustomer } from "@/app/actions/auth";
+import dynamic from "next/dynamic";
+
+const Header = dynamic(() => import("./Header"), { ssr: true });
 
 export default async function SiteHeader() {
-    const session = await getSession();
-    const user = session?.user || null;
+    const user = await getCurrentUserWithCustomer();
     const menuConfig = (await getCategoryMenuConfig()) as any[];
     const searchSuggestions = await getSearchSuggestions(8);
+    const companyDetails = await getSiteSetting("company_details") as any;
 
-    return <Header user={user} menuConfig={menuConfig} searchSuggestions={searchSuggestions} />;
+    return <Header 
+        user={user} 
+        userId={user?.id}
+        customerImage={user?.image}
+        menuConfig={menuConfig} 
+        searchSuggestions={searchSuggestions} 
+        companyDetails={companyDetails}
+    />;
 }

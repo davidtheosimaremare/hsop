@@ -63,23 +63,17 @@ export default function HeroSlider({ banners }: HeroSliderProps) {
     const slideVariants = {
         enter: (direction: number) => ({
             x: direction > 0 ? '100%' : '-100%',
-            opacity: 0,
-            scale: 1.1,
-            filter: "blur(4px)"
+            opacity: 0
         }),
         center: {
             zIndex: 1,
             x: 0,
-            opacity: 1,
-            scale: 1,
-            filter: "blur(0px)"
+            opacity: 1
         },
         exit: (direction: number) => ({
             zIndex: 0,
             x: direction < 0 ? '50%' : '-50%',
-            opacity: 0,
-            scale: 0.95,
-            filter: "blur(4px)"
+            opacity: 0
         })
     };
 
@@ -88,7 +82,7 @@ export default function HeroSlider({ banners }: HeroSliderProps) {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 md:py-6">
                 <div className="relative overflow-hidden shadow-2xl shadow-gray-200/50 rounded-2xl md:rounded-3xl bg-gray-100 group">
                     {/* Slides Container */}
-                    <div className="relative aspect-[3/1] md:aspect-[4/1] lg:aspect-[5/1]">
+                    <div className="relative aspect-[4/1]">
                         <AnimatePresence initial={false} custom={direction} mode="popLayout">
                             <motion.div
                                 key={currentSlide}
@@ -99,9 +93,7 @@ export default function HeroSlider({ banners }: HeroSliderProps) {
                                 exit="exit"
                                 transition={{
                                     x: { type: "spring", stiffness: 300, damping: 30 },
-                                    opacity: { duration: 0.4 },
-                                    scale: { duration: 0.8, ease: "easeOut" },
-                                    filter: { duration: 0.4 }
+                                    opacity: { duration: 0.4 }
                                 }}
                                 className="absolute inset-0"
                             >
@@ -111,9 +103,8 @@ export default function HeroSlider({ banners }: HeroSliderProps) {
                                             <img
                                                 src={slides[currentSlide].image}
                                                 alt={slides[currentSlide].title || "Banner"}
-                                                className="w-full h-full object-cover transition-transform duration-[8000ms] hover:scale-110"
+                                                className="w-full h-full object-cover"
                                             />
-                                            <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent hidden md:block" />
                                         </div>
                                     </Link>
                                 ) : (
@@ -121,9 +112,8 @@ export default function HeroSlider({ banners }: HeroSliderProps) {
                                         <img
                                             src={slides[currentSlide].image}
                                             alt={slides[currentSlide].title || "Banner"}
-                                            className="w-full h-full object-cover transition-transform duration-[8000ms] hover:scale-110"
+                                            className="w-full h-full object-cover"
                                         />
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent hidden md:block" />
                                     </div>
                                 )}
                             </motion.div>

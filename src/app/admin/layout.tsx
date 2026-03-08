@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import Sidebar from "@/components/admin/Sidebar";
 import AdminTopBar from "@/components/admin/AdminTopBar";
 import { cn } from "@/lib/utils";
 import NextTopLoader from "nextjs-toploader";
+import { useAuth } from "@/components/auth/CanAccess";
 
 export default function AdminLayout({
     children,
@@ -13,9 +14,18 @@ export default function AdminLayout({
     children: React.ReactNode;
 }) {
     const pathname = usePathname();
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const router = useRouter();
+    const { user, isLoading } = useAuth();
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    
     const isLoginPage = pathname === "/admin/login";
     const isFullWidth = pathname.startsWith("/admin/customers");
+
+    useEffect(() => {
+        if (!isLoading && !user && !isLoginPage) {
+            router.push("/admin/login");
+        }
+    }, [isLoading, user, isLoginPage, router]);
 
     if (isLoginPage) {
         return (

@@ -136,7 +136,9 @@ export function CustomerBasicInfo({ customer }: CustomerBasicInfoProps) {
                                         customer.type === "BISNIS" ? "bg-blue-600 text-white" :
                                             "bg-gray-900 text-white"
                                 )}>
-                                    {customer.type === "RESELLER" ? "RESELLER" : customer.type === "BISNIS" ? "PERUSAHAAN" : "RETAIL"}
+                                    {customer.type === "RESELLER" ? "RESELLER" :
+                                        customer.type === "BISNIS" ? "PERUSAHAAN" :
+                                            customer.type === "GeneralCustomer" ? "GENERAL" : "RETAIL"}
                                 </Badge>
                             </div>
                         </div>

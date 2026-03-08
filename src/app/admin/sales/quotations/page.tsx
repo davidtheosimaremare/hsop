@@ -58,9 +58,10 @@ export default async function SalesQuotationsPage({
 
     const statusConfig: Record<string, { label: string; color: string }> = {
         PENDING: { label: "Menunggu", color: "bg-yellow-100 text-yellow-700 border-yellow-200" },
-        PROCESSING: { label: "Penawaran Resmi", color: "bg-blue-100 text-blue-700 border-blue-200" },
-        OFFERED: { label: "Pesanan (HSO)", color: "bg-purple-100 text-purple-700 border-purple-200" },
-        COMPLETED: { label: "Dikirim (HDO)", color: "bg-green-100 text-green-700 border-green-200" },
+        OFFERED: { label: "Penawaran", color: "bg-blue-100 text-blue-700 border-blue-200" },
+        CONFIRMED: { label: "PO Diterima", color: "bg-violet-100 text-violet-700 border-violet-200" },
+        PROCESSING: { label: "Pesanan (HSO)", color: "bg-purple-100 text-purple-700 border-purple-200" },
+        COMPLETED: { label: "Pesanan Dikirim", color: "bg-green-100 text-green-700 border-green-200" },
         CANCELLED: { label: "Dibatalkan", color: "bg-gray-100 text-gray-500 border-gray-200" },
     };
 
@@ -102,9 +103,10 @@ export default async function SalesQuotationsPage({
                             >
                                 <option value="ALL">Semua Status</option>
                                 <option value="PENDING">Menunggu</option>
-                                <option value="PROCESSING">Penawaran Resmi</option>
-                                <option value="OFFERED">Pesanan (HSO)</option>
-                                <option value="COMPLETED">Dikirim (HDO)</option>
+                                <option value="OFFERED">Penawaran</option>
+                                <option value="CONFIRMED">PO Diterima</option>
+                                <option value="PROCESSING">Pesanan (HSO)</option>
+                                <option value="COMPLETED">Pesanan Dikirim</option>
                                 <option value="CANCELLED">Dibatalkan</option>
                             </select>
                             <Button type="submit">Filter</Button>
@@ -143,10 +145,10 @@ export default async function SalesQuotationsPage({
                                             <TableRow key={q.id} className="hover:bg-gray-50">
                                                 <TableCell>
                                                     <div className="flex flex-col">
-                                                        <span className="font-mono font-semibold text-sm">{q.quotationNo}</span>
+                                                        <span className="font-mono font-semibold text-sm">{q.quotationNo.replace(/\//g, "-")}</span>
                                                         {q.accurateHsqNo && q.accurateHsqNo !== q.quotationNo && (
                                                             <span className="text-[11px] text-muted-foreground font-mono">
-                                                                {q.accurateHsqNo}
+                                                                {q.accurateHsqNo.replace(/\//g, "-")}
                                                             </span>
                                                         )}
                                                     </div>

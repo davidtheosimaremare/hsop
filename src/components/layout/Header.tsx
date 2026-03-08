@@ -52,6 +52,11 @@ interface HeaderProps {
     searchSuggestions?: string[];
     customerImage?: string | null;
     userId?: string;
+    companyDetails?: {
+        name: string;
+        logo: string | null;
+        favicon: string | null;
+    } | null;
 }
 
 const navCategories = [
@@ -88,7 +93,7 @@ const defaultMegaMenuCategories = [
     // I will use default if menuConfig is empty/null, so the site doesn't look broken immediately.
 ];
 
-export default function Header({ user, menuConfig, searchSuggestions = [], customerImage, userId }: HeaderProps) {
+export default function Header({ user, menuConfig, searchSuggestions = [], customerImage, userId, companyDetails }: HeaderProps) {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isMegaMenuOpen, setIsMegaMenuOpen] = useState(false);
     const [activeCategory, setActiveCategory] = useState(0);
@@ -166,27 +171,35 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                     >
                         <Link href="/" className="flex items-center">
                             {/* Desktop Logo */}
-                            <Image
-                                src="/logo.png"
-                                alt="Hokiindo Logo"
-                                width={160}
-                                height={50}
-                                className="hidden md:block h-10 w-auto object-contain"
-                                priority
-                            />
+                            {companyDetails?.logo ? (
+                                <img
+                                    src={companyDetails.logo}
+                                    alt={companyDetails.name || "Hokiindo Logo"}
+                                    className="hidden md:block h-10 w-auto object-contain"
+                                />
+                            ) : (
+                                <Image
+                                    src="/logo.png"
+                                    alt="Hokiindo Logo"
+                                    width={160}
+                                    height={50}
+                                    className="hidden md:block h-10 w-auto object-contain"
+                                    priority
+                                />
+                            )}
                             {/* Mobile Logo */}
                             <Image
                                 src="/logo-H.png"
                                 alt="Hokiindo Logo"
-                                width={40}
-                                height={40}
+                                width={32}
+                                height={32}
                                 className="md:hidden h-8 w-auto object-contain"
                                 priority
                             />
                         </Link>
                     </motion.div>
 
-                    <div className="md:hidden flex-1 mx-2">
+                    <div className="md:hidden flex-1 mx-1">
                         <SearchBox isMobile />
                     </div>
 
@@ -196,29 +209,29 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
 
                     {/* Right Actions */}
                     <div className="flex items-center text-sm">
-                        {/* Spacer - untuk membuat icons di tengah */}
-                        <div className="flex-1"></div>
+                        {/* Notifications & Cart Container */}
+                        <div className="flex items-center gap-1 md:gap-4 mr-1 md:mr-4">
+                            {/* Notifications - Only if logged in */}
+                            {user && (
+                                <NotificationDropdown userId={userId} />
+                            )}
 
-                        {/* Cart/Bag */}
-                        <Link href="/keranjang">
-                            <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                className="group relative p-2 mx-3 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-all duration-200"
-                            >
-                                <ShoppingCart className="h-6 w-6 transition-colors duration-200" />
-                                {totalItems > 0 && (
-                                    <span className="absolute top-1 right-1 h-4 w-4 bg-red-600 border-2 border-white rounded-full text-[9px] text-white flex items-center justify-center font-bold">
-                                        {totalItems > 99 ? '99+' : totalItems}
-                                    </span>
-                                )}
-                            </motion.button>
-                        </Link>
-
-                        {/* Notifications - Only if logged in */}
-                        {user && userId && (
-                            <NotificationDropdown userId={userId} />
-                        )}
+                            {/* Cart/Bag */}
+                            <Link href="/keranjang">
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    className="group relative p-2 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-all duration-200"
+                                >
+                                    <ShoppingCart className="h-5 w-5 md:h-6 md:w-6 transition-colors duration-200" />
+                                    {totalItems > 0 && (
+                                        <span className="absolute top-1 right-1 h-4 w-4 md:h-4.5 md:w-4.5 bg-red-600 border-2 border-white rounded-full text-[8px] md:text-[9px] text-white flex items-center justify-center font-bold">
+                                            {totalItems > 99 ? '99+' : totalItems}
+                                        </span>
+                                    )}
+                                </motion.button>
+                            </Link>
+                        </div>
 
                         {/* Separator */}
                         <div className="hidden sm:block h-8 w-px bg-gray-200 mx-4" />
@@ -476,69 +489,37 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: "auto" }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="md:hidden border-t border-gray-100 bg-white"
+                        className="md:hidden border-t border-gray-100 bg-white overflow-hidden"
                     >
-                        <div className="px-4 py-4 space-y-3">
-                            {/* Mobile Auth Buttons */}
-                            <div className="flex gap-2 pb-3 border-b border-gray-100">
-                                <Link href="/daftar" className="flex-1">
-                                    <Button
-                                        variant="outline"
-                                        className="w-full h-10 rounded-xl border-2 border-gray-200"
-                                    >
-                                        Daftar
-                                    </Button>
-                                </Link>
-                                <Link href="/masuk" className="flex-1">
-                                    <Button
-                                        variant="red"
-                                        className="w-full h-10 rounded-xl"
-                                    >
-                                        Masuk
-                                    </Button>
-                                </Link>
-                            </div>
-
-                            {/* Mobile Categories */}
-                            <div className="space-y-1">
+                        <div className="px-4 py-4">
+                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 px-2">Kategori Produk</h3>
+                            <div className="grid grid-cols-1 gap-1">
                                 {categoriesToDisplay.map((category) => (
                                     <Link
                                         key={category.name}
                                         href={`/pencarian?q=&category=${encodeURIComponent(category.alias || category.name)}&page=1`}
-                                        className="flex items-center justify-between px-3 py-2.5 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors"
+                                        className="flex items-center justify-between px-4 py-3.5 rounded-xl text-gray-700 hover:bg-red-50 hover:text-red-600 transition-all duration-200 group"
                                         onClick={() => setIsMobileMenuOpen(false)}
                                     >
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-lg">
-                                                {typeof category.icon === 'string' ? getIconComponent(category.icon) : category.icon}
-                                            </span>
-                                            <span className="font-medium">{category.name}</span>
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center group-hover:bg-red-100 transition-colors">
+                                                <span className="text-xl">
+                                                    {typeof category.icon === 'string' ? getIconComponent(category.icon) : category.icon}
+                                                </span>
+                                            </div>
+                                            <span className="font-semibold text-sm">{category.alias || category.name}</span>
                                         </div>
-                                        <ChevronRight className="h-4 w-4 text-gray-400" />
+                                        <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-red-400 group-hover:translate-x-1 transition-all" />
                                     </Link>
                                 ))}
-                                <div className="border-t border-gray-100 my-2" />
+                                <div className="border-t border-gray-100 my-4" />
                                 <Link
                                     href="/kategori"
-                                    className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-red-600 hover:bg-red-50 transition-colors font-medium"
+                                    className="flex items-center justify-center gap-2 px-4 py-4 rounded-xl bg-gray-50 text-gray-900 hover:bg-red-600 hover:text-white transition-all duration-200 font-bold text-sm"
                                     onClick={() => setIsMobileMenuOpen(false)}
                                 >
                                     <LayoutGrid className="h-4 w-4" />
                                     Lihat Semua Kategori
-                                </Link>
-                                <Link
-                                    href="/berita"
-                                    className="flex items-center px-3 py-2.5 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors font-medium"
-                                    onClick={() => setIsMobileMenuOpen(false)}
-                                >
-                                    Berita
-                                </Link>
-                                <Link
-                                    href="/pesanan-besar"
-                                    className="flex items-center px-3 py-2.5 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors font-medium"
-                                    onClick={() => setIsMobileMenuOpen(false)}
-                                >
-                                    Bulk Order
                                 </Link>
                             </div>
                         </div>

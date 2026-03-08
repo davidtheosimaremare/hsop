@@ -28,10 +28,10 @@ export default function StockFilter() {
     return (
         <Select value={stockStatus} onValueChange={handleFilterChange}>
             <SelectTrigger className="w-[140px] h-9 text-sm">
-                <SelectValue placeholder="Status Stok" />
+                <SelectValue placeholder="Status Stock" />
             </SelectTrigger>
             <SelectContent>
-                <SelectItem value="all">Semua Stok</SelectItem>
+                <SelectItem value="all">Semua Stock</SelectItem>
                 <SelectItem value="ready">Ready Stock</SelectItem>
                 <SelectItem value="indent">Indent</SelectItem>
             </SelectContent>

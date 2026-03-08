@@ -5,6 +5,39 @@ import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { updateAccurateHSQ, fetchAccurateHSQ } from "@/lib/accurate";
 import { logActivity } from "./activity";
+import { createNotification } from "./notification";
+
+export async function deleteQuotationUser(id: string) {
+    try {
+        const session = await getSession();
+        if (!session?.user) return { success: false, error: "Tidak terautentikasi" };
+
+        const quotation = await db.salesQuotation.findUnique({
+            where: { id }
+        });
+
+        if (!quotation) return { success: false, error: "Estimasi tidak ditemukan" };
+
+        // Only allow user to delete their own DRAFT
+        if (quotation.userId !== session.user.id && quotation.userClientId !== session.user.id) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        if (quotation.status !== "DRAFT") {
+            return { success: false, error: "Hanya estimasi (draft) yang dapat dihapus" };
+        }
+
+        await db.salesQuotation.delete({
+            where: { id }
+        });
+
+        revalidatePath("/dashboard/estimasi");
+        return { success: true };
+    } catch (error) {
+        console.error("[deleteQuotationUser] Error:", error);
+        return { success: false, error: "Gagal menghapus estimasi" };
+    }
+}
 
 export async function deleteQuotation(id: string) {
     try {
@@ -45,9 +78,15 @@ export async function getUserQuotations() {
         const userType = user?.customer?.type || "RETAIL";
 
         const quotations = await db.salesQuotation.findMany({
-            where: { userId: session.user.id },
+            where: {
+                OR: [
+                    { userId: session.user.id },
+                    ...(session.user.customerId ? [{ customerId: session.user.customerId }] : [])
+                ]
+            },
             include: {
                 items: true,
+                customer: { select: { type: true } },
             },
             orderBy: { createdAt: "desc" },
         });
@@ -65,6 +104,8 @@ export async function getUserQuotations() {
             userType,
             quotations: quotations.map(q => ({
                 ...q,
+                customerType: q.customer?.type || userType,
+                sentQuotationNo: q.sentQuotationNo || null,
                 offeredAt: q.offeredAt?.toISOString() || null,
                 confirmedAt: q.confirmedAt?.toISOString() || null,
                 shippedAt: q.shippedAt?.toISOString() || null,
@@ -86,6 +127,7 @@ export async function getUserQuotations() {
                         discountStr: item.discountStr,
                         isAvailable: item.isAvailable,
                         availableQty: item.availableQty,
+                        stockStatus: item.stockStatus,
                         adminNote: item.adminNote,
                         image: product?.image,
                     };
@@ -213,20 +255,19 @@ export async function getQuotationDetail(idOrNo: string) {
 
         // Extract base number securely for cross-prefix lookup (e.g., "SQ-26-03-1" -> "26/03/1")
         const baseNo = decodedIdOrNo.replace(/^[A-Z]+-/, "").replace(/-/g, "/");
+        const slashNo = decodedIdOrNo.replace(/-/g, "/");
 
         const quotation = await db.salesQuotation.findFirst({
             where: {
                 OR: [
                     { id: decodedIdOrNo },
-                    { quotationNo: decodedIdOrNo },
-                    { quotationNo: decodedIdOrNo.replace(/-/g, "/") },
+                    { quotationNo: { equals: decodedIdOrNo, mode: 'insensitive' } },
+                    { quotationNo: { equals: slashNo, mode: 'insensitive' } },
                     // Strip the leading prefix and try as SQ/xx/xx
-                    { quotationNo: "SQ/" + baseNo },
-                    // Match any prefix if the base number matches (helps with old overwritten HSQ/... DB records)
-                    { quotationNo: { endsWith: baseNo } },
+                    { quotationNo: { contains: baseNo, mode: 'insensitive' } },
                     // Also check accurate fields to be safe
-                    { accurateHsqNo: decodedIdOrNo.replace(/-/g, "/") },
-                    { accurateHsoNo: decodedIdOrNo.replace(/-/g, "/") }
+                    { accurateHsqNo: { equals: slashNo, mode: 'insensitive' } },
+                    { accurateHsoNo: { equals: slashNo, mode: 'insensitive' } }
                 ]
             },
             include: {
@@ -247,6 +288,17 @@ export async function getQuotationDetail(idOrNo: string) {
 
         if (!quotation) {
             return { success: false, error: "Quotation tidak ditemukan" };
+        }
+
+        // Verify ownership for non-admin users
+        const session = await getSession();
+        if (!session?.user) return { success: false, error: "Unauthorized" };
+
+        const isAdmin = ["SUPER_ADMIN", "ADMIN", "MANAGER"].includes(session.user.role);
+        if (!isAdmin) {
+            const isOwner = quotation.userId === session.user.id;
+            const isBelongToCustomer = session.user.customerId && quotation.customerId === session.user.customerId;
+            if (!isOwner && !isBelongToCustomer) return { success: false, error: "Unauthorized" };
         }
 
         // Fetch real-time stock for each product SKU
@@ -293,6 +345,7 @@ export async function getQuotationDetail(idOrNo: string) {
                         discountStr: item.discountStr,
                         isAvailable: item.isAvailable,
                         availableQty: item.availableQty,
+                        stockStatus: item.stockStatus,
                         adminNote: item.adminNote,
                         image: product?.image || item.image,
                         category: product?.category,
@@ -326,6 +379,10 @@ export async function processQuotation(idOrNo: string, data?: {
     accurateId?: number;
     pdfPath?: string;
 }) {
+    const session = await getSession();
+    if (!session?.user || !["SUPER_ADMIN", "ADMIN", "MANAGER"].includes(session.user.role)) {
+        return { success: false, error: "Unauthorized" };
+    }
     try {
         const decodedIdOrNo = decodeURIComponent(idOrNo);
         const baseNo = decodedIdOrNo.replace(/^[A-Z]+-/, "").replace(/-/g, "/");
@@ -368,21 +425,33 @@ export async function processQuotation(idOrNo: string, data?: {
                 status: "OFFERED",
                 processedBy: adminName,
                 processedAt: new Date(),
-                // DO NOT overwrite quotationNo to preserve the SQ/ reference
+                // Update quotationNo to the official HSQ number if provided
+                quotationNo: data?.officialNo || q.quotationNo,
                 accurateHsqNo: data?.officialNo || null,
                 accurateHsqId: data?.accurateId || null,
                 adminQuotePdfPath: data?.pdfPath || null,
             },
         });
 
-        let msg = `Admin mengirimkan penawaran resmi.`;
+        let msg = `Admin mengirimkan penawaran yang telah disetujui.`;
         if (data?.pdfPath) {
             msg += ` Download file pdf berikut: [Buka PDF Resmi](${data.pdfPath})`;
         } else if (data?.officialNo) {
             msg += ` Nomor resmi: ${data.officialNo}`;
         }
 
-        await logActivity(q.id, "PROCESSING", "Penawaran Resmi", msg, "ADMIN");
+        await logActivity(q.id, "PROCESSING", "Penawaran Disetujui", msg, "ADMIN");
+
+        // Send Notification to User
+        if (q.userId) {
+            await createNotification({
+                userId: q.userId,
+                title: "Penawaran Harga Baru",
+                message: `Penawaran resmi untuk ${data?.officialNo || q.quotationNo} telah tersedia. Silakan tinjau dan konfirmasi.`,
+                type: "QUOTATION",
+                link: `/dashboard/transaksi/${(data?.officialNo || q.quotationNo).replace(/\//g, "-")}`
+            });
+        }
 
         // Use accurateHsqNo if provided, otherwise the original SQ no
         const newlyAssignedNo = data?.officialNo || q.quotationNo;
@@ -428,6 +497,10 @@ export async function updateQuotationHSQ(idOrNo: string, data: {
         }>;
     }>;
 }) {
+    const session = await getSession();
+    if (!session?.user || !["SUPER_ADMIN", "ADMIN", "MANAGER"].includes(session.user.role)) {
+        return { success: false, error: "Unauthorized" };
+    }
     try {
         const decodedIdOrNo = decodeURIComponent(idOrNo);
         const baseNo = decodedIdOrNo.replace(/^[A-Z]+-/, "").replace(/-/g, "/");
@@ -447,8 +520,12 @@ export async function updateQuotationHSQ(idOrNo: string, data: {
 
         // Hanya boleh edit jika OFFERED dan belum ada HSO
         if (q.status !== "OFFERED") {
-            return { success: false, error: "Hanya bisa diedit saat status Penawaran Resmi (HSQ)" };
+            return { success: false, error: "Hanya bisa diedit saat status Penawaran Disetujui (HSQ)" };
         }
+        if (q.isHsqApproved) {
+            return { success: false, error: "Penawaran resmi sudah disetujui and dikunci. Tidak bisa diedit." };
+        }
+
         if (q.accurateHsoNo || q.accurateHsoId) {
             return { success: false, error: "Penawaran sudah dikonversi ke HSO, tidak bisa diedit" };
         }
@@ -481,6 +558,10 @@ export async function updateQuotationHSQ(idOrNo: string, data: {
             };
             if (data.officialNo !== undefined) {
                 updateData.accurateHsqNo = data.officialNo || null;
+                // Keep quotationNo in sync with official HSQ no if changed
+                if (data.officialNo) {
+                    updateData.quotationNo = data.officialNo;
+                }
             }
             if (data.accurateId !== undefined) {
                 updateData.accurateHsqId = data.accurateId || null;
@@ -577,6 +658,17 @@ export async function updateQuotationHSQ(idOrNo: string, data: {
 
         await logActivity(q.id, "HSQ_UPDATED", "Penawaran Diperbarui", actMsg, adminName);
 
+        // Send Notification to User
+        if (q.userId) {
+            await createNotification({
+                userId: q.userId,
+                title: "Penawaran Diperbarui",
+                message: `Admin telah memperbarui detail penawaran resmi untuk ${data.officialNo || q.accurateHsqNo || q.quotationNo}.`,
+                type: "QUOTATION",
+                link: `/dashboard/transaksi/${(data.officialNo || q.accurateHsqNo || q.quotationNo).replace(/\//g, "-")}`
+            });
+        }
+
         const returnNo = data.officialNo || q.accurateHsqNo || q.quotationNo;
         revalidatePath(`/admin/sales/quotations/${encodeURIComponent(idOrNo)}`);
         return { success: true, quotationNo: returnNo };
@@ -598,6 +690,10 @@ export async function fetchAccurateQuotationList(search?: string, page: number =
 
 // ── Admin: Save draft of offer ──
 export async function saveQuotationDraft(idOrNo: string, data: any) {
+    const session = await getSession();
+    if (!session?.user || !["SUPER_ADMIN", "ADMIN", "MANAGER"].includes(session.user.role)) {
+        return { success: false, error: "Unauthorized" };
+    }
     try {
         const decodedIdOrNo = decodeURIComponent(idOrNo);
         const q = await db.salesQuotation.findFirst({
@@ -708,6 +804,10 @@ export async function saveQuotationDraft(idOrNo: string, data: any) {
 
 // ── Admin: Submit the final offer ──
 export async function submitQuotationOffer(idOrNo: string, data: any) {
+    const session = await getSession();
+    if (!session?.user || !["SUPER_ADMIN", "ADMIN", "MANAGER"].includes(session.user.role)) {
+        return { success: false, error: "Unauthorized" };
+    }
     try {
         const decodedIdOrNo = decodeURIComponent(idOrNo);
         const q = await db.salesQuotation.findFirst({
@@ -816,6 +916,17 @@ export async function submitQuotationOffer(idOrNo: string, data: any) {
 
         await logActivity(q.id, "OFFER_SENT", "Penawaran dikirim", "Admin telah mengirimkan penawaran harga kepada pelanggan.", "ADMIN");
 
+        // Send Notification to User
+        if (q.userId) {
+            await createNotification({
+                userId: q.userId,
+                title: "Penawaran Harga Resmi",
+                message: `Admin telah mengirimkan penawaran harga resmi untuk ${q.quotationNo}. Silakan cek detail di dashboard.`,
+                type: "QUOTATION",
+                link: `/dashboard/transaksi/${q.quotationNo.replace(/\//g, "-")}`
+            });
+        }
+
         // --- Sync to Accurate HSQ ---
         if (q.accurateHsqId && updatedQuotation) {
             try {
@@ -854,39 +965,111 @@ export async function submitQuotationOffer(idOrNo: string, data: any) {
 }
 
 // ── User: Send draft quotation ──
-export async function sendDraftQuotation(id: string) {
+export async function sendDraftQuotation(idOrNo: string) {
     try {
-        const quotation = await db.salesQuotation.findUnique({
-            where: { id },
+        const decodedIdOrNo = decodeURIComponent(idOrNo);
+        const slashNo = decodedIdOrNo.replace(/-/g, "/");
+
+        const original = await db.salesQuotation.findFirst({
+            where: {
+                OR: [
+                    { id: decodedIdOrNo },
+                    { quotationNo: { equals: decodedIdOrNo, mode: 'insensitive' } },
+                    { quotationNo: { equals: slashNo, mode: 'insensitive' } },
+                ]
+            },
             include: { items: true }
         });
 
-        if (!quotation) return { success: false, error: "Quotation tidak ditemukan" };
+        if (!original) return { success: false, error: "Quotation tidak ditemukan" };
 
+        const { generateRFQNo } = await import("@/app/actions/cart");
+        
+        let newQuotation;
+        let attempts = 0;
+        const maxAttempts = 5;
+
+        while (attempts < maxAttempts) {
+            try {
+                const newQuotationNo = await generateRFQNo();
+
+                // Create a copy as a formal PENDING transaction
+                newQuotation = await db.salesQuotation.create({
+                    data: {
+                        quotationNo: newQuotationNo,
+                        userId: original.userId,
+                        customerId: original.customerId,
+                        email: original.email,
+                        phone: original.phone,
+                        status: "PENDING",
+                        isEstimation: false, // This is a real transaction
+                        totalAmount: original.totalAmount,
+                        notes: original.notes,
+                        clientName: original.clientName,
+                        shippingAddress: original.shippingAddress,
+                        userClientId: original.userClientId,
+                        items: {
+                            create: original.items.map(item => ({
+                                productSku: item.productSku,
+                                productName: item.productName,
+                                brand: item.brand,
+                                quantity: item.quantity,
+                                price: item.price,
+                                basePrice: item.basePrice,
+                                discountPercent: item.discountPercent,
+                                discountAmount: item.discountAmount,
+                                discountStr: item.discountStr,
+                                stockStatus: item.stockStatus
+                            }))
+                        }
+                    },
+                    include: { items: true }
+                });
+                break; // Success!
+            } catch (error: any) {
+                // P2002 is Prisma's unique constraint error code
+                if (error.code === 'P2002' && attempts < maxAttempts - 1) {
+                    attempts++;
+                    // Wait a bit before retry to let other process finish
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    continue;
+                }
+                throw error;
+            }
+        }
+
+        if (!newQuotation) {
+            throw new Error("Gagal membuat penawaran setelah beberapa percobaan");
+        }
+
+        // Update original estimation to mark it as sent and store the SQ number
         await db.salesQuotation.update({
-            where: { id },
-            data: { status: "OFFERED" }
+            where: { id: original.id },
+            data: { 
+                lastSentAt: new Date(),
+                sentQuotationNo: newQuotation.quotationNo
+            }
         });
 
-        await logActivity(id, "DRAFT_SUBMITTED", "Draft dikirim", "User telah mengirimkan permintaan penawaran harga.", "USER");
+        await logActivity(newQuotation.id, "RFQ_CREATED", "Permintaan Dibuat", "User membuat permintaan penawaran dari estimasi.", "USER");
 
         const { sendCartQuotation } = await import("@/lib/mail");
         await sendCartQuotation(
-            quotation.email,
-            quotation.phone || "",
-            quotation.items.map(item => ({
+            newQuotation.email,
+            newQuotation.phone || "",
+            newQuotation.items.map((item: any) => ({
                 sku: item.productSku,
                 name: item.productName,
                 brand: item.brand,
                 price: item.price,
                 quantity: item.quantity,
             })),
-            quotation.totalAmount
+            newQuotation.totalAmount
         ).catch(console.error);
 
         revalidatePath("/dashboard/estimasi");
         revalidatePath("/dashboard/transaksi");
-        return { success: true, newQuotationNo: quotation.quotationNo };
+        return { success: true, newQuotationNo: newQuotation.quotationNo };
     } catch (error) {
         console.error("[sendDraftQuotation] Error:", error);
         return { success: false, error: "Gagal mengirim draft" };
@@ -978,7 +1161,7 @@ export async function acceptProforma(id: string) {
     try {
         await db.salesQuotation.update({
             where: { id },
-            data: { status: "CONFIRMED", confirmedAt: new Date() }
+            data: { confirmedAt: new Date() }
         });
 
         await logActivity(id, "PROFORMA_ACCEPTED", "Proforma disetujui", "User menyetujui penawaran dan lanjut ke pembayaran.", "USER");
@@ -1091,9 +1274,9 @@ async function sendOfferNotifications(quotation: any) {
             const detailUrl = `${appUrl}/dashboard/transaksi/${hsqSlug}`;
             const hsqDisplay = quotation.accurateHsqNo || hsqSlug;
 
-            let message = `🎉 *Penawaran Resmi Hokiindo*\n`;
+            let message = `🎉 *Penawaran Disetujui Hokiindo*\n`;
             message += `📄 *No. HSQ: ${hsqDisplay}*\n\n`;
-            message += `Yth. ${quotation.customerName || "Pelanggan"},\nPenawaran harga resmi dari Hokiindo telah siap.\n\n`;
+            message += `Yth. ${quotation.customerName || "Pelanggan"},\nPenawaran harga yang telah disetujui dari Hokiindo telah siap.\n\n`;
 
             message += `📦 *Daftar Produk:*\n`;
             quotation.items.forEach((item: any, idx: number) => {
@@ -1210,6 +1393,17 @@ export async function confirmQuotationOrder(
             },
         });
 
+        // Send Notification to User
+        if (quotation.userId) {
+            await createNotification({
+                userId: quotation.userId,
+                title: "Pesanan Dikonfirmasi",
+                message: `Pesanan ${quotation.quotationNo} telah dikonfirmasi dan sedang diproses (HSO).`,
+                type: "ORDER",
+                link: `/dashboard/transaksi/${quotation.quotationNo.replace(/\//g, "-")}`
+            });
+        }
+
         sendStatusNotifications(quotation, "CONFIRMED", {
             shippingCost: freeShipping ? 0 : (shippingCost || 0),
             freeShipping: freeShipping || false,
@@ -1237,6 +1431,17 @@ export async function shipQuotationOrder(
                 shippingNotes: shippingNotes || null,
             },
         });
+
+        // Send Notification to User
+        if (quotation.userId) {
+            await createNotification({
+                userId: quotation.userId,
+                title: "Pesanan Dikirim",
+                message: `Pesanan ${quotation.quotationNo} telah dikirim (HDO).${trackingNumber ? ` No. Resi: ${trackingNumber}` : ""}`,
+                type: "ORDER",
+                link: `/dashboard/transaksi/${quotation.quotationNo.replace(/\//g, "-")}`
+            });
+        }
 
         sendStatusNotifications(quotation, "SHIPPED", { trackingNumber, shippingNotes }).catch(console.error);
         return { success: true };
@@ -1323,5 +1528,117 @@ export async function uploadCustomerHPO(
     } catch (error) {
         console.error("[uploadCustomerHPO] Error:", error);
         return { success: false, error: "Gagal mengunggah HPO" };
+    }
+}
+
+export async function approveHsq(idOrNo: string) {
+    try {
+        const session = await getSession();
+        if (!session?.user || !["SUPER_ADMIN", "ADMIN", "MANAGER"].includes(session.user.role)) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        // Cari dulu record databasenya karena id dari URL bisa berupa quotationNo
+        const quote = await db.salesQuotation.findFirst({
+            where: {
+                OR: [
+                    { id: idOrNo },
+                    { quotationNo: idOrNo },
+                    { quotationNo: idOrNo.replace(/-/g, "/") }
+                ]
+            }
+        });
+
+        if (!quote) return { success: false, error: "Quotation not found" };
+
+        const realId = quote.id;
+
+        await db.salesQuotation.update({
+            where: { id: realId },
+            data: { isHsqApproved: true }
+        });
+
+        await logActivity(realId, "HSQ_APPROVED", "HSQ Disetujui", "Admin telah menyetujui penawaran disetujui ini. Penawaran kini terkunci dan tidak dapat diubah.", "ADMIN");
+
+        revalidatePath(`/admin/sales/quotations/${idOrNo}`);
+        revalidatePath(`/dashboard/transaksi/${idOrNo}`);
+        return { success: true };
+    } catch (error) {
+        console.error("[approveHsq] Error:", error);
+        return { success: false, error: "Gagal menyetujui HSQ" };
+    }
+}
+
+export async function respondToSpecialDiscountRequest(idOrNo: string, accept: boolean, reason?: string) {
+    try {
+        const session = await getSession();
+        if (!session?.user || !["SUPER_ADMIN", "ADMIN", "MANAGER"].includes(session.user.role)) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        // Cari dulu record databasenya karena id dari URL bisa berupa quotationNo
+        const decodedIdOrNo = decodeURIComponent(idOrNo);
+        const quotation = await db.salesQuotation.findFirst({
+            where: {
+                OR: [
+                    { id: decodedIdOrNo },
+                    { quotationNo: decodedIdOrNo },
+                    { quotationNo: decodedIdOrNo.replace(/-/g, "/") }
+                ]
+            },
+            select: { id: true, quotationNo: true }
+        });
+
+        if (!quotation) {
+            return { success: false, error: "Penawaran tidak ditemukan" };
+        }
+
+        const realId = quotation.id;
+
+        // Simpan alasan di activity log
+        if (!accept) {
+            await logActivity(realId, "DISCOUNT_REJECTED", "Permintaan Diskon Ditolak", `Alasan: ${reason || "Tidak ada alasan spesifik"}`, "ADMIN");
+            
+            // Notification for Rejection
+            const q = await db.salesQuotation.findUnique({ where: { id: realId }, select: { userId: true, quotationNo: true } });
+            if (q?.userId) {
+                await createNotification({
+                    userId: q.userId,
+                    title: "Permintaan Diskon Ditolak",
+                    message: `Permintaan diskon untuk ${q.quotationNo} ditolak. Alasan: ${reason || "-"}`,
+                    type: "WARNING",
+                    link: `/dashboard/transaksi/${q.quotationNo.replace(/\//g, "-")}`
+                });
+            }
+        } else {
+            await logActivity(realId, "DISCOUNT_ACCEPTED", "Permintaan Diskon Diterima", "Admin menindaklanjui permintaan diskon ini.", "ADMIN");
+            
+            // Notification for Acceptance
+            const q = await db.salesQuotation.findUnique({ where: { id: realId }, select: { userId: true, quotationNo: true } });
+            if (q?.userId) {
+                await createNotification({
+                    userId: q.userId,
+                    title: "Permintaan Diskon Disetujui",
+                    message: `Permintaan diskon untuk ${q.quotationNo} telah disetujui oleh Admin.`,
+                    type: "SUCCESS",
+                    link: `/dashboard/transaksi/${q.quotationNo.replace(/\//g, "-")}`
+                });
+            }
+        }
+
+        // Tandai sebagai sudah direspon
+        await db.salesQuotation.update({
+            where: { id: realId },
+            data: {
+                specialDiscountRequest: false
+            }
+        });
+
+        revalidatePath(`/admin/sales/quotations/${idOrNo}`);
+        revalidatePath(`/dashboard/transaksi/${idOrNo}`);
+        return { success: true };
+    } catch (err) {
+        console.error("[respondToSpecialDiscountRequest] Error:", err);
+        return { success: false, error: "Gagal memproses permintaan" };
     }
 }

@@ -148,6 +148,11 @@ export async function processUpgradeRequest(requestId: string, action: "APPROVE"
                 return { error: "User tidak terhubung dengan Customer profile." };
             }
 
+            // Determine the final customer type based on requestType
+            // If request is RETAIL, type becomes RETAIL
+            // If request is RESELLER or EXCLUSIVE, type becomes RESELLER
+            const targetType = request.requestType === "RETAIL" ? "RETAIL" : "RESELLER";
+
             await db.$transaction([
                 // Update request status
                 db.upgradeRequest.update({
@@ -161,11 +166,10 @@ export async function processUpgradeRequest(requestId: string, action: "APPROVE"
                 db.customer.update({
                     where: { id: customerId },
                     data: {
-                        type: request.requestType, // RETAIL or EXCLUSIVE
-                        company: request.companyName || undefined, // Update company name if provided
-                        address: request.address, // Update address
-                        phone: request.phone, // Update phone
-                        // You might want to update discount fields here too if there are defaults for these types
+                        type: targetType,
+                        company: request.companyName || undefined,
+                        address: request.address,
+                        phone: request.phone,
                     }
                 })
             ]);

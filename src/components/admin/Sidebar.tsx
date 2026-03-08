@@ -109,12 +109,6 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
 
     useEffect(() => {
         if (mounted) {
-            // If we have no user but we are supposed to be in admin, try to refresh
-            if (!user && !isLoading) {
-                console.log("Sidebar: User missing, refreshing...");
-                refreshUser();
-            }
-
             console.log("Sidebar - User state:", { user, isLoading });
             fetchBadges();
             const interval = setInterval(fetchBadges, 30000);

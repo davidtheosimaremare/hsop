@@ -2,6 +2,7 @@ import { AccurateWebhookEvent } from "../types";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { fetchAccurateSODetail } from "@/lib/accurate";
+import { createNotification } from "@/app/actions/notification";
 
 export interface SalesOrderData {
     salesOrderId: number;
@@ -108,7 +109,7 @@ export async function handleSalesOrderWebhook(event: AccurateWebhookEvent<SalesO
             await db.salesQuotation.update({
                 where: { id: targetSq.id },
                 data: {
-                    status: "OFFERED",
+                    status: "PROCESSING", // HSO is PROCESSING status
                     accurateHsoId: so.salesOrderId,
                     accurateHsoNo: so.salesOrderNo,
                     confirmedAt: new Date(),
@@ -118,16 +119,30 @@ export async function handleSalesOrderWebhook(event: AccurateWebhookEvent<SalesO
             await db.salesQuotationActivity.create({
                 data: {
                     quotationId: targetSq.id,
-                    type: "OFFERED",
+                    type: "ORDER_PROCESSED",
                     title: "Pesanan Diproses",
                     description: `Pesanan sudah diproses dengan HSO: ${so.salesOrderNo}`,
                     performedBy: "SYSTEM",
                 },
             });
 
-            revalidatePath(`/admin/sales/quotations/${targetSq.quotationNo}`);
+            // Send Notification to User
+            if (targetSq.userId) {
+                await createNotification({
+                    userId: targetSq.userId,
+                    title: "Pesanan Diproses (HSO)",
+                    message: `Pesanan ${targetSq.quotationNo} telah diproses dengan nomor Sales Order: ${so.salesOrderNo}`,
+                    type: "ORDER",
+                    link: `/dashboard/transaksi/${targetSq.quotationNo.replace(/\//g, "-")}`
+                });
+            }
+
+            const hyphenatedNo = targetSq.quotationNo.replace(/\//g, "-");
+            revalidatePath(`/admin/sales/quotations/${hyphenatedNo}`);
             revalidatePath("/admin/sales/quotations");
             revalidatePath("/admin/orders");
+            revalidatePath("/dashboard/transaksi");
+            revalidatePath(`/dashboard/transaksi/${hyphenatedNo}`);
 
             console.log(`[Webhook SO] ✓ Linked SQ ${targetSq.quotationNo} → SO ${so.salesOrderNo}`);
             results.push({ success: true, message: `SQ ${targetSq.quotationNo} → SO ${so.salesOrderNo}` });
@@ -176,7 +191,7 @@ export async function handleDeliveryOrderWebhook(event: AccurateWebhookEvent<Del
                 console.log(`[Webhook DO] Searching for SQ with SO pattern ending in: ${numberPart}`);
                 targetSq = await db.salesQuotation.findFirst({
                     where: {
-                        status: "OFFERED",
+                        status: "PROCESSING",
                         accurateHsoNo: { endsWith: numberPart }
                     },
                     orderBy: { confirmedAt: 'desc' }
@@ -188,7 +203,7 @@ export async function handleDeliveryOrderWebhook(event: AccurateWebhookEvent<Del
                 console.warn(`[Webhook DO] No pattern match found. Falling back to status-search for ${doItem.deliveryOrderNo}`);
                 targetSq = await db.salesQuotation.findFirst({
                     where: {
-                        status: "OFFERED",
+                        status: "PROCESSING",
                         accurateHsoNo: { not: null },
                         accurateDoNo: null,
                     },
@@ -205,10 +220,9 @@ export async function handleDeliveryOrderWebhook(event: AccurateWebhookEvent<Del
             await db.salesQuotation.update({
                 where: { id: targetSq.id },
                 data: {
-                    status: "COMPLETED",
+                    status: "SHIPPED",
                     accurateDoId: doItem.deliveryOrderId,
                     accurateDoNo: doItem.deliveryOrderNo,
-                    completedAt: new Date(),
                     shippedAt: new Date(),
                 },
             });
@@ -216,16 +230,30 @@ export async function handleDeliveryOrderWebhook(event: AccurateWebhookEvent<Del
             await db.salesQuotationActivity.create({
                 data: {
                     quotationId: targetSq.id,
-                    type: "COMPLETED",
+                    type: "SHIPPED",
                     title: "Dikirim (Delivery Order)",
                     description: `Pesanan ${targetSq.quotationNo} (SO: ${targetSq.accurateHsoNo}) telah dikirim. Nomor DO: ${doItem.deliveryOrderNo}`,
                     performedBy: "SYSTEM",
                 },
             });
 
-            revalidatePath(`/admin/sales/quotations/${targetSq.quotationNo}`);
+            // Send Notification to User
+            if (targetSq.userId) {
+                await createNotification({
+                    userId: targetSq.userId,
+                    title: "Pesanan Dikirim (HDO)",
+                    message: `Pesanan ${targetSq.quotationNo} telah dikirim dengan nomor Delivery Order: ${doItem.deliveryOrderNo}`,
+                    type: "ORDER",
+                    link: `/dashboard/transaksi/${targetSq.quotationNo.replace(/\//g, "-")}`
+                });
+            }
+
+            const hyphenatedNo = targetSq.quotationNo.replace(/\//g, "-");
+            revalidatePath(`/admin/sales/quotations/${hyphenatedNo}`);
             revalidatePath("/admin/sales/quotations");
             revalidatePath("/admin/orders");
+            revalidatePath("/dashboard/transaksi");
+            revalidatePath(`/dashboard/transaksi/${hyphenatedNo}`);
 
             console.log(`[Webhook DO] ✓ Linked SQ ${targetSq.quotationNo} → DO ${doItem.deliveryOrderNo}`);
             results.push({ success: true, message: `SQ ${targetSq.quotationNo} → DO ${doItem.deliveryOrderNo}` });

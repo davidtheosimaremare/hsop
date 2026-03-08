@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { getUserProfile } from "@/app/actions/profile";
 import {
     Loader2, User, Phone, Mail, Award, CheckCircle2, Store,
-    Edit2, X, Save, Upload, AlertCircle
+    Edit2, X, Save, Upload, AlertCircle, Building2
 } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,7 @@ import { ImageCropper } from "@/components/ui/image-cropper";
 import { useToast, ToastManager } from "@/components/ui/toast";
 import {
     updateProfileName,
+    updateProfileCompany,
     updateProfileAvatar,
     requestProfileUpdateOTP,
     verifyProfileUpdateOTP
@@ -30,7 +31,8 @@ export default function ProfilPage() {
     const [isEditing, setIsEditing] = useState<{ [key: string]: boolean }>({
         name: false,
         email: false,
-        phone: false
+        phone: false,
+        company: false
     });
     const [editValues, setEditValues] = useState<{ [key: string]: string }>({});
     const [saving, setSaving] = useState<string | null>(null);
@@ -103,6 +105,33 @@ export default function ProfilPage() {
             } else {
                 // @ts-ignore
                 toast.error(result.error || "Gagal menyimpan nama");
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error("Terjadi kesalahan");
+        } finally {
+            setSaving(null);
+        }
+    };
+
+    const handleSaveCompany = async () => {
+        setSaving('company');
+        try {
+            const result = await updateProfileCompany(editValues.company);
+            // @ts-ignore
+            if (result.success) {
+                setProfile({
+                    ...profile,
+                    customer: {
+                        ...profile.customer,
+                        company: editValues.company
+                    }
+                });
+                setIsEditing({ ...isEditing, company: false });
+                toast.success("Nama perusahaan berhasil disimpan");
+            } else {
+                // @ts-ignore
+                toast.error(result.error || "Gagal menyimpan nama perusahaan");
             }
         } catch (error) {
             console.error(error);
@@ -324,11 +353,13 @@ export default function ProfilPage() {
                         </h2>
                         <Badge variant="outline" className={`
                             text-sm px-3 py-1 font-semibold uppercase tracking-wide
-                            ${customerType === "CORPORATE" ? "bg-blue-100 text-blue-700 border-blue-200" : ""}
-                            ${customerType === "RETAIL" ? "bg-purple-100 text-purple-700 border-purple-200" : ""}
-                            ${customerType === "GENERAL" ? "bg-gray-100 text-gray-700 border-gray-200" : ""}
+                            ${customerType === "BISNIS" ? "bg-blue-100 text-blue-800 border-blue-200" : ""}
+                            ${customerType === "RESELLER" ? "bg-purple-100 text-purple-800 border-purple-200" : ""}
+                            ${customerType === "RETAIL" ? "bg-indigo-100 text-indigo-800 border-indigo-200" : ""}
+                            ${customerType === "PROJECT" ? "bg-amber-100 text-amber-800 border-amber-200" : ""}
+                            ${customerType === "GENERAL" ? "bg-slate-100 text-slate-700 border-slate-200" : ""}
                         `}>
-                            {customerType === "CORPORATE" ? "PERUSAHAAN" : customerType === "RETAIL" ? "RETAIL / MITRA JUAL" : "GENERAL CUSTOMER"}
+                            {customerType === "BISNIS" ? "Corporate" : customerType === "RESELLER" ? "Reseller" : customerType === "RETAIL" ? "Retail" : customerType === "PROJECT" ? "Project Base" : "General Customer"}
                         </Badge>
                     </div>
                 </div>
@@ -481,23 +512,61 @@ export default function ProfilPage() {
                         {/* Customer Type - Read Only */}
                         <div className="space-y-2">
                             <Label className="text-sm font-medium text-gray-500 flex items-center gap-2">
-                                <Award className="w-4 h-4" /> Tipe Customer
+                                <Award className="w-4 h-4" /> Tipe Akun Customer
                             </Label>
-                            <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 font-medium text-gray-900">
-                                {customerType}
+                            <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 font-medium text-gray-900 flex items-center gap-2">
+                                {customerType === "BISNIS" ? "Corporate" : customerType === "RESELLER" ? "Reseller" : customerType === "RETAIL" ? "Retail" : customerType === "PROJECT" ? "Project Base" : "General Customer"}
+                                <span className="ml-auto text-xs font-bold text-gray-400 bg-white px-2 py-1 rounded-md border border-gray-200 uppercase tracking-widest leading-none">Status</span>
                             </div>
                         </div>
                     </div>
 
                     {/* Company */}
-                    {profile.customer?.company && (
+                    {(customerType === 'BISNIS' || customerType === 'RESELLER' || customerType === 'PROJECT' || profile.customer?.company) && (
                         <div className="space-y-2">
                             <Label className="text-sm font-medium text-gray-500 flex items-center gap-2">
-                                <Store className="w-4 h-4" /> Perusahaan
+                                <Building2 className="w-4 h-4" /> Nama Perusahaan {customerType === "GENERAL" && "(Opsional)"}
                             </Label>
-                            <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 font-medium text-gray-900">
-                                {profile.customer.company}
-                            </div>
+                            {isEditing.company ? (
+                                <div className="flex gap-2">
+                                    <Input
+                                        value={editValues.company || ''}
+                                        onChange={(e) => setEditValues({ ...editValues, company: e.target.value })}
+                                        className="flex-1"
+                                        placeholder="Masukkan nama perusahaan"
+                                    />
+                                    <Button
+                                        size="sm"
+                                        onClick={handleSaveCompany}
+                                        disabled={saving === 'company'}
+                                    >
+                                        {saving === 'company' ? (
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                        ) : (
+                                            <Save className="w-4 h-4" />
+                                        )}
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleEditToggle('company')}
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </Button>
+                                </div>
+                            ) : (
+                                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
+                                    <span className="font-medium text-gray-900">{profile.customer?.company || "-"}</span>
+                                    <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => handleEditToggle('company')}
+                                        className="h-8 w-8 p-0"
+                                    >
+                                        <Edit2 className="w-4 h-4 text-gray-400" />
+                                    </Button>
+                                </div>
+                            )}
                         </div>
                     )}
 

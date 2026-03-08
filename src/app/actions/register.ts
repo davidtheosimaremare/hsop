@@ -5,6 +5,7 @@ import { hash } from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import { sendFonteeOTP } from "@/lib/fontee";
 import { sendEmailOTP } from "@/lib/mail";
+import { createAccurateCustomer } from "@/lib/accurate";
 
 export type RegisterState = {
     error?: string;
@@ -79,46 +80,67 @@ export async function registerUser(prevState: RegisterState, formData: FormData)
 
         const hashedPassword = await hash(password, 12);
 
-        // Generate sequential CO-XXXX ID
-        const lastCoCustomer = await db.customer.findFirst({
-            where: {
-                id: { startsWith: 'CO-' }
-            },
-            orderBy: {
-                id: 'desc'
-            },
-            select: { id: true }
+        // 1. Sync to Accurate first to get the official ID/Number
+        const customerName = isCompany ? companyName : name;
+        const customerType = isCompany ? "BISNIS" : "GeneralCustomer";
+        const customerCompany = isCompany ? companyName : null;
+        const customerBusinessCategory = isCompany ? businessType : null;
+
+        const accurateRes = await createAccurateCustomer({
+            name: customerName,
+            email: email,
+            phone: phone,
+            address: address || undefined,
+            // Contact Person info (Login account)
+            cpName: name,
+            cpEmail: email,
+            cpPhone: phone,
         });
 
-        let nextNum = 1;
-        if (lastCoCustomer) {
-            const parts = lastCoCustomer.id.split('-');
-            if (parts.length > 1) {
-                const lastNum = parseInt(parts[1]);
-                if (!isNaN(lastNum)) {
-                    nextNum = lastNum + 1;
+        const accurateId = accurateRes.s ? accurateRes.r?.id : null;
+        const accurateNo = accurateRes.s ? (accurateRes.r?.customerNo || accurateRes.r?.number || accurateRes.r?.no) : null;
+
+        // Fallback to sequential ID if Accurate sync fails (though user wants them to sync)
+        let finalCustomerId = accurateNo;
+
+        if (!finalCustomerId) {
+            // Generate sequential CO-XXXX ID as fallback
+            const lastCoCustomer = await db.customer.findFirst({
+                where: {
+                    id: { startsWith: 'CO-' }
+                },
+                orderBy: {
+                    id: 'desc'
+                },
+                select: { id: true }
+            });
+
+            let nextNum = 1;
+            if (lastCoCustomer) {
+                const parts = lastCoCustomer.id.split('-');
+                if (parts.length > 1) {
+                    const lastNum = parseInt(parts[1]);
+                    if (!isNaN(lastNum)) {
+                        nextNum = lastNum + 1;
+                    }
                 }
             }
+            finalCustomerId = `CO-${nextNum.toString().padStart(4, '0')}`;
         }
-        const targetCustomerId = `CO-${nextNum.toString().padStart(4, '0')}`;
+
+        // Check if customer exists by email
+        const existingCustomer = await db.customer.findUnique({
+            where: { email }
+        });
+
+        // Use existing ID if found, otherwise use sequential or Accurate ID
+        if (existingCustomer) {
+            finalCustomerId = existingCustomer.id;
+        }
 
         // Generate OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-
-        // Determine Customer Data
-        const customerName = isCompany ? companyName : name;
-        const customerType = isCompany ? "CORPORATE" : "GENERAL";
-        const customerCompany = isCompany ? companyName : null;
-        const customerBusinessCategory = isCompany ? businessType : null;
-
-        // Check if customer exists by email
-        let existingCustomer = await db.customer.findUnique({
-            where: { email }
-        });
-
-        // Use existing ID if found, otherwise use new sequential ID
-        const finalCustomerId = existingCustomer ? existingCustomer.id : targetCustomerId;
 
         await db.$transaction(async (tx) => {
             // 1. Create Customer if not exists
@@ -133,6 +155,8 @@ export async function registerUser(prevState: RegisterState, formData: FormData)
                         type: customerType,
                         company: customerCompany,
                         businessCategory: customerBusinessCategory,
+                        accurateId: accurateId ? Number(accurateId) : undefined,
+                        accurateCustomerCode: accurateNo || undefined,
                     },
                 });
             } else {

@@ -11,7 +11,7 @@ import { CustomerBasicInfo } from "@/components/admin/CustomerBasicInfo";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-import { getCategoryMappings } from "@/app/actions/product-public";
+import { getGroupedCategoryMappings } from "@/app/actions/common";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +38,7 @@ export default async function AdminCustomerDetailPage({ params }: { params: { id
                 }
             }
         }),
-        getCategoryMappings()
+        getGroupedCategoryMappings()
     ]);
 
     if (!customer) {

@@ -37,13 +37,32 @@ const defaultFooterConfig = {
 
 export default async function Footer() {
     let config = defaultFooterConfig;
+    let companyDetails: any = null;
+
     try {
-        const settings = await getSiteSetting("footer_config");
-        if (settings && typeof settings === 'object') {
-            config = { ...defaultFooterConfig, ...settings };
+        const [footerSettings, companySettings] = await Promise.all([
+            getSiteSetting("footer_config"),
+            getSiteSetting("company_details")
+        ]);
+
+        if (footerSettings && typeof footerSettings === 'object') {
+            config = { ...defaultFooterConfig, ...footerSettings };
+        }
+
+        if (companySettings && typeof companySettings === 'object') {
+            companyDetails = companySettings;
+            // Merge basic info into config if present in companyDetails
+            if (companyDetails.email) config.contacts.email = companyDetails.email;
+            if (companyDetails.phone) config.contacts.call_center = companyDetails.phone;
+            if (companyDetails.address) config.contacts.address = companyDetails.address;
+            
+            // Merge socials
+            if (companyDetails.instagram) config.socials.instagram = companyDetails.instagram;
+            if (companyDetails.facebook) config.socials.facebook = companyDetails.facebook;
+            if (companyDetails.linkedin) config.socials.linkedin = companyDetails.linkedin;
         }
     } catch (e) {
-        console.error("Failed to load footer settings:", e);
+        console.error("Failed to load footer or company settings:", e);
     }
 
     return (
@@ -53,13 +72,21 @@ export default async function Footer() {
                     {/* Contact Info */}
                     <div className="lg:col-span-2">
                         {/* Logo */}
-                        <Image
-                            src="/logo.png"
-                            alt="Hokiindo Logo"
-                            width={140}
-                            height={45}
-                            className="h-10 w-auto object-contain mb-6"
-                        />
+                        {companyDetails?.logo ? (
+                            <img
+                                src={companyDetails.logo}
+                                alt={companyDetails.name || "Company Logo"}
+                                className="h-10 w-auto object-contain mb-6"
+                            />
+                        ) : (
+                            <Image
+                                src="/logo.png"
+                                alt="Hokiindo Logo"
+                                width={140}
+                                height={45}
+                                className="h-10 w-auto object-contain mb-6"
+                            />
+                        )}
 
                         {/* Contact Details */}
                         <div className="space-y-4">
@@ -197,7 +224,7 @@ export default async function Footer() {
             <div className="border-t border-gray-200">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
                     <p className="text-center text-sm text-gray-500">
-                        © 2026 PT. Hokiindo Raya. All Rights Reserved
+                        © 2026 {companyDetails?.name || "PT. Hokiindo Raya"}. All Rights Reserved
                     </p>
                 </div>
             </div>

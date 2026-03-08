@@ -24,7 +24,7 @@ export default async function AdminOrdersPage({
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.SalesQuotationWhereInput = {
-        status: { in: ["OFFERED", "COMPLETED"] },
+        status: { in: ["PROCESSING", "SHIPPED", "COMPLETED"] },
     };
 
     if (query) {
@@ -56,8 +56,9 @@ export default async function AdminOrdersPage({
     const totalPages = Math.ceil(totalOrders / pageSize);
 
     const statusConfig: Record<string, { label: string; color: string }> = {
-        OFFERED: { label: "Sales Order", color: "bg-blue-100 text-blue-700 border-blue-200" },
-        COMPLETED: { label: "Dikirim", color: "bg-green-100 text-green-700 border-green-200" },
+        PROCESSING: { label: "Sales Order", color: "bg-blue-100 text-blue-700 border-blue-200" },
+        SHIPPED: { label: "Dikirim", color: "bg-amber-100 text-amber-700 border-amber-200" },
+        COMPLETED: { label: "Selesai", color: "bg-green-100 text-green-700 border-green-200" },
     };
 
     return (
@@ -102,8 +103,9 @@ export default async function AdminOrdersPage({
                                 className="h-10 w-[200px] rounded-md border border-input bg-background px-3 py-2 text-sm"
                             >
                                 <option value="ALL">Semua Pesanan</option>
-                                <option value="OFFERED">Sales Order (HSO)</option>
-                                <option value="COMPLETED">Dikirim (HDO)</option>
+                                <option value="PROCESSING">Sales Order (HSO)</option>
+                                <option value="SHIPPED">Dikirim (DO)</option>
+                                <option value="COMPLETED">Selesai</option>
                             </select>
                             <Button type="submit">Filter</Button>
                         </form>
@@ -137,12 +139,12 @@ export default async function AdminOrdersPage({
                                         return (
                                             <TableRow key={order.id} className="hover:bg-gray-50">
                                                 <TableCell className="font-mono font-semibold text-sm">
-                                                    {order.accurateHsoNo ?? (
+                                                    {order.accurateHsoNo?.replace(/\//g, "-") ?? (
                                                         <span className="text-gray-400 text-xs">Menunggu...</span>
                                                     )}
                                                 </TableCell>
                                                 <TableCell className="font-mono text-xs text-muted-foreground">
-                                                    {order.quotationNo}
+                                                    {order.quotationNo.replace(/\//g, "-")}
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex flex-col">

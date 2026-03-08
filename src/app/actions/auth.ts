@@ -205,6 +205,44 @@ export async function getCurrentUser() {
     return session?.user || null;
 }
 
+export async function getCurrentUserWithCustomer() {
+    const { getSession } = await import("@/lib/auth");
+    const { db } = await import("@/lib/db");
+    const session = await getSession();
+
+    if (!session?.user) return null;
+
+    let customerType = "RETAIL";
+    let companyName = null;
+    let image = null;
+    let address = null;
+
+    if (session.user.customerId) {
+        const customer = await db.customer.findUnique({
+            where: { id: session.user.customerId },
+            select: { type: true, name: true, company: true, image: true, address: true }
+        });
+        customerType = customer?.type || "RETAIL";
+        companyName = customer?.company || customer?.name || null;
+        image = customer?.image || null;
+        address = customer?.address || null;
+    } else {
+        const user = await db.user.findUnique({
+            where: { id: session.user.id },
+            select: { address: true }
+        });
+        address = user?.address || null;
+    }
+
+    return {
+        ...session.user,
+        customerType,
+        companyName,
+        image,
+        address
+    };
+}
+
 export async function logoutAction() {
     const { getSession } = await import("@/lib/auth");
     const session = await getSession();

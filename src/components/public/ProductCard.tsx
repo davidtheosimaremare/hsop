@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Plus, Check, Percent } from "lucide-react";
+import { Plus, Check } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useCart } from "@/lib/useCart";
@@ -28,7 +28,6 @@ export default function ProductCard({ product }: ProductCardProps) {
     const { getPriceInfo } = usePricing();
     const [isAdded, setIsAdded] = useState(false);
 
-    // Calculate price info from context
     const priceInfo = getPriceInfo(product.price, product.category || null, product.availableToSell);
 
     const formatPrice = (price: number) => {
@@ -92,13 +91,11 @@ export default function ProductCard({ product }: ProductCardProps) {
                         <div className="flex flex-col">
                             {priceInfo.hasDiscount ? (
                                 <>
-                                    {/* Original price crossed out - Only for Customer Discounts */}
                                     {priceInfo.isCustomerDiscount && (
                                         <p className="text-xs text-gray-400 line-through">
                                             Rp {formatPrice(priceInfo.originalPriceWithPPN)}
                                         </p>
                                     )}
-                                    {/* Discounted price */}
                                     <p className="text-sm font-bold text-red-600">
                                         Rp {formatPrice(priceInfo.discountedPriceWithPPN)}
                                     </p>
@@ -111,17 +108,14 @@ export default function ProductCard({ product }: ProductCardProps) {
                         </div>
                         <button
                             onClick={handleAddToCart}
-                            className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${isAdded
-                                ? 'bg-green-500 text-white'
-                                : 'bg-red-100 text-red-600 hover:bg-red-600 hover:text-white'
-                                }`}
+                            className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
+                                isAdded
+                                    ? 'bg-green-500 text-white'
+                                    : 'bg-red-100 text-red-600 hover:bg-red-600 hover:text-white'
+                            }`}
                             title="Tambah ke Keranjang"
                         >
-                            {isAdded ? (
-                                <Check className="w-4 h-4" />
-                            ) : (
-                                <Plus className="w-4 h-4" />
-                            )}
+                            {isAdded ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                         </button>
                     </div>
 
@@ -129,11 +123,11 @@ export default function ProductCard({ product }: ProductCardProps) {
                     <div className="flex flex-wrap gap-1">
                         {product.availableToSell > 5 ? (
                             <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-50 text-green-600 border border-green-200">
-                                Stok: {product.availableToSell} Unit
+                                Stock: {product.availableToSell} Unit
                             </span>
                         ) : product.availableToSell > 0 ? (
                             <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                                Stok Menipis: {product.availableToSell} Unit
+                                Stock: {product.availableToSell} Unit
                             </span>
                         ) : (
                             <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-200">
@@ -143,6 +137,6 @@ export default function ProductCard({ product }: ProductCardProps) {
                     </div>
                 </div>
             </div>
-        </div >
+        </div>
     );
 }

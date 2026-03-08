@@ -16,15 +16,25 @@ type TabType = "specs" | "description";
 interface ProductDetailClientProps {
     product: any; // Using any for Prisma Product type for simplicity in client component
     relatedProducts: any[];
+    whatsappConfig?: Record<string, string> | null;
 }
 
-export default function ProductDetailClient({ product, relatedProducts }: ProductDetailClientProps) {
+export default function ProductDetailClient({ product, relatedProducts, whatsappConfig }: ProductDetailClientProps) {
     const [activeTab, setActiveTab] = useState<TabType>("description");
     const [quantity, setQuantity] = useState(1);
     const [isAdded, setIsAdded] = useState(false);
     const sliderRef = useRef<HTMLDivElement>(null);
     const { addItem } = useCart();
     const { getPriceInfo } = usePricing();
+
+    const handleChatSales = () => {
+        const waNumber = whatsappConfig?.number || "6281262220021"; // Fallback to footer/default
+        const waMessage = whatsappConfig?.message || "Halo Admin, saya ingin bertanya tentang produk:";
+        const productUrl = window.location.href;
+        const fullMessage = `${waMessage}\n\n*${product.name}*\nSKU: ${product.sku}\nLink: ${productUrl}`;
+        
+        window.open(`https://wa.me/${waNumber.replace(/\+/g, '')}?text=${encodeURIComponent(fullMessage)}`, "_blank");
+    };
 
     // Setup gallery images
     const galleryImages = [
@@ -300,7 +310,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                     <div className="flex flex-wrap gap-2 mb-6">
                         {product.availableToSell > 0 ? (
                             <span className="text-xs px-3 py-1 rounded-full bg-green-50 text-green-600 border border-green-200">
-                                Stok: {product.availableToSell} Unit
+                                Stock: {product.availableToSell} Unit
                             </span>
                         ) : (
                             <span className="text-xs px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
@@ -492,7 +502,11 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                                     </>
                                 )}
                             </Button>
-                            <Button variant="outline" className="w-full text-green-600 border-green-600 hover:bg-green-50">
+                            <Button 
+                                variant="outline" 
+                                className="w-full text-green-600 border-green-600 hover:bg-green-50"
+                                onClick={handleChatSales}
+                            >
                                 <MessageCircle className="w-4 h-4 mr-2" />
                                 Chat Sales
                             </Button>
@@ -582,7 +596,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Produc
                                                 ? "bg-green-50 text-green-600 border border-green-200"
                                                 : "bg-orange-50 text-orange-600 border border-orange-200"
                                                 }`}>
-                                                {relProduct.availableToSell > 0 ? "Stok Tersedia" : "Stok Terbatas"}
+                                                {relProduct.availableToSell > 0 ? "Ready Stock" : "Indent"}
                                             </span>
                                         </div>
                                     </div>

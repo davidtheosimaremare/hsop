@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, ShoppingCart, Truck, CheckCircle2, ChevronDown, ChevronUp, Clock, Loader2, Download, FileSpreadsheet, Package, XCircle, Send, Tag, Eye, ChevronLeft, ChevronRight, MoreHorizontal, ImageIcon, Trash, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -77,12 +78,12 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const STATUS_LABELS: Record<string, string> = {
-    DRAFT: "Penawaran",
-    PENDING: "Penawaran",
-    PROCESSING: "Pembayaran",
+    DRAFT: "Draf Estimasi",
+    PENDING: "Permintaan Penawaran",
+    PROCESSING: "Pesanan diproses",
     PROCESSED: "Diproses",
-    OFFERED: "Penawaran Resmi",
-    CONFIRMED: "Pesanan (HSO)",
+    OFFERED: "Penawaran Tersedia",
+    CONFIRMED: "Pesanan diproses",
     SHIPPED: "Dikirim",
     COMPLETED: "Selesai",
     CANCELLED: "Dibatalkan",
@@ -97,6 +98,7 @@ const CANCEL_REASONS = [
 
 
 export default function TransaksiPage() {
+    const router = useRouter();
     const [quotations, setQuotations] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [userType, setUserType] = useState<string | null>(null);
@@ -124,7 +126,9 @@ export default function TransaksiPage() {
         const result = await getUserQuotations();
         console.log("Quotations result:", result); // Debug log
         if (result.success && result.quotations) {
-            setQuotations(result.quotations);
+            // Filter out estimations, only show real transactions
+            const realTransactions = result.quotations.filter((q: any) => q.isEstimation === false);
+            setQuotations(realTransactions);
             if (result.userType) {
                 setUserType(result.userType);
                 console.log("User type set to:", result.userType);
@@ -194,19 +198,19 @@ export default function TransaksiPage() {
 
     console.log("User type:", userType, "Is Retail:", isRetail); // Debug log
 
-    // Show PENDING/DRAFT/OFFERED/PROCESSING for ALL users
+    // Show PENDING/DRAFT/OFFERED/CANCELLED for ALL users
     const penawaranQuotations = quotations.filter(q =>
-        ["PENDING", "DRAFT", "PROCESSING", "OFFERED", "CANCELLED"].includes(q.status)
+        ["PENDING", "DRAFT", "OFFERED", "CANCELLED"].includes(q.status)
     ).sort((a, b) => {
         if (a.status === 'CANCELLED' && b.status !== 'CANCELLED') return 1;
         if (a.status !== 'CANCELLED' && b.status === 'CANCELLED') return -1;
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
 
-    // Show CONFIRMED orders for ALL users
+    // Show CONFIRMED/PROCESSING/PROCESSED orders for ALL users
     const pesananQuotations = quotations.filter(q =>
-        q.status === "CONFIRMED"
-    );
+        ["CONFIRMED", "PROCESSING", "PROCESSED"].includes(q.status)
+    ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     const dikirimQuotations = quotations.filter(q => q.status === "SHIPPED");
     const selesaiQuotations = quotations.filter(q => q.status === "COMPLETED");
@@ -229,6 +233,20 @@ export default function TransaksiPage() {
     const currentList = getActiveList();
     const totalPages = Math.ceil(currentList.length / itemsPerPage);
     const paginatedList = currentList.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+    const getTransactionSlug = (q: any) => {
+        const no = q.quotationNo || "";
+        const toSlug = (s: string) => s.replace(/\//g, "-");
+        const baseNo = no.replace(/^[A-Z]+\//, "");
+        const fmt = (p: string) => toSlug(`${p}/${baseNo}`);
+
+        if (["PENDING", "DRAFT"].includes(q.status)) return fmt("SQ");
+        if (q.status === "OFFERED") return toSlug(q.accurateHsqNo || fmt("HSQ"));
+        if (["CONFIRMED", "PROCESSING", "PROCESSED"].includes(q.status)) return toSlug(q.accurateHsoNo || fmt("HSO"));
+        if (q.status === "SHIPPED") return toSlug(q.accurateDoNo || fmt("HDO"));
+        if (q.status === "COMPLETED") return fmt("INV");
+        return fmt("SQ");
+    };
 
     const renderTable = (list: any[]) => {
         if (isLoading) {
@@ -277,29 +295,29 @@ export default function TransaksiPage() {
                                     <TableRow
                                         key={q.id}
                                         className={`group hover:bg-gray-50/80 transition-colors cursor-pointer ${isCancelled ? 'opacity-50 grayscale-[0.8] bg-slate-50/50' : ''}`}
-                                        onClick={() => window.location.href = `/dashboard/transaksi/${q.id}`}
+                                        onClick={() => router.push(`/dashboard/transaksi/${getTransactionSlug(q)}`)}
                                     >
                                         <TableCell className="py-4">
                                             <div className="flex flex-col">
                                                 <span className="text-sm font-black text-gray-900 leading-none mb-1">
                                                     {(() => {
                                                         const no = q.quotationNo || "";
-                                                        // Strip existing prefix (SQ/, RFQ/, etc.), rebuild with new one
-                                                        const baseNo = no.replace(/^[A-Z]+\//, ""); // "SQ/26/03/1" → "26/03/1"
-                                                        const fmt = (p: string) => `${p}/${baseNo}`;
+                                                        // Strip existing prefix (SQ/, RFQ/, etc.), rebuild with hyphenated one
+                                                        const baseNo = no.replace(/^[A-Z]+\//, "").replace(/\//g, "-");
+                                                        const fmt = (p: string) => `${p}-${baseNo}`;
 
                                                         if (q.status === 'PENDING' || q.status === 'DRAFT') return fmt('SQ');
-                                                        if (q.status === 'OFFERED') return q.accurateHsqNo || fmt('HSQ');
-                                                        if (q.status === 'CONFIRMED') return q.accurateHsoNo || fmt('HSO');
-                                                        if (q.status === 'SHIPPED') return q.accurateDoNo || fmt('HDO');
+                                                        if (q.status === 'OFFERED') return q.accurateHsqNo?.replace(/\//g, "-") || fmt('HSQ');
+                                                        if (['CONFIRMED', 'PROCESSING', 'PROCESSED'].includes(q.status)) return q.accurateHsoNo?.replace(/\//g, "-") || fmt('HSO');
+                                                        if (q.status === 'SHIPPED') return q.accurateDoNo?.replace(/\//g, "-") || fmt('HDO');
                                                         if (q.status === 'COMPLETED') return fmt('INV');
                                                         return fmt('SQ');
                                                     })()}
                                                 </span>
                                                 <div className="flex flex-col gap-0.5">
                                                     {q.status === 'PENDING' && (
-                                                        <span className="text-[9px] text-orange-600 font-black uppercase tracking-tighter">
-                                                            Draf — Belum dikirim
+                                                        <span className="text-[9px] text-emerald-600 font-black uppercase tracking-tighter">
+                                                            Permintaan Penawaran Dikirim
                                                         </span>
                                                     )}
                                                     {q.status === 'OFFERED' && (
@@ -312,6 +330,7 @@ export default function TransaksiPage() {
                                                             {q.clientName}
                                                         </span>
                                                     )}
+
                                                 </div>
                                             </div>
                                         </TableCell>
@@ -363,24 +382,24 @@ export default function TransaksiPage() {
                                                     </Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end" className="w-40 rounded-xl shadow-xl border-gray-100">
-                                                    <Link href={`/dashboard/transaksi/${q.id}`}>
+                                                    <Link href={`/dashboard/transaksi/${getTransactionSlug(q)}`}>
                                                         <DropdownMenuItem className="gap-2 cursor-pointer font-medium py-2">
                                                             <Eye className="w-4 h-4" /> Detail
                                                         </DropdownMenuItem>
                                                     </Link>
                                                     <DropdownMenuItem
-                                                        onClick={() => exportQuotationPDF(q as QuotationExportData, template)}
+                                                        onClick={async () => exportQuotationPDF(q as QuotationExportData, template)}
                                                         className="gap-2 cursor-pointer font-medium py-2"
                                                     >
                                                         <Download className="w-4 h-4" /> PDF
                                                     </DropdownMenuItem>
                                                     <DropdownMenuItem
-                                                        onClick={() => exportQuotationExcel(q as QuotationExportData, template)}
+                                                        onClick={async () => exportQuotationExcel(q as QuotationExportData, template)}
                                                         className="gap-2 cursor-pointer font-medium py-2"
                                                     >
                                                         <FileSpreadsheet className="w-4 h-4" /> Excel
                                                     </DropdownMenuItem>
-                                                    {['PENDING', 'DRAFT', 'OFFERED', 'PROCESSING', 'CONFIRMED'].includes(q.status) && (
+                                                    {['PENDING', 'DRAFT', 'OFFERED'].includes(q.status) && (
                                                         <DropdownMenuItem
                                                             onClick={(e) => {
                                                                 e.stopPropagation();

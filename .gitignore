@@ -47,3 +47,7 @@ next-env.d.ts
 
 # media
 /public/media
+
+# custom backups
+/backups
+/public/backups

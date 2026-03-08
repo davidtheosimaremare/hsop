@@ -14,6 +14,7 @@ import Link from "next/link";
 import ProductDetailClient from "@/components/public/ProductDetailClient";
 import { getCustomerPricingData } from "@/app/actions/customer-pricing";
 import { PricingProvider } from "@/lib/PricingContext";
+import { getSiteSetting } from "@/app/actions/settings";
 
 // Since it's a dynamic route
 export default async function ProductDetailPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -45,9 +46,10 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
     };
     // --------------------------------
 
-    const [relatedProducts, pricingData] = await Promise.all([
-        getRelatedProducts(product.category || "", product.id),
+    const [relatedProducts, pricingData, whatsappConfig] = await Promise.all([
+        getRelatedProducts(product.category || "", product.id, product.name),
         getCustomerPricingData(),
+        getSiteSetting("whatsapp_config") as Promise<Record<string, string> | null>
     ]);
 
     return (
@@ -84,7 +86,11 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                         initialMappings={pricingData.categoryMappings}
                         initialDiscountRules={pricingData.discountRules}
                     >
-                        <ProductDetailClient product={productWithStock as any} relatedProducts={relatedProducts as any[]} />
+                        <ProductDetailClient 
+                            product={productWithStock as any} 
+                            relatedProducts={relatedProducts as any[]} 
+                            whatsappConfig={whatsappConfig}
+                        />
                     </PricingProvider>
 
                 </div>

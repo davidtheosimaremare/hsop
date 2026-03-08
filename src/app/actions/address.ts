@@ -286,7 +286,11 @@ export async function getUserAddresses() {
     try {
         const session = await getSession();
         if (!session?.user?.id) return { success: false, addresses: [], error: "Unauthorized" };
-        const addresses = await db.customerAddress.findMany({ where: { customerId: session.user.id }, orderBy: { isPrimary: 'desc' } });
+        const ownerId = session.user.customerId || session.user.id;
+        const addresses = await db.customerAddress.findMany({
+            where: { customerId: ownerId },
+            orderBy: { isPrimary: 'desc' }
+        });
         return { success: true, addresses, error: undefined };
     } catch (e) { return { success: false, addresses: [], error: "Gagal mengambil alamat" }; }
 }
@@ -295,7 +299,8 @@ export async function addUserAddress(formData: FormData) {
     try {
         const session = await getSession();
         if (!session?.user?.id) return { success: false, error: "Unauthorized" };
-        return addCustomerAddressAction(session.user.id, formData);
+        const ownerId = session.user.customerId || session.user.id;
+        return addCustomerAddressAction(ownerId, formData);
     } catch (e) { return { success: false, error: "Gagal menambah alamat" }; }
 }
 
@@ -309,12 +314,16 @@ export async function updateUserAddress(addressId: string, formData: FormData) {
 
         const session = await getSession();
         if (!session?.user?.id) return { error: "Unauthorized" };
+        const ownerId = session.user.customerId || session.user.id;
 
         if (isPrimary) {
-            await db.customerAddress.updateMany({ where: { customerId: session.user.id }, data: { isPrimary: false } });
+            await db.customerAddress.updateMany({
+                where: { customerId: ownerId },
+                data: { isPrimary: false }
+            });
         }
         await db.customerAddress.update({
-            where: { id: addressId, customerId: session.user.id },
+            where: { id: addressId, customerId: ownerId },
             data: { address, label, recipient, phone, isPrimary }
         });
         revalidatePath("/dashboard/alamat");
@@ -326,7 +335,8 @@ export async function setPrimaryUserAddress(addressId: string) {
     try {
         const session = await getSession();
         if (!session?.user?.id) return { error: "Unauthorized" };
-        const result = await setPrimaryAddressAction(session.user.id, addressId);
+        const ownerId = session.user.customerId || session.user.id;
+        const result = await setPrimaryAddressAction(ownerId, addressId);
         revalidatePath("/dashboard/alamat");
         return result;
     } catch (e) { return { error: "Gagal mengatur primary address" }; }
@@ -336,7 +346,8 @@ export async function deleteUserAddress(addressId: string) {
     try {
         const session = await getSession();
         if (!session?.user?.id) return { error: "Unauthorized" };
-        const result = await deleteCustomerAddressAction(addressId, session.user.id);
+        const ownerId = session.user.customerId || session.user.id;
+        const result = await deleteCustomerAddressAction(addressId, ownerId);
         revalidatePath("/dashboard/alamat");
         return result;
     } catch (e) { return { error: "Gagal menghapus alamat" }; }

@@ -9,26 +9,30 @@ import {
     History,
     Wallet,
     Loader2,
-    ArrowRight
+    ArrowRight,
+    Send,
+    FileCheck,
+    CheckCircle2,
+    Clock
 } from "lucide-react";
 import Link from "next/link";
 import { getUserQuotations } from "@/app/actions/quotation";
-import { getCurrentUser } from "@/app/actions/auth";
+import { getCurrentUserWithCustomer } from "@/app/actions/auth";
 import { getUpgradeRequestStatus } from "@/app/actions/upgrade";
 import { allPermissions, permissionCategories } from "@/lib/rbac";
 
 export default function DashboardPage() {
     const [counts, setCounts] = useState({
-        offered: 0,
-        confirmed: 0,
-        shipped: 0,
-        pending: 0,
+        permintaan: 0,  // PENDING, DRAFT
+        penawaran: 0,   // OFFERED
+        pesanan: 0,     // CONFIRMED, PROCESSING
+        selesai: 0,     // SHIPPED, COMPLETED
         total: 0
     });
     const [user, setUser] = useState<any>(null);
-    const [isRetail, setIsRetail] = useState(false);
+    const [customerType, setCustomerType] = useState<string>("RETAIL");
     const [isLoading, setIsLoading] = useState(true);
-    const [upgradeRequest, setUpgradeRequest] = useState<any>(null); // null = none, object = pending/rejected/approved
+    const [upgradeRequest, setUpgradeRequest] = useState<any>(null);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -36,33 +40,30 @@ export default function DashboardPage() {
             try {
                 const [quotationResult, userResult, upgradeResult] = await Promise.all([
                     getUserQuotations(),
-                    getCurrentUser(),
+                    getCurrentUserWithCustomer(),
                     getUpgradeRequestStatus()
                 ]);
 
                 if (quotationResult.success) {
-                    const qs = quotationResult.quotations;
-                    const retailCheck = qs.some((q: any) => q.customerType === 'RETAIL' || q.customerType === 'RITEL' || q.customerType !== 'BISNIS');
-                    setIsRetail(retailCheck);
+                    // Filter out estimations for transaction counts
+                    const qs = quotationResult.quotations.filter((q: any) => q.isEstimation === false);
 
                     setCounts({
-                        offered: qs.filter((q: any) => retailCheck ? false : q.status === "OFFERED").length,
-                        confirmed: qs.filter((q: any) => {
-                            if (retailCheck) return ["OFFERED", "PROCESSING", "CONFIRMED"].includes(q.status);
-                            return ["CONFIRMED", "PROCESSING"].includes(q.status);
-                        }).length,
-                        shipped: qs.filter((q: any) => q.status === "SHIPPED").length,
-                        pending: qs.filter((q: any) => {
-                            if (retailCheck) return ["PENDING", "DRAFT"].includes(q.status);
-                            return ["PENDING", "DRAFT"].includes(q.status);
-                        }).length,
+                        permintaan: qs.filter((q: any) => ["PENDING", "DRAFT"].includes(q.status)).length,
+                        penawaran: qs.filter((q: any) => q.status === "OFFERED").length,
+                        pesanan: qs.filter((q: any) => ["CONFIRMED", "PROCESSING"].includes(q.status)).length,
+                        selesai: qs.filter((q: any) => ["SHIPPED", "COMPLETED"].includes(q.status)).length,
                         total: qs.length
                     });
                 }
-                
-                setUser(userResult);
-                setUpgradeRequest(upgradeResult); // Set upgrade request status
-                
+
+                // Get customer type from user data
+                if (userResult) {
+                    setUser(userResult);
+                    setCustomerType(userResult.customerType || "RETAIL");
+                }
+                setUpgradeRequest(upgradeResult);
+
             } catch (error) {
                 console.error("Dashboard error:", error);
             } finally {
@@ -73,97 +74,137 @@ export default function DashboardPage() {
         fetchData();
     }, []);
 
+    // Get Jakarta time (GMT+7)
+    const getJakartaTime = () => {
+        const now = new Date();
+        // Convert to Jakarta timezone
+        const jakartaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+        return jakartaTime.getHours();
+    };
+
     const getTimeGreeting = () => {
-        const hour = new Date().getHours();
-        if (hour < 11) return "Selamat Pagi";
-        if (hour < 15) return "Selamat Siang";
-        if (hour < 19) return "Selamat Sore";
+        const hour = getJakartaTime();
+        if (hour >= 5 && hour < 11) return "Selamat Pagi";
+        if (hour >= 11 && hour < 15) return "Selamat Siang";
+        if (hour >= 15 && hour < 18) return "Selamat Sore";
         return "Selamat Malam";
     };
 
-    const getPersonalizedGreeting = () => {
-        if (!user?.name) return { greeting: "Halo, Pelanggan", showTitle: false };
-        
-        const name = user.name;
-        const isCompany = name.toLowerCase().includes('pt') || 
-                         name.toLowerCase().includes('cv') || 
-                         name.toLowerCase().includes('tbk') ||
-                         name.toLowerCase().includes('persero');
-        
-        if (isCompany) {
-            return { greeting: `Halo, ${name}`, showTitle: false };
-        } else {
-            return { greeting: `Halo, Pak/Bu ${name.split(' ').pop()}`, showTitle: true };
-        }
+    const getGreetingIcon = () => {
+        const hour = getJakartaTime();
+        if (hour >= 5 && hour < 11) return "🌅";
+        if (hour >= 11 && hour < 15) return "☀️";
+        if (hour >= 15 && hour < 18) return "🌇";
+        return "🌙";
     };
 
-    const { greeting: personalizedGreeting } = getPersonalizedGreeting();
+    const getPersonalizedGreeting = () => {
+        if (!user?.name) return "Halo Pelanggan";
+
+        const name = user.name;
+        // Extract first name
+        const nameParts = name.trim().split(/\s+/);
+        const firstName = nameParts[0];
+
+        return `Halo ${firstName}`;
+    };
+
+    // Show reseller card only for RETAIL customers (general customers)
+    const showResellerCard = customerType === "RETAIL" && !upgradeRequest;
+    const showPendingCard = upgradeRequest?.status === "PENDING";
+    const showRejectedCard = customerType === "RETAIL" && upgradeRequest?.status === "REJECTED";
 
     if (isLoading) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[400px] bg-white rounded-2xl border border-gray-100 shadow-sm">
-                <Loader2 className="w-8 h-8 text-red-500 animate-spin mb-3" />
-                <p className="text-gray-400 font-medium text-sm">Menyiapkan dashboard Anda...</p>
+                <div className="relative">
+                    <div className="w-16 h-16 border-4 border-gray-100 rounded-full"></div>
+                    <div className="w-16 h-16 border-4 border-red-500 border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
+                </div>
+                <p className="text-gray-500 font-medium text-sm mt-4">Menyiapkan dashboard Anda...</p>
             </div>
         );
     }
 
     return (
         <div className="space-y-6">
-            {/* ─── Greeting Section ─── */}
-            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center">
-                        <FileText className="w-5 h-5 text-red-600" />
+            {/* ─── Modern Greeting Section ─── */}
+            <div className="relative overflow-hidden bg-gradient-to-br from-white via-red-50/30 to-orange-50/30 rounded-2xl border border-gray-100/80 p-6 shadow-sm">
+                {/* Background decorations */}
+                <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-red-100/40 to-orange-100/40 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-blue-100/30 to-purple-100/30 rounded-full blur-2xl translate-y-1/2 -translate-x-1/4 pointer-events-none" />
+
+                <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-3">
+                            <span className="text-2xl">{getGreetingIcon()}</span>
+                            <span className="text-sm font-bold text-red-600 bg-red-50 px-3 py-1 rounded-full">
+                                {getTimeGreeting()}
+                            </span>
+                        </div>
+                        <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">
+                            {getPersonalizedGreeting()}
+                        </h1>
+                        <p className="text-gray-500 text-sm lg:text-base font-medium max-w-lg">
+                            Kelola pesanan dan pantau pengiriman produk Anda dalam satu tempat.
+                        </p>
                     </div>
-                    <span className="text-sm font-bold text-red-600">{getTimeGreeting()}</span>
+
+                    {/* Profile Image */}
+                    <div className="flex-shrink-0">
+                        <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl overflow-hidden border-4 border-white shadow-lg bg-red-100 flex items-center justify-center text-red-600 text-3xl font-bold">
+                            {user?.image ? (
+                                <img src={user.image} alt={user.name || "User"} className="w-full h-full object-cover" />
+                            ) : (
+                                <span>{user?.name ? user.name.charAt(0).toUpperCase() : (user?.email ? user.email.charAt(0).toUpperCase() : 'U')}</span>
+                            )}
+                        </div>
+                    </div>
                 </div>
-                <h1 className="text-2xl font-bold text-gray-900 mb-1">
-                    {personalizedGreeting}
-                </h1>
-                <p className="text-gray-500 text-sm font-medium">
-                    Kelola pesanan dan pantau pengiriman produk Anda dalam satu tempat.
-                </p>
             </div>
 
-            {/* ─── Order Summary Boxes ─── */}
+            {/* ─── Order Summary Boxes (Permintaan, Penawaran, Pesanan, Selesai) ─── */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <ModernSummaryCard
-                    label="Draft"
-                    count={counts.pending}
-                    icon={FileText}
-                    gradient="from-red-500 to-red-600"
-                    bgColor="bg-red-50"
+                    label="Permintaan"
+                    count={counts.permintaan}
+                    icon={Send}
+                    gradient="from-orange-500 to-amber-500"
+                    bgColor="bg-orange-50"
+                    iconBg="bg-gradient-to-br from-orange-400 to-amber-500"
                     href="/dashboard/transaksi"
                 />
                 <ModernSummaryCard
-                    label="Diproses"
-                    count={counts.offered + counts.confirmed}
-                    icon={Package}
-                    gradient="from-blue-500 to-blue-600"
+                    label="Penawaran"
+                    count={counts.penawaran}
+                    icon={FileCheck}
+                    gradient="from-blue-500 to-indigo-500"
                     bgColor="bg-blue-50"
+                    iconBg="bg-gradient-to-br from-blue-400 to-indigo-500"
                     href="/dashboard/transaksi"
                 />
                 <ModernSummaryCard
-                    label="Dikirim"
-                    count={counts.shipped}
-                    icon={Truck}
-                    gradient="from-emerald-500 to-emerald-600"
-                    bgColor="bg-emerald-50"
-                    href="/dashboard/transaksi"
-                />
-                <ModernSummaryCard
-                    label="Total Pesanan"
-                    count={counts.total}
-                    icon={ShoppingCart}
-                    gradient="from-violet-500 to-violet-600"
+                    label="Pesanan"
+                    count={counts.pesanan}
+                    icon={Package}
+                    gradient="from-violet-500 to-purple-500"
                     bgColor="bg-violet-50"
+                    iconBg="bg-gradient-to-br from-violet-400 to-purple-500"
+                    href="/dashboard/transaksi"
+                />
+                <ModernSummaryCard
+                    label="Selesai"
+                    count={counts.selesai}
+                    icon={CheckCircle2}
+                    gradient="from-emerald-500 to-green-500"
+                    bgColor="bg-emerald-50"
+                    iconBg="bg-gradient-to-br from-emerald-400 to-green-500"
                     href="/dashboard/transaksi"
                 />
             </div>
 
-            {/* ─── Quick Navigation & Reseller Card (One Row) ─── */}
-            <div className={`grid gap-4 ${!upgradeRequest ? 'grid-cols-1 lg:grid-cols-3' : 'grid-cols-1 lg:grid-cols-2'}`}>
+            {/* ─── Quick Navigation & Reseller Card ─── */}
+            <div className={`grid gap-4 ${showResellerCard || showPendingCard || showRejectedCard ? 'grid-cols-1 lg:grid-cols-3' : 'grid-cols-1 lg:grid-cols-2'}`}>
                 <QuickActionCard
                     icon={History}
                     title="Riwayat Transaksi"
@@ -176,42 +217,44 @@ export default function DashboardPage() {
                     desc="Atur profil dan preferensi"
                     href="/dashboard/profil"
                 />
-                
-                {/* Show Reseller Card based on upgrade request status */}
-                {!upgradeRequest && <ResellerCard />}
-                {upgradeRequest?.status === "PENDING" && <PendingUpgradeCard />}
-                {upgradeRequest?.status === "REJECTED" && <ResellerCard showRejected />}
-                {/* If APPROVED, don't show any card */}
+
+                {/* Show Reseller Card only for RETAIL customers */}
+                {showResellerCard && <ResellerCard />}
+                {showPendingCard && <PendingUpgradeCard />}
+                {showRejectedCard && <ResellerCard showRejected />}
             </div>
         </div>
     );
 }
 
 // ─── Modern Summary Card Component ───
-function ModernSummaryCard({ label, count, icon: Icon, gradient, bgColor, href }: any) {
+function ModernSummaryCard({ label, count, icon: Icon, gradient, bgColor, iconBg, href }: any) {
     return (
-        <Link href={href} className="group relative overflow-hidden rounded-2xl bg-white border border-gray-100 p-5 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-gray-200">
-            <div className={`absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br ${gradient} opacity-10 rounded-full blur-2xl group-hover:opacity-20 transition-opacity duration-300`} />
-            
+        <Link href={href} className="group relative overflow-hidden rounded-2xl bg-white border border-gray-100 p-5 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-gray-200">
+            {/* Background glow effect */}
+            <div className={`absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br ${gradient} opacity-10 rounded-full blur-2xl group-hover:opacity-20 group-hover:scale-110 transition-all duration-300`} />
+
             <div className="relative z-10">
                 <div className="flex items-start justify-between mb-4">
-                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all duration-300`}>
-                        <Icon className="w-6 h-6 text-white" />
+                    <div className={`w-12 h-12 rounded-xl ${iconBg || `bg-gradient-to-br ${gradient}`} flex items-center justify-center shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-300`}>
+                        <Icon className="w-6 h-6 text-white" strokeWidth={2} />
                     </div>
+                    <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 group-hover:translate-x-1 transition-all duration-300" />
                 </div>
-                
+
                 <div className="mb-1">
-                    <p className={`text-4xl font-black bg-gradient-to-br ${gradient} bg-clip-text text-transparent leading-none`}>
+                    <p className={`text-4xl font-black bg-gradient-to-br ${gradient} bg-clip-text text-transparent leading-none tracking-tight`}>
                         {count}
                     </p>
                 </div>
-                
-                <p className={`text-xs font-bold uppercase tracking-wider ${bgColor.replace('bg-', 'text-').replace('50', '600')}`}>
+
+                <p className="text-xs font-bold uppercase tracking-wider text-gray-500 group-hover:text-gray-700 transition-colors">
                     {label}
                 </p>
             </div>
-            
-            <div className={`absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none`} style={{ background: `linear-gradient(135deg, transparent 0%, transparent 95%, rgba(0,0,0,0.05) 100%)` }} />
+
+            {/* Hover border effect */}
+            <div className={`absolute inset-0 rounded-2xl border-2 border-transparent group-hover:border-gray-200/50 transition-all duration-300 pointer-events-none`} />
         </Link>
     );
 }

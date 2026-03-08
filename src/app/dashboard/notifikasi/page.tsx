@@ -22,7 +22,8 @@ import {
 } from "lucide-react";
 import {
     markAllNotificationsAsRead,
-    deleteNotification
+    deleteNotification,
+    clearNotifications
 } from "@/app/actions/notification";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
@@ -63,6 +64,7 @@ export default function NotificationsPage() {
     const { user } = useAuth();
     const [selectedNotification, setSelectedNotification] = useState<any>(null);
     const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; id: string | null }>({ open: false, id: null });
+    const [clearDialog, setClearDialog] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 15;
@@ -95,6 +97,19 @@ export default function NotificationsPage() {
         setDeleteDialog({ open: false, id: null });
     };
 
+    const handleClearAll = async () => {
+        setIsDeleting(true);
+        const result = await clearNotifications();
+        if (result.success) {
+            toast.success("Semua notifikasi telah dibersihkan");
+            refresh();
+        } else {
+            toast.error(result.error || "Gagal membersihkan notifikasi");
+        }
+        setIsDeleting(false);
+        setClearDialog(false);
+    };
+
     // Pagination
     const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -122,17 +137,30 @@ export default function NotificationsPage() {
                         {total} notifikasi • {unreadCount} belum dibaca
                     </p>
                 </div>
-                {unreadCount > 0 && (
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleMarkAllAsRead}
-                        className="gap-2 text-xs h-8"
-                    >
-                        <CheckCheck className="w-4 h-4" />
-                        Tandai Semua Dibaca
-                    </Button>
-                )}
+                <div className="flex items-center gap-2">
+                    {total > 0 && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setClearDialog(true)}
+                            className="gap-2 text-xs h-8 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-100"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                            Bersihkan
+                        </Button>
+                    )}
+                    {unreadCount > 0 && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleMarkAllAsRead}
+                            className="gap-2 text-xs h-8"
+                        >
+                            <CheckCheck className="w-4 h-4" />
+                            Tandai Semua Dibaca
+                        </Button>
+                    )}
+                </div>
             </div>
 
             {/* Table */}
@@ -294,6 +322,17 @@ export default function NotificationsPage() {
                 onConfirm={() => deleteDialog.id && handleDelete(deleteDialog.id)}
                 isLoading={isDeleting}
                 confirmText="Ya, Hapus"
+            />
+
+            <ModernConfirm
+                open={clearDialog}
+                onOpenChange={setClearDialog}
+                title="Bersihkan Semua Notifikasi?"
+                description="Tindakan ini akan menghapus seluruh daftar notifikasi Anda secara permanen. Lanjutkan?"
+                onConfirm={handleClearAll}
+                isLoading={isDeleting}
+                confirmText="Ya, Bersihkan Semua"
+                variant="destructive"
             />
         </div>
     );

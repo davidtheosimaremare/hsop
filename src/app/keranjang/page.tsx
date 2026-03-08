@@ -61,7 +61,8 @@ export default function CartPage() {
                 readyStock: item.stockStatus === 'READY' ? item.quantity : 0,
                 indent: item.stockStatus === 'INDENT' ? item.quantity : 0,
                 discountStr: item.discountStr,
-                originalPrice: item.originalPrice
+                originalPrice: item.originalPrice,
+                stockStatus: item.stockStatus
             };
         });
 

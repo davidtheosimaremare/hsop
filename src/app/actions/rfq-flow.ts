@@ -4,6 +4,27 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { logActivity } from "./activity";
+import { notifyAdmins } from "./notification";
+
+async function resolveQuotation(idOrNo: string) {
+    const decoded = decodeURIComponent(idOrNo);
+    // Standardize number: replace - with / and remove any prefix like SQ- or HSQ-
+    const baseNo = decoded.replace(/^[A-Z]+-/, "").replace(/-/g, "/");
+
+    return await db.salesQuotation.findFirst({
+        where: {
+            OR: [
+                { id: decoded },
+                { quotationNo: decoded },
+                { quotationNo: decoded.replace(/-/g, "/") },
+                { quotationNo: "SQ/" + baseNo },
+                { quotationNo: { endsWith: baseNo } },
+                { accurateHsqNo: decoded.replace(/-/g, "/") },
+                { accurateHsoNo: decoded.replace(/-/g, "/") }
+            ]
+        }
+    });
+}
 
 // --- Stage 1: Admin Confirm Quotation (Link HRSQ) ---
 export async function adminConfirmQuotation(
@@ -13,9 +34,16 @@ export async function adminConfirmQuotation(
     adminQuotePdfPath?: string,
     adminNotes?: string
 ) {
+    const session = await getSession();
+    if (!session?.user || !["SUPER_ADMIN", "ADMIN", "MANAGER"].includes(session.user.role)) {
+        return { success: false, error: "Unauthorized" };
+    }
     try {
+        const quote = await resolveQuotation(quotationId);
+        if (!quote) return { success: false, error: "Quotation not found" };
+
         await db.salesQuotation.update({
-            where: { id: quotationId },
+            where: { id: quote.id },
             data: {
                 status: "OFFERED",
                 accurateHsqId: accurateHsqId || null,
@@ -30,20 +58,24 @@ export async function adminConfirmQuotation(
         const logPromises: Promise<any>[] = [];
         if (accurateHsqNo) {
             logPromises.push(
-                logActivity(quotationId, "OFFER_SENT", "Penawaran (SQ) dikirim ke user", `Admin mengirimkan Sales Quotation resmi nomor ${accurateHsqNo}.`, "ADMIN")
+                logActivity(quote.id, "OFFER_SENT", "Penawaran (SQ) dikirim ke user", `Admin mengirimkan Sales Quotation resmi nomor ${accurateHsqNo}.`, "ADMIN")
             );
         } else {
             logPromises.push(
-                logActivity(quotationId, "OFFER_SENT", "Tagihan / Konfirmasi dikirim ke user", `Admin telah mengkonfirmasi pesanan. Tagihan telah tersedia.`, "ADMIN")
+                logActivity(quote.id, "OFFER_SENT", "Tagihan / Konfirmasi dikirim ke user", `Admin telah mengkonfirmasi pesanan. Tagihan telah tersedia.`, "ADMIN")
             );
         }
         if (adminQuotePdfPath) {
             logPromises.push(
-                logActivity(quotationId, "SQ_UPLOADED", "Dokumen SQ diupload", `Admin mengunggah dokumen penawaran resmi (SQ).`, "ADMIN")
+                logActivity(quote.id, "SQ_UPLOADED", "Dokumen SQ diupload", `Admin mengunggah dokumen penawaran disetujui (SQ).`, "ADMIN")
             );
         }
         await Promise.all(logPromises);
+        revalidatePath("/admin/sales/quotations");
+        revalidatePath(`/admin/sales/quotations/${quote.id}`);
         revalidatePath(`/admin/sales/quotations/${quotationId}`);
+        revalidatePath(`/dashboard/transaksi/${quote.id}`);
+        revalidatePath(`/dashboard/transaksi/${quotationId}`);
         return { success: true };
     } catch (error) {
         console.error("adminConfirmQuotation error:", error);
@@ -63,15 +95,17 @@ export async function userSubmitPO(
         const session = await getSession();
         if (!session?.user) return { success: false, error: "Unauthorized" };
 
-        const quote = await db.salesQuotation.findUnique({ where: { id: quotationId } });
-        if (!quote || quote.userId !== session.user.id) return { success: false, error: "Unauthorized" };
+        const quote = await resolveQuotation(quotationId);
+        if (!quote) return { success: false, error: "Quotation not found" };
+
+        const isOwner = quote.userId === session.user.id;
+        const isBelongToCustomer = session.user.customerId && quote.customerId === session.user.customerId;
+
+        if (!isOwner && !isBelongToCustomer) return { success: false, error: "Unauthorized" };
 
         await db.salesQuotation.update({
-            where: { id: quotationId },
+            where: { id: quote.id },
             data: {
-                status: "CONFIRMED", // Or stay OFFERED if discount requested? Let's say CONFIRMED means user responded.
-                // Actually, if discount requested, maybe status should be PROCESSING or back to PENDING? 
-                // Plan says: "Admin memproses pesanan". So CONFIRMED is good.
                 userPoPath,
                 specialDiscountRequest,
                 specialDiscountNote,
@@ -80,14 +114,28 @@ export async function userSubmitPO(
         });
 
         // Log Activity: PO Upload + Discount Request (separate events)
-        await logActivity(quotationId, "PO_UPLOADED", "Purchase Order (PO) diupload", "User mengunggah dokumen Purchase Order untuk dikonfirmasi admin.", "USER");
+        await logActivity(quote.id, "PO_UPLOADED", "Purchase Order (PO) diupload", "User mengunggah dokumen Purchase Order untuk dikonfirmasi admin.", "USER");
         if (specialDiscountRequest) {
             const discountDesc = specialDiscountNote
                 ? `User mengajukan permintaan diskon tambahan: "${specialDiscountNote}"`
                 : "User mengajukan permintaan diskon tambahan tanpa catatan.";
-            await logActivity(quotationId, "DISCOUNT_REQUESTED", "Pengajuan diskon tambahan", discountDesc, "USER");
+            await logActivity(quote.id, "DISCOUNT_REQUESTED", "Pengajuan diskon tambahan", discountDesc, "USER");
         }
+
+        // Notify Admins
+        await notifyAdmins({
+            title: specialDiscountRequest ? "PO & Permintaan Diskon" : "PO Baru Diunggah",
+            message: `User mengunggah PO untuk ${quote.quotationNo}${specialDiscountRequest ? " dan meminta diskon spesial." : "."}`,
+            type: "ORDER",
+            link: `/admin/sales/quotations/${quote.quotationNo.replace(/\//g, "-")}`
+        });
+
+        revalidatePath("/admin/sales/quotations");
+        revalidatePath(`/admin/sales/quotations/${quote.id}`);
+        revalidatePath(`/admin/sales/quotations/${quotationId}`);
         revalidatePath(`/dashboard/transaksi`);
+        revalidatePath(`/dashboard/transaksi/${quote.id}`);
+        revalidatePath(`/dashboard/transaksi/${quotationId}`);
         return { success: true };
     } catch (error) {
         console.error("userSubmitPO error:", error);
@@ -105,9 +153,16 @@ export async function adminProcessOrder(
     adminInvoicePdfPath?: string,
     nextStatus: string = "PROCESSING"
 ) {
+    const session = await getSession();
+    if (!session?.user || !["SUPER_ADMIN", "ADMIN", "MANAGER"].includes(session.user.role)) {
+        return { success: false, error: "Unauthorized" };
+    }
     try {
+        const quote = await resolveQuotation(quotationId);
+        if (!quote) return { success: false, error: "Quotation not found" };
+
         await db.salesQuotation.update({
-            where: { id: quotationId },
+            where: { id: quote.id },
             data: {
                 status: nextStatus,
                 accurateHsoId: accurateHsoId || null,
@@ -123,29 +178,30 @@ export async function adminProcessOrder(
         const soLogPromises: Promise<any>[] = [];
         if (accurateHsoNo) {
             soLogPromises.push(
-                logActivity(quotationId, "SO_UPLOADED", "Sales Order (SO) diterbitkan", `Admin memproses pesanan dan menerbitkan SO nomor ${accurateHsoNo}.`, "ADMIN")
+                logActivity(quote.id, "SO_UPLOADED", "Sales Order (SO) diterbitkan", `Admin memproses pesanan and menerbitkan SO nomor ${accurateHsoNo}.`, "ADMIN")
             );
         } else {
             soLogPromises.push(
-                logActivity(quotationId, "ORDER_PROCESSED", "Pesanan Diterima & Diproses", `Admin memproses pesanan ini untuk disiapkan dan dikirimkan.`, "ADMIN")
+                logActivity(quote.id, "ORDER_PROCESSED", "Pesanan Diterima & Diproses", `Admin memproses pesanan ini untuk disiapkan dan dikirimkan.`, "ADMIN")
             );
         }
         if (adminSoPdfPath) {
             soLogPromises.push(
-                logActivity(quotationId, "SO_DOC_UPLOADED", "Dokumen SO diupload", "Admin mengunggah dokumen Sales Order (SO).", "ADMIN")
+                logActivity(quote.id, "SO_DOC_UPLOADED", "Dokumen SO diupload", "Admin mengunggah dokumen Sales Order (SO).", "ADMIN")
             );
         }
         if (adminInvoicePdfPath) {
             soLogPromises.push(
-                logActivity(quotationId, "INVOICE_UPLOADED", "Invoice/Faktur diupload", "Admin mengunggah dokumen Faktur Penjualan.", "ADMIN")
+                logActivity(quote.id, "INVOICE_UPLOADED", "Invoice/Faktur diupload", "Admin mengunggah dokumen Faktur Penjualan.", "ADMIN")
             );
         }
         if (adminNotes) {
             soLogPromises.push(
-                logActivity(quotationId, "ADMIN_NOTE", "Catatan admin diperbarui", adminNotes, "ADMIN")
+                logActivity(quote.id, "ADMIN_NOTE", "Catatan admin diperbarui", adminNotes, "ADMIN")
             );
         }
         await Promise.all(soLogPromises);
+        revalidatePath(`/admin/sales/quotations/${quote.id}`);
         revalidatePath(`/admin/sales/quotations/${quotationId}`);
         return { success: true };
     } catch (error) {
@@ -160,14 +216,31 @@ export async function userUploadPaymentProof(quotationId: string, paymentProofPa
         const session = await getSession();
         if (!session?.user) return { success: false, error: "Unauthorized" };
 
+        const quote = await resolveQuotation(quotationId);
+        if (!quote) return { success: false, error: "Quotation not found" };
+
+        const isOwner = quote.userId === session.user.id;
+        const isBelongToCustomer = session.user.customerId && quote.customerId === session.user.customerId;
+
+        if (!isOwner && !isBelongToCustomer) return { success: false, error: "Unauthorized" };
+
         await db.salesQuotation.update({
-            where: { id: quotationId },
+            where: { id: quote.id },
             data: { paymentProofPath }
         });
 
         // Log Activity
-        await logActivity(quotationId, "PAYMENT_UPLOADED", "Bukti bayar diupload", "User telah mengupload bukti pembayaran.", "USER");
+        await logActivity(quote.id, "PAYMENT_UPLOADED", "Bukti bayar diupload", "User telah mengupload bukti pembayaran.", "USER");
 
+        // Notify Admins
+        await notifyAdmins({
+            title: "Bukti Bayar Diunggah",
+            message: `User telah mengunggah bukti pembayaran untuk pesanan ${quote.quotationNo}.`,
+            type: "ORDER",
+            link: `/admin/sales/payments`
+        });
+
+        revalidatePath(`/dashboard/transaksi/${quote.id}`);
         revalidatePath(`/dashboard/transaksi/${quotationId}`);
         return { success: true };
     } catch (error) {
@@ -186,22 +259,20 @@ const ROLLBACK_MAP: Record<string, string> = {
 
 export async function adminRollbackStage(quotationId: string) {
     try {
-        const quotation = await db.salesQuotation.findUnique({
-            where: { id: quotationId }
-        });
+        const quote = await resolveQuotation(quotationId);
+        if (!quote) return { success: false, error: "Quotation not found" };
 
-        if (!quotation) return { success: false, error: "Quotation not found" };
-
-        const previousStatus = ROLLBACK_MAP[quotation.status];
+        const previousStatus = ROLLBACK_MAP[quote.status];
         if (!previousStatus) {
             return { success: false, error: "Tidak bisa kembali dari tahap ini" };
         }
 
         await db.salesQuotation.update({
-            where: { id: quotationId },
+            where: { id: quote.id },
             data: { status: previousStatus }
         });
 
+        revalidatePath(`/admin/sales/quotations/${quote.id}`);
         revalidatePath(`/admin/sales/quotations/${quotationId}`);
         return { success: true, newStatus: previousStatus };
     } catch (error) {
@@ -217,14 +288,18 @@ export async function adminUploadInvoice(quotationId: string, adminInvoicePdfPat
             return { success: false, error: "Unauthorized" };
         }
 
+        const quote = await resolveQuotation(quotationId);
+        if (!quote) return { success: false, error: "Quotation not found" };
+
         await db.salesQuotation.update({
-            where: { id: quotationId },
+            where: { id: quote.id },
             data: { adminInvoicePdfPath }
         });
 
         // Log Activity
-        await logActivity(quotationId, "INVOICE_UPLOADED", "Invoice diterbitkan", "Admin telah mengunggah faktur penjualan.", "ADMIN");
+        await logActivity(quote.id, "INVOICE_UPLOADED", "Invoice diterbitkan", "Admin telah mengunggah faktur penjualan.", "ADMIN");
 
+        revalidatePath(`/admin/sales/quotations/${quote.id}`);
         revalidatePath(`/admin/sales/quotations/${quotationId}`);
         return { success: true };
     } catch (error) {
@@ -242,9 +317,16 @@ export async function adminShipOrder(
     trackingNumber?: string,
     shippingNotes?: string
 ) {
+    const session = await getSession();
+    if (!session?.user || !["SUPER_ADMIN", "ADMIN", "MANAGER"].includes(session.user.role)) {
+        return { success: false, error: "Unauthorized" };
+    }
     try {
+        const quote = await resolveQuotation(quotationId);
+        if (!quote) return { success: false, error: "Quotation not found" };
+
         await db.salesQuotation.update({
-            where: { id: quotationId },
+            where: { id: quote.id },
             data: {
                 status: "SHIPPED",
                 accurateDoId: accurateDoId || null,
@@ -263,7 +345,8 @@ export async function adminShipOrder(
         if (shippingNotes && shippingNotes.trim() !== "") desc += ` (${shippingNotes})`;
         desc += ".";
 
-        await logActivity(quotationId, "DO_UPLOADED", "Pesanan Dikirim", desc, "ADMIN");
+        await logActivity(quote.id, "DO_UPLOADED", "Pesanan Dikirim", desc, "ADMIN");
+        revalidatePath(`/admin/sales/quotations/${quote.id}`);
         revalidatePath(`/admin/sales/quotations/${quotationId}`);
         return { success: true };
     } catch (error) {
@@ -281,8 +364,16 @@ export async function userConfirmReceipt(
         const session = await getSession();
         if (!session?.user) return { success: false, error: "Unauthorized" };
 
+        const quote = await resolveQuotation(quotationId);
+        if (!quote) return { success: false, error: "Quotation not found" };
+
+        const isOwner = quote.userId === session.user.id;
+        const isBelongToCustomer = session.user.customerId && quote.customerId === session.user.customerId;
+
+        if (!isOwner && !isBelongToCustomer) return { success: false, error: "Unauthorized" };
+
         await db.salesQuotation.update({
-            where: { id: quotationId },
+            where: { id: quote.id },
             data: {
                 status: "COMPLETED",
                 receiptEvidencePath,
@@ -291,8 +382,19 @@ export async function userConfirmReceipt(
         });
 
         // Log Activity
-        await logActivity(quotationId, "COMPLETED", "Pesanan selesai", "User telah mengonfirmasi penerimaan barang.", "USER");
+        await logActivity(quote.id, "COMPLETED", "Pesanan selesai", "User telah mengonfirmasi penerimaan barang.", "USER");
+
+        // Notify Admins
+        await notifyAdmins({
+            title: "Pesanan Diterima User",
+            message: `User telah mengonfirmasi penerimaan barang untuk pesanan ${quote.quotationNo}.`,
+            type: "SUCCESS",
+            link: `/admin/sales/quotations/${quote.quotationNo.replace(/\//g, "-")}`
+        });
+
         revalidatePath(`/dashboard/transaksi`);
+        revalidatePath(`/dashboard/transaksi/${quotationId}`);
+        revalidatePath(`/dashboard/transaksi/${quote.id}`);
         return { success: true };
     } catch (error) {
         console.error("userConfirmReceipt error:", error);
@@ -310,8 +412,16 @@ export async function userRequestReturn(
         const session = await getSession();
         if (!session?.user) return { success: false, error: "Unauthorized" };
 
+        const quote = await resolveQuotation(quotationId);
+        if (!quote) return { success: false, error: "Quotation not found" };
+
+        const isOwner = quote.userId === session.user.id;
+        const isBelongToCustomer = session.user.customerId && quote.customerId === session.user.customerId;
+
+        if (!isOwner && !isBelongToCustomer) return { success: false, error: "Unauthorized" };
+
         await db.salesQuotation.update({
-            where: { id: quotationId },
+            where: { id: quote.id },
             data: {
                 returnRequest: true,
                 returnReason,
@@ -320,8 +430,19 @@ export async function userRequestReturn(
         });
 
         // Log Activity
-        await logActivity(quotationId, "RETURN_REQUESTED", "Pengajuan retur", `User mengajukan pengembalian barang dengan alasan: ${returnReason}`, "USER");
+        await logActivity(quote.id, "RETURN_REQUESTED", "Pengajuan retur", `User mengajukan pengembalian barang dengan alasan: ${returnReason}`, "USER");
+
+        // Notify Admins
+        await notifyAdmins({
+            title: "Permintaan Retur Baru",
+            message: `User mengajukan retur untuk ${quote.quotationNo}. Alasan: ${returnReason}`,
+            type: "WARNING",
+            link: `/admin/sales/returns`
+        });
+
         revalidatePath(`/dashboard/transaksi`);
+        revalidatePath(`/dashboard/transaksi/${quotationId}`);
+        revalidatePath(`/dashboard/transaksi/${quote.id}`);
         return { success: true };
     } catch (error) {
         console.error("userRequestReturn error:", error);
@@ -336,11 +457,8 @@ export async function adminJumpToStatus(quotationId: string, targetStatus: strin
             return { success: false, error: "Unauthorized" };
         }
 
-        const quotation = await db.salesQuotation.findUnique({
-            where: { id: quotationId }
-        });
-
-        if (!quotation) return { success: false, error: "Quotation not found" };
+        const quote = await resolveQuotation(quotationId);
+        if (!quote) return { success: false, error: "Quotation not found" };
 
         const validStatuses = ["PENDING", "OFFERED", "CONFIRMED", "PROCESSING", "SHIPPED", "COMPLETED"];
         if (!validStatuses.includes(targetStatus)) {
@@ -348,10 +466,11 @@ export async function adminJumpToStatus(quotationId: string, targetStatus: strin
         }
 
         await db.salesQuotation.update({
-            where: { id: quotationId },
+            where: { id: quote.id },
             data: { status: targetStatus }
         });
 
+        revalidatePath(`/admin/sales/quotations/${quote.id}`);
         revalidatePath(`/admin/sales/quotations/${quotationId}`);
         return { success: true };
     } catch (error) {
@@ -363,20 +482,25 @@ export async function adminJumpToStatus(quotationId: string, targetStatus: strin
 // --- Admin Upload Tax Invoice (Faktur Pajak) ---
 export async function adminUploadTaxInvoice(quotationId: string, taxInvoiceUrl: string) {
     try {
+        const quote = await resolveQuotation(quotationId);
+        if (!quote) return { success: false, error: "Quotation not found" };
+
         await db.salesQuotation.update({
-            where: { id: quotationId },
+            where: { id: quote.id },
             data: { taxInvoiceUrl }
         });
 
         await logActivity(
-            quotationId,
+            quote.id,
             "TAX_INVOICE_UPLOADED",
             "Faktur Pajak diupload",
             "Admin telah mengunggah dokumen Faktur Pajak (e-Faktur).",
             "ADMIN"
         );
 
+        revalidatePath(`/admin/sales/quotations/${quote.id}`);
         revalidatePath(`/admin/sales/quotations/${quotationId}`);
+        revalidatePath(`/dashboard/transaksi/${quote.id}`);
         revalidatePath(`/dashboard/transaksi/${quotationId}`);
         return { success: true };
     } catch (error) {

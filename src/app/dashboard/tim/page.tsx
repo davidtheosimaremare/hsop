@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Users, Building2, UserPlus, AlertCircle, CheckCircle2, Shield, Share2, ShoppingCart, TrendingUp, Building } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { TeamManager } from "@/components/dashboard/TeamManager";
 
 export default async function ManageTeamPage() {
     const session = await getSession();
@@ -22,8 +23,17 @@ export default async function ManageTeamPage() {
         redirect("/masuk");
     }
 
-    const isCompany = user.customer?.type === "CORPORATE";
+    // Unified check for accounts that can manage teams
+    // Supported types: CORPORATE, RESELLER, BISNIS
+    // GENERAL / INDIVIDUAL see benefits
+    const canManageTeam = user.customer?.type === "CORPORATE" || user.customer?.type === "RESELLER" || user.customer?.type === "BISNIS";
     const customer = user.customer;
+
+    // Fetch Team Members
+    const teamMembers = canManageTeam ? await db.user.findMany({
+        where: { customerId: user.customerId },
+        orderBy: { createdAt: "asc" }
+    }) : [];
 
     return (
         <div className="space-y-6">
@@ -33,17 +43,11 @@ export default async function ManageTeamPage() {
                     <h1 className="text-2xl font-bold text-gray-900">Kelola Tim</h1>
                     <p className="text-gray-500">Atur akses dan anggota tim Anda.</p>
                 </div>
-                {isCompany && (
-                    <Button className="bg-red-600 hover:bg-red-700 text-white gap-2">
-                        <UserPlus className="w-4 h-4" />
-                        Tambah Anggota
-                    </Button>
-                )}
             </div>
 
             {/* Content */}
-            {!isCompany ? (
-                // Retail Account View - Show Company Benefits
+            {!canManageTeam ? (
+                // Retail Account View - Show Company/Business Benefits
                 <div className="space-y-6">
                     {/* Hero Banner */}
                     <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8 text-white">
@@ -56,14 +60,14 @@ export default async function ManageTeamPage() {
                                     <Building2 className="w-7 h-7 text-white" />
                                 </div>
                                 <div>
-                                    <h2 className="text-xl font-bold">Akun Perusahaan</h2>
-                                    <p className="text-sm text-slate-300">Solusi terbaik untuk bisnis Anda</p>
+                                    <h2 className="text-xl font-bold">Akun Bisnis & Reseller</h2>
+                                    <p className="text-sm text-slate-300">Solusi terbaik untuk operasional tim Anda</p>
                                 </div>
                             </div>
 
                             <p className="text-slate-300 max-w-2xl leading-relaxed">
                                 Tingkatkan efisiensi bisnis Anda dengan fitur kolaborasi tim yang lengkap.
-                                Kelola akses, bagi tanggung jawab, dan pantau semua aktivitas dalam satu akun.
+                                Kelola akses, bagi tanggung jawab, dan pantau semua aktivitas dalam satu akun terpusat.
                             </p>
                         </div>
                     </div>
@@ -124,7 +128,7 @@ export default async function ManageTeamPage() {
                                         <th className="px-6 py-4 text-center text-xs font-semibold text-white uppercase tracking-wider bg-gradient-to-r from-red-600 to-red-700">
                                             <span className="flex items-center justify-center gap-1">
                                                 <CheckCircle2 className="w-4 h-4" />
-                                                Akun Perusahaan
+                                                Akun Bisnis
                                             </span>
                                         </th>
                                     </tr>
@@ -154,17 +158,17 @@ export default async function ManageTeamPage() {
                                 </div>
                                 <div className="flex-1">
                                     <h4 className="text-base font-bold text-gray-900 mb-2">
-                                        Sudah Punya Akun Perusahaan?
+                                        Ingin Upgrade ke Akun Bisnis?
                                     </h4>
                                     <p className="text-sm text-gray-600 mb-4 leading-relaxed">
-                                        Jika Anda sudah terdaftar dengan akun perusahaan, silakan login menggunakan email perusahaan Anda untuk mengakses fitur manajemen tim.
+                                        Nikmati berbagai fitur eksklusif untuk perusahaan dan reseller dengan melakukan upgrade akun Anda sekarang.
                                     </p>
                                     <Link
-                                        href="/masuk"
+                                        href="/dashboard/upgrade"
                                         className="inline-flex items-center gap-2 text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors group"
                                     >
                                         <span className="bg-blue-50 px-4 py-2 rounded-lg group-hover:bg-blue-100 transition-colors">
-                                            Login dengan Akun Perusahaan
+                                            Ajukan Upgrade Akun
                                         </span>
                                         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center group-hover:bg-blue-700 transition-colors">
                                             <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -178,70 +182,12 @@ export default async function ManageTeamPage() {
                     </div>
                 </div>
             ) : (
-                // Company Account View - Team List
-                <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-                    <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h3 className="font-bold text-gray-900 text-lg">Anggota Tim</h3>
-                                <p className="text-sm text-gray-500 mt-1">{customer?.name || "Perusahaan"}</p>
-                            </div>
-                            <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-100 rounded-lg">
-                                <CheckCircle2 className="w-4 h-4 text-green-600" />
-                                <span className="text-xs font-bold text-green-700">Akun Perusahaan Aktif</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Table Header */}
-                    <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-gray-50 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                        <div className="col-span-5">Nama & Email</div>
-                        <div className="col-span-3">Role</div>
-                        <div className="col-span-2">Status</div>
-                        <div className="col-span-2 text-right">Aksi</div>
-                    </div>
-
-                    {/* Mock Item */}
-                    <div className="divide-y divide-gray-100">
-                        <div className="grid grid-cols-12 gap-4 px-6 py-4 items-center hover:bg-gray-50 transition-colors">
-                            <div className="col-span-5">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center text-red-600 font-bold">
-                                        {user?.name?.charAt(0) || "U"}
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-900">{user?.name || "Member"}</p>
-                                        <p className="text-xs text-gray-500">{user?.email}</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="col-span-3">
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-purple-100 to-purple-50 text-purple-800 border border-purple-200">
-                                    <Shield className="w-3 h-3" />
-                                    Owner / Admin
-                                </span>
-                            </div>
-                            <div className="col-span-2">
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
-                                    <CheckCircle2 className="w-3 h-3" />
-                                    Aktif
-                                </span>
-                            </div>
-                            <div className="col-span-2 text-right">
-                                <Button variant="ghost" size="sm" className="text-gray-400 hover:text-gray-600" disabled>
-                                    Kelola
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Info */}
-                    <div className="p-6 text-center border-t border-gray-100 bg-gray-50">
-                        <p className="text-sm text-gray-500">
-                            Fitur manajemen user lengkap akan segera hadir.
-                        </p>
-                    </div>
-                </div>
+                // Company/Reseller Account View - Team Management
+                <TeamManager
+                    initialMembers={JSON.parse(JSON.stringify(teamMembers))}
+                    currentUserId={user.id}
+                    customer={JSON.parse(JSON.stringify(customer))}
+                />
             )}
         </div>
     );
@@ -256,15 +202,6 @@ function BenefitCard({ icon: Icon, title, description, color }: any) {
         orange: "from-orange-500 to-orange-600",
         indigo: "from-indigo-500 to-indigo-600",
         red: "from-red-500 to-red-600",
-    };
-
-    const bgColors: any = {
-        blue: "bg-blue-50",
-        purple: "bg-purple-50",
-        green: "bg-green-50",
-        orange: "bg-orange-50",
-        indigo: "bg-indigo-50",
-        red: "bg-red-50",
     };
 
     return (

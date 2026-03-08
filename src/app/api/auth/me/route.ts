@@ -36,9 +36,10 @@ export async function GET() {
         });
 
         if (!user) {
+            console.log("API Auth Me: User not found in DB for ID:", session.user.id);
             return NextResponse.json(
                 { error: "User not found" },
-                { status: 404 }
+                { status: 401 }
             );
         }
 
@@ -60,7 +61,8 @@ export async function GET() {
                 role: user.role,
                 name: user.name,
                 phone: user.phone,
-                address: finalAddress,
+                address: user.customer?.address || user.address,
+                customerId: user.customerId
             },
         });
     } catch (error) {

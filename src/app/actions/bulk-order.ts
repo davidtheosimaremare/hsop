@@ -19,6 +19,103 @@ export interface BulkOrderProduct {
     requestedQty?: number;
 }
 
+export interface BulkSearchFilters {
+    query: string;
+    category?: string;
+    stockFilter?: 'all' | 'ready' | 'indent';
+}
+
+export async function searchBulkProducts(filters: BulkSearchFilters): Promise<BulkOrderProduct[]> {
+    const { query, category, stockFilter } = filters;
+    
+    // Only return empty if everything is empty
+    if ((!query || query.trim().length < 2) && (!category || category === 'all') && (!stockFilter || stockFilter === 'all')) {
+        return [];
+    }
+
+    const terms = query?.trim() ? query.trim().split(/\s+/).filter(Boolean) : [];
+
+    const hiddenCategories = await db.category.findMany({
+        where: { isVisible: false },
+        select: { name: true }
+    });
+    const hiddenCategoryNames = hiddenCategories.map(c => c.name);
+
+    const where: any = {
+        isVisible: true,
+        category: hiddenCategoryNames.length > 0 ? { notIn: hiddenCategoryNames } : undefined,
+    };
+
+    if (terms.length > 0) {
+        where.AND = terms.map(term => ({
+            OR: [
+                { name: { contains: term, mode: 'insensitive' } },
+                { sku: { contains: term, mode: 'insensitive' } },
+            ]
+        }));
+    }
+
+    if (category && category !== 'all') {
+        where.category = { contains: category, mode: 'insensitive' };
+    }
+
+    if (stockFilter === 'ready') {
+        where.availableToSell = { gt: 0 };
+    } else if (stockFilter === 'indent') {
+        where.availableToSell = { lte: 0 };
+    }
+
+    const products = await db.product.findMany({
+        where,
+        select: {
+            id: true,
+            sku: true,
+            name: true,
+            price: true,
+            image: true,
+            availableToSell: true,
+            brand: true,
+            category: true,
+        },
+        orderBy: [
+            { availableToSell: 'desc' },
+            { name: 'asc' },
+        ],
+    });
+
+    return products.map(p => ({
+        id: p.id,
+        sku: p.sku!,
+        name: p.name,
+        price: p.price,
+        image: p.image,
+        availableToSell: p.availableToSell || 0,
+        brand: p.brand || '',
+        category: p.category || null,
+        isValid: true,
+    }));
+}
+
+export async function getBulkOrderCategories(): Promise<string[]> {
+    const hiddenCategories = await db.category.findMany({
+        where: { isVisible: false },
+        select: { name: true }
+    });
+    const hiddenCategoryNames = hiddenCategories.map(c => c.name);
+
+    const rows = await db.product.findMany({
+        where: {
+            isVisible: true,
+            category: { not: null, notIn: hiddenCategoryNames },
+        },
+        select: { category: true },
+        distinct: ['category'],
+        orderBy: { category: 'asc' },
+    });
+
+    return rows.map(r => r.category!).filter(Boolean);
+}
+
 export async function searchProductsBySkus(terms: string[]): Promise<BulkOrderProduct[]> {
     if (!terms || terms.length === 0) return [];
 

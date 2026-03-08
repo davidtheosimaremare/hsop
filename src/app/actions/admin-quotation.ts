@@ -101,6 +101,7 @@ export async function createAdminQuotation(data: {
                 await db.salesQuotation.update({
                     where: { id: newQuotation.id },
                     data: {
+                        quotationNo: accRes.number || accRes.no || newQuotation.quotationNo,
                         accurateHsqId: accRes.id,
                         accurateHsqNo: accRes.number || accRes.no,
                         accurateSyncStatus: "SUCCESS"

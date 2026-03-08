@@ -31,8 +31,10 @@ const menuItems = [
 export default function DashboardSidebar({ user }: { user: any }) {
     const pathname = usePathname();
     const [unreadCount, setUnreadCount] = useState(0);
+    const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
+        setMounted(true);
         const fetchUnread = async () => {
             const res = await getUnreadNotificationCount();
             if (res.success && res.count !== undefined) {
@@ -48,19 +50,23 @@ export default function DashboardSidebar({ user }: { user: any }) {
         return false;
     };
 
+    const userImage = user.customerImage || user.image;
+
     return (
         <aside className="lg:w-72 flex-shrink-0">
             <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden sticky top-6 shadow-sm">
                 {/* User Profile - Modern Design */}
                 <div className="relative p-6 bg-gradient-to-br from-red-50 via-white to-red-50 border-b border-gray-100">
                     <div className="absolute top-0 right-0 w-20 h-20 bg-red-100 rounded-full blur-2xl opacity-50 -translate-y-1/2 translate-x-1/2" />
-                    
+
                     <div className="relative flex items-center gap-3">
                         <div className="relative">
-                            <div className="w-14 h-14 bg-gradient-to-br from-red-500 to-red-600 rounded-xl flex items-center justify-center shadow-md">
-                                <span className="text-white font-bold text-xl">
-                                    {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                                </span>
+                            <div className="w-14 h-14 bg-red-100 rounded-xl flex items-center justify-center shadow-md overflow-hidden text-red-600 font-bold text-xl">
+                                {mounted && userImage ? (
+                                    <img src={userImage} alt={user.name || "User"} className="w-full h-full object-cover" />
+                                ) : (
+                                    <span>{user.name ? user.name.charAt(0).toUpperCase() : 'U'}</span>
+                                )}
                             </div>
                             {user.isVerified && (
                                 <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 border-2 border-white rounded-full flex items-center justify-center">
@@ -74,18 +80,14 @@ export default function DashboardSidebar({ user }: { user: any }) {
                                     {user.name || "Member"}
                                 </h3>
                             </div>
+                            {/* Company name displayed below user name */}
+                            {user.companyName && (
+                                <p className="text-xs text-gray-500 truncate mb-1">
+                                    {user.companyName}
+                                </p>
+                            )}
                             <div className="flex items-center gap-1.5">
-                                {(() => {
-                                    const userType = user.customerType || user.role || "RETAIL";
-                                    const typeLabel = userType === "BISNIS" ? "Perusahaan" : userType === "RESELLER" ? "Reseller" : "Retail";
-                                    const typeColor = userType === "BISNIS" ? "bg-blue-100 text-blue-700" : userType === "RESELLER" ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-700";
-                                    
-                                    return (
-                                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-red-100 text-red-700 text-[10px] font-bold uppercase tracking-wider">
-                                            {typeLabel}
-                                        </span>
-                                    );
-                                })()}
+
                                 {user.isVerified && (
                                     <span className="text-[10px] text-green-600 font-bold">Verified</span>
                                 )}
@@ -103,18 +105,16 @@ export default function DashboardSidebar({ user }: { user: any }) {
                                 <Link
                                     key={item.href}
                                     href={item.href}
-                                    className={`group w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm transition-all duration-200 ${
-                                        active
+                                    className={`group w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm transition-all duration-200 ${active
                                             ? "bg-gradient-to-r from-red-50 to-red-100 text-red-700 font-semibold shadow-sm"
                                             : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                                    }`}
+                                        }`}
                                 >
                                     <div className="flex items-center gap-3">
-                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 ${
-                                            active
+                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 ${active
                                                 ? "bg-red-500 text-white shadow-md"
                                                 : "bg-gray-100 text-gray-500 group-hover:bg-gray-200"
-                                        }`}>
+                                            }`}>
                                             <item.icon className="w-4 h-4" />
                                         </div>
                                         <span className="font-medium">{item.label}</span>

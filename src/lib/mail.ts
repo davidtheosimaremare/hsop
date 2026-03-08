@@ -1,6 +1,44 @@
 import nodemailer from 'nodemailer';
 import { db } from "@/lib/db";
 
+async function getEmailWrapper(content: string, title: string = "Hokiindo Shop") {
+    let settings: any = null;
+    try {
+        const result = await db.siteSetting.findUnique({ where: { key: "email_template" } });
+        settings = result?.value;
+    } catch (e) {
+        console.error("Failed to fetch email template settings:", e);
+    }
+
+    // Fallbacks
+    const headerBg = settings?.headerBgColor || "#dc2626";
+    const headerText = settings?.headerTextColor || "#ffffff";
+    const footerBg = settings?.footerBgColor || "#f9fafb";
+    const footerText = settings?.footerTextColor || "#9ca3af";
+    const footerContent = settings?.footerText || `&copy; ${new Date().getFullYear()} Hokiindo Shop. All rights reserved.`;
+    const logoUrl = settings?.logoUrl;
+
+    return `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eef2f6; border-radius: 16px; overflow: hidden;">
+        <div style="background-color: ${headerBg}; padding: 32px 20px; text-align: center;">
+            ${logoUrl ? `<img src="${logoUrl}" alt="Logo" style="max-height: 48px; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto;">` : ''}
+            <h1 style="color: ${headerText}; margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.025em;">${title}</h1>
+        </div>
+        <div style="padding: 40px 32px; background-color: #ffffff;">
+            ${content}
+        </div>
+        <div style="background-color: ${footerBg}; padding: 24px; text-align: center; border-top: 1px solid #f1f5f9;">
+            <p style="margin: 0; font-size: 12px; color: ${footerText}; font-weight: 500;">
+                ${footerContent}
+            </p>
+            <div style="margin-top: 16px; font-size: 11px; color: #94a3b8;">
+                Email ini dikirim secara otomatis oleh sistem Hokiindo. Mohon tidak membalas email ini.
+            </div>
+        </div>
+    </div>
+    `;
+}
+
 export async function sendEmailOTP(email: string, otp: string) {
     const smtpHost = process.env.SMTP_HOST;
     const smtpPort = parseInt(process.env.SMTP_PORT || '587');
@@ -23,28 +61,20 @@ export async function sendEmailOTP(email: string, otp: string) {
         },
     });
 
-    const htmlContent = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
-        <div style="background-color: #dc2626; padding: 20px; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">Hokiindo Shop</h1>
-        </div>
-        <div style="padding: 30px;">
-            <p style="color: #333; font-size: 16px;">Halo,</p>
-            <p style="color: #333; font-size: 16px;">Terima kasih telah mendaftar. Gunakan kode berikut untuk memverifikasi akun Anda:</p>
-            
-            <div style="text-align: center; margin: 30px 0;">
-                <span style="background-color: #f3f4f6; padding: 15px 30px; font-size: 24px; font-weight: bold; letter-spacing: 5px; border-radius: 8px; color: #1f2937; border: 1px solid #d1d5db;">
-                    ${otp}
-                </span>
+    const body = `
+        <p style="color: #334155; font-size: 16px; margin-top: 0;">Halo,</p>
+        <p style="color: #334155; font-size: 16px; line-height: 1.6;">Terima kasih telah mendaftar. Gunakan kode berikut untuk memverifikasi akun Anda:</p>
+        
+        <div style="text-align: center; margin: 40px 0;">
+            <div style="display: inline-block; background-color: #f8fafc; padding: 20px 40px; font-size: 32px; font-weight: 800; letter-spacing: 8px; border-radius: 12px; color: #0f172a; border: 2px solid #e2e8f0; font-family: monospace;">
+                ${otp}
             </div>
-            
-            <p style="color: #666; font-size: 14px;">Kode ini berlaku selama 10 menit. Jangan berikan kode ini kepada siapapun.</p>
         </div>
-        <div style="background-color: #f9fafb; padding: 15px; text-align: center; font-size: 12px; color: #9ca3af;">
-            &copy; ${new Date().getFullYear()} Hokiindo Shop. All rights reserved.
-        </div>
-    </div>
+        
+        <p style="color: #64748b; font-size: 14px; text-align: center;">Kode ini berlaku selama 10 menit. Jangan berikan kode ini kepada siapapun.</p>
     `;
+
+    const htmlContent = await getEmailWrapper(body, "Verifikasi Akun");
 
     try {
         console.log(`[Mail] Sending OTP to ${email}`);
@@ -77,7 +107,8 @@ export async function sendCartQuotation(
     customerEmail: string,
     customerPhone: string,
     cartItems: CartItemForEmail[],
-    totalPrice: number
+    totalPrice: number,
+    quotationNo?: string
 ) {
     const smtpHost = process.env.SMTP_HOST;
     const smtpPort = parseInt(process.env.SMTP_PORT || '587');
@@ -139,47 +170,42 @@ export async function sendCartQuotation(
         </tr>
     `}).join('');
 
-    const htmlContent = `
-    <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
-        <div style="background-color: #dc2626; padding: 20px; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">Permintaan Penawaran Harga</h1>
+    const body = `
+        <h2 style="color: #0f172a; font-size: 18px; margin-bottom: 24px; font-weight: 700;">Informasi Pelanggan</h2>
+        <div style="background-color: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid #f1f5f9; margin-bottom: 32px;">
+            <p style="color: #475569; font-size: 14px; margin: 4px 0;"><strong>Email:</strong> ${customerEmail}</p>
+            <p style="color: #475569; font-size: 14px; margin: 4px 0;"><strong>No. HP:</strong> ${customerPhone}</p>
         </div>
-        <div style="padding: 30px;">
-            <h2 style="color: #333; font-size: 18px; margin-bottom: 20px;">Informasi Pelanggan</h2>
-            <p style="color: #333; font-size: 14px; margin: 5px 0;"><strong>Email:</strong> ${customerEmail}</p>
-            <p style="color: #333; font-size: 14px; margin: 5px 0;"><strong>No. HP:</strong> ${customerPhone}</p>
-            
-            <h2 style="color: #333; font-size: 18px; margin: 30px 0 20px;">Detail Produk</h2>
-            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                <thead>
-                    <tr style="background-color: #f3f4f6;">
-                        <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e0e0e0;">SKU</th>
-                        <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e0e0e0;">Produk</th>
-                        <th style="padding: 10px; text-align: center; border-bottom: 2px solid #e0e0e0;">Qty</th>
-                        <th style="padding: 10px; text-align: right; border-bottom: 2px solid #e0e0e0;">Harga</th>
-                        <th style="padding: 10px; text-align: right; border-bottom: 2px solid #e0e0e0;">Subtotal</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${itemsHtml}
-                </tbody>
-                <tfoot>
-                    <tr style="background-color: #f9fafb;">
-                        <td colspan="4" style="padding: 15px; text-align: right; font-weight: bold;">Total Estimasi:</td>
-                        <td style="padding: 15px; text-align: right; font-weight: bold; color: #dc2626;">Rp ${formatPrice(totalPrice)}</td>
-                    </tr>
-                </tfoot>
-            </table>
-            
-            <p style="color: #666; font-size: 12px; margin-top: 30px; padding: 15px; background-color: #fef3c7; border-radius: 8px;">
-                <strong>⚠️ Catatan:</strong> Harga belum termasuk ongkos kirim. Tim sales kami akan menghubungi Anda secepatnya.
-            </p>
+        
+        <h2 style="color: #0f172a; font-size: 18px; margin-bottom: 16px; font-weight: 700;">Detail Produk</h2>
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <thead>
+                <tr style="background-color: #f8fafc;">
+                    <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; color: #64748b;">SKU</th>
+                    <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; color: #64748b;">Produk</th>
+                    <th style="padding: 12px; text-align: center; border-bottom: 2px solid #e2e8f0; color: #64748b;">Qty</th>
+                    <th style="padding: 12px; text-align: right; border-bottom: 2px solid #e2e8f0; color: #64748b;">Harga</th>
+                    <th style="padding: 12px; text-align: right; border-bottom: 2px solid #e2e8f0; color: #64748b;">Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${itemsHtml}
+            </tbody>
+            <tfoot>
+                <tr style="background-color: #fdf2f2;">
+                    <td colspan="4" style="padding: 16px; text-align: right; font-weight: 700; color: #0f172a;">Total Estimasi:</td>
+                    <td style="padding: 16px; text-align: right; font-weight: 800; color: #dc2626; font-size: 15px;">Rp ${formatPrice(totalPrice)}</td>
+                </tr>
+            </tfoot>
+        </table>
+        
+        <div style="margin-top: 32px; padding: 16px; background-color: #fffbeb; border: 1px solid #fef3c7; border-radius: 12px; color: #92400e; font-size: 13px;">
+            <strong>⚠️ Catatan:</strong> Harga belum termasuk ongkos kirim. Tim sales kami akan menghubungi Anda secepatnya untuk konfirmasi stok dan pengiriman.
         </div>
-        <div style="background-color: #f9fafb; padding: 15px; text-align: center; font-size: 12px; color: #9ca3af;">
-            &copy; ${new Date().getFullYear()} Hokiindo Shop. All rights reserved.
-        </div>
-    </div>
     `;
+
+    const htmlTitle = quotationNo ? `Permintaan Penawaran - ${quotationNo}` : "Permintaan Penawaran Harga";
+    const htmlContent = await getEmailWrapper(body, htmlTitle);
 
     try {
         console.log(`[Mail] Sending cart quotation to ${salesEmail} and ${customerEmail}`);
@@ -188,7 +214,7 @@ export async function sendCartQuotation(
         await transporter.sendMail({
             from: smtpFrom,
             to: salesEmail,
-            subject: `[RFQ] Permintaan Penawaran dari ${customerEmail}`,
+            subject: `Permintaan Penawaran (${quotationNo || 'Baru'})`,
             html: htmlContent,
         });
 
@@ -196,7 +222,7 @@ export async function sendCartQuotation(
         await transporter.sendMail({
             from: smtpFrom,
             to: customerEmail,
-            subject: `Permintaan Penawaran Anda - Hokiindo Shop`,
+            subject: `Permintaan Penawaran (${quotationNo || 'Baru'})`,
             html: htmlContent,
         });
 
@@ -294,48 +320,40 @@ export async function sendOfferNotification(data: OfferData) {
         </div>
     ` : '';
 
-    const htmlContent = `
-    <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
-        <div style="background-color: #dc2626; padding: 20px; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 22px;">Penawaran Harga - ${data.quotationNo}</h1>
-        </div>
-        <div style="padding: 30px;">
-            <p style="color: #333; font-size: 15px;">Yth. Pelanggan,</p>
-            <p style="color: #333; font-size: 14px;">Terima kasih atas permintaan penawaran harga Anda. Berikut adalah penawaran kami:</p>
+    const body = `
+        <p style="color: #334155; font-size: 15px; margin-top: 0;">Yth. Pelanggan,</p>
+        <p style="color: #334155; font-size: 15px; line-height: 1.6;">Terima kasih atas permintaan penawaran harga Anda. Berikut adalah penawaran resmi dari kami:</p>
 
-            <table style="width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 20px;">
-                <thead>
-                    <tr style="background-color: #f3f4f6;">
-                        <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e0e0e0;">SKU</th>
-                        <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e0e0e0;">Produk</th>
-                        <th style="padding: 10px; text-align: center; border-bottom: 2px solid #e0e0e0;">Qty</th>
-                        <th style="padding: 10px; text-align: right; border-bottom: 2px solid #e0e0e0;">Harga</th>
-                        <th style="padding: 10px; text-align: center; border-bottom: 2px solid #e0e0e0;">Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${itemsHtml}
-                </tbody>
-                <tfoot>
-                    ${discountHtml}
-                    <tr style="background-color: #fef2f2;">
-                        <td colspan="3" style="padding: 15px; text-align: right; font-weight: bold;">Total:</td>
-                        <td colspan="2" style="padding: 15px; text-align: right; font-weight: bold; color: #dc2626; font-size: 16px;">Rp ${formatPrice(finalTotal)}</td>
-                    </tr>
-                </tfoot>
-            </table>
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 24px;">
+            <thead>
+                <tr style="background-color: #f8fafc;">
+                    <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; color: #64748b;">SKU</th>
+                    <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; color: #64748b;">Produk</th>
+                    <th style="padding: 12px; text-align: center; border-bottom: 2px solid #e2e8f0; color: #64748b;">Qty</th>
+                    <th style="padding: 12px; text-align: right; border-bottom: 2px solid #e2e8f0; color: #64748b;">Harga</th>
+                    <th style="padding: 12px; text-align: center; border-bottom: 2px solid #e2e8f0; color: #64748b;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${itemsHtml}
+            </tbody>
+            <tfoot>
+                ${discountHtml}
+                <tr style="background-color: #fef2f2;">
+                    <td colspan="3" style="padding: 16px; text-align: right; font-weight: 700; color: #0f172a;">Total:</td>
+                    <td colspan="2" style="padding: 16px; text-align: right; font-weight: 800; color: #dc2626; font-size: 18px;">Rp ${formatPrice(finalTotal)}</td>
+                </tr>
+            </tfoot>
+        </table>
 
-            ${adminNotesHtml}
+        ${adminNotesHtml}
 
-            <p style="color: #666; font-size: 12px; margin-top: 25px; padding: 15px; background-color: #f0fdf4; border-radius: 8px;">
-                ✅ Penawaran ini berlaku selama 7 hari kerja. Hubungi tim sales kami untuk konfirmasi pesanan.
-            </p>
+        <div style="margin-top: 32px; padding: 16px; background-color: #f0fdf4; border: 1px solid #dcfce7; border-radius: 12px; color: #166534; font-size: 13px; text-align: center;">
+            ✅ Penawaran ini berlaku selama 7 hari kerja. Silakan masuk ke dashboard untuk konfirmasi pesanan.
         </div>
-        <div style="background-color: #f9fafb; padding: 15px; text-align: center; font-size: 12px; color: #9ca3af;">
-            &copy; ${new Date().getFullYear()} Hokiindo Shop. All rights reserved.
-        </div>
-    </div>
     `;
+
+    const htmlContent = await getEmailWrapper(body, `Penawaran Harga - ${data.quotationNo}`);
 
     try {
         console.log(`[Mail] Sending offer notification to ${data.email} for ${data.quotationNo}`);
@@ -430,33 +448,28 @@ export async function sendOrderStatusNotification(data: OrderStatusData) {
         </div>
     ` : '';
 
-    const htmlContent = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
-        <div style="background-color: ${config.color}; padding: 30px; text-align: center;">
-            <div style="font-size: 48px; margin-bottom: 10px;">${config.icon}</div>
-            <h1 style="color: white; margin: 0; font-size: 22px;">${config.title}</h1>
+    const body = `
+        <div style="text-align: center; margin-bottom: 32px;">
+            <div style="font-size: 56px; margin-bottom: 16px;">${config.icon}</div>
+            <h2 style="color: #0f172a; margin: 0; font-size: 24px; font-weight: 800;">${config.title}</h2>
         </div>
-        <div style="padding: 30px;">
-            <p style="color: #333; font-size: 15px;">Yth. Pelanggan,</p>
-            <p style="color: #333; font-size: 14px;">${config.message}</p>
 
-            <div style="margin-top: 20px; padding: 15px; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
-                <p style="font-size: 13px; color: #6b7280; margin: 0;">No. Quotation</p>
-                <p style="font-size: 16px; font-weight: bold; color: #111827; margin: 4px 0 0 0;">${data.quotationNo}</p>
-            </div>
+        <p style="color: #334155; font-size: 15px; text-align: center; line-height: 1.6;">${config.message}</p>
 
-            ${trackingHtml}
-            ${shippingCostHtml}
-
-            <p style="color: #666; font-size: 12px; margin-top: 25px; padding: 15px; background-color: #f0fdf4; border-radius: 8px;">
-                Jika ada pertanyaan, hubungi tim sales kami.
-            </p>
+        <div style="margin-top: 32px; padding: 20px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; text-align: center;">
+            <p style="font-size: 12px; color: #64748b; margin: 0; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Nomor Pesanan</p>
+            <p style="font-size: 20px; font-weight: 800; color: #0f172a; margin: 8px 0 0 0;">${data.quotationNo}</p>
         </div>
-        <div style="background-color: #f9fafb; padding: 15px; text-align: center; font-size: 12px; color: #9ca3af;">
-            &copy; ${new Date().getFullYear()} Hokiindo Shop. All rights reserved.
-        </div>
-    </div>
+
+        ${trackingHtml}
+        ${shippingCostHtml}
+
+        <p style="color: #64748b; font-size: 13px; margin-top: 32px; text-align: center; font-style: italic;">
+            Jika Anda memiliki pertanyaan mengenai pesanan ini, silakan hubungi tim dukungan kami melalui dashboard atau WhatsApp.
+        </p>
     `;
+
+    const htmlContent = await getEmailWrapper(body, config.subject);
 
     try {
         console.log(`[Mail] Sending ${data.status} notification to ${data.email}`);
@@ -515,41 +528,38 @@ export async function sendUpgradeRequestNotification(data: UpgradeRequestNotific
         auth: { user: smtpUser, pass: smtpPass },
     });
 
-    const htmlContent = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
-        <div style="background-color: #dc2626; padding: 20px; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 22px;">Permintaan Upgrade Reseller</h1>
-        </div>
-        <div style="padding: 30px;">
-            <p style="color: #333; font-size: 15px;">Halo Admin,</p>
-            <p style="color: #333; font-size: 14px;">Ada permintaan upgrade akun baru menjadi Reseller.</p>
+    const body = `
+        <p style="color: #334155; font-size: 15px; margin-top: 0;">Halo Admin,</p>
+        <p style="color: #334155; font-size: 15px;">Terdapat permintaan baru untuk upgrade akun menjadi <strong>Reseller</strong>.</p>
 
-            <div style="margin-top: 20px; padding: 15px; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
-                <p style="margin: 5px 0;"><strong>Nama User:</strong> ${data.userName}</p>
-                <p style="margin: 5px 0;"><strong>Email:</strong> ${data.userEmail}</p>
-                <p style="margin: 5px 0;"><strong>No. HP:</strong> ${data.phone}</p>
-                <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 10px 0;">
-                <p style="margin: 5px 0;"><strong>Nama Sesuai KTP:</strong> ${data.ktpName}</p>
-            </div>
+        <div style="margin-top: 24px; padding: 20px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px;">
+            <p style="margin: 8px 0; font-size: 14px; color: #475569;"><strong>Nama User:</strong> ${data.userName}</p>
+            <p style="margin: 8px 0; font-size: 14px; color: #475569;"><strong>Email:</strong> ${data.userEmail}</p>
+            <p style="margin: 8px 0; font-size: 14px; color: #475569;"><strong>No. HP:</strong> ${data.phone}</p>
+            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 16px 0;">
+            <p style="margin: 8px 0; font-size: 14px; color: #475569;"><strong>Nama Sesuai KTP:</strong> ${data.ktpName}</p>
+        </div>
 
-            <div style="margin-top: 20px;">
-                <p style="margin-bottom: 10px;"><strong>Dokumen:</strong></p>
-                <p><a href="${data.ktpUrl}" style="color: #dc2626; text-decoration: none;">📄 Lihat Foto KTP</a></p>
-                ${data.npwpUrl ? `<p><a href="${data.npwpUrl}" style="color: #dc2626; text-decoration: none;">📄 Lihat Foto NPWP</a></p>` : ''}
+        <div style="margin-top: 24px;">
+            <p style="margin-bottom: 12px; font-size: 14px; font-weight: 700; color: #0f172a;">Dokumen Terlampir:</p>
+            <div style="margin-bottom: 8px;">
+                <a href="${data.ktpUrl}" style="display: inline-block; color: #dc2626; text-decoration: none; font-size: 14px; font-weight: 600;">📄 Lihat Foto KTP &rarr;</a>
             </div>
-            
-            <div style="margin-top: 30px; text-align: center;">
-                <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/admin/upgrades" 
-                   style="background-color: #dc2626; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-                   Proses Permintaan di Dashboard
-                </a>
-            </div>
+            ${data.npwpUrl ? `
+            <div>
+                <a href="${data.npwpUrl}" style="display: inline-block; color: #dc2626; text-decoration: none; font-size: 14px; font-weight: 600;">📄 Lihat Foto NPWP &rarr;</a>
+            </div>` : ''}
         </div>
-        <div style="background-color: #f9fafb; padding: 15px; text-align: center; font-size: 12px; color: #9ca3af;">
-            System Notification
+        
+        <div style="margin-top: 40px; text-align: center;">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/admin/upgrades" 
+               style="display: inline-block; background-color: #dc2626; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 12px; font-weight: 800; font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em;">
+               Proses Permintaan Sekarang
+            </a>
         </div>
-    </div>
     `;
+
+    const htmlContent = await getEmailWrapper(body, "Permintaan Upgrade Reseller");
 
     try {
         console.log(`[Mail] Sending upgrade notification to ${adminEmail}`);

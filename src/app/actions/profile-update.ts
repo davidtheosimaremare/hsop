@@ -259,6 +259,45 @@ export async function updateProfileName(name: string) {
     }
 }
 
+export async function updateProfileCompany(company: string) {
+    const session = await getSession();
+    if (!session || !session.user) {
+        return { error: "Unauthenticated" };
+    }
+
+    try {
+        const user = await db.user.findUnique({
+            where: { id: session.user.id },
+            include: { customer: true }
+        });
+
+        if (!user || !user.customerId) {
+            return { error: "Data customer tidak ditemukan" };
+        }
+
+        await db.customer.update({
+            where: { id: user.customerId },
+            data: { company }
+        });
+
+        // Create notification
+        await db.notification.create({
+            data: {
+                userId: user.id,
+                title: "Profil Diperbarui",
+                message: "Nama Perusahaan Anda telah berhasil diperbarui.",
+                type: "PROFILE",
+                link: "/dashboard/profil"
+            }
+        });
+
+        return { success: true, message: "Nama Perusahaan berhasil diubah" };
+    } catch (error) {
+        console.error("Update profile company error:", error);
+        return { error: "Terjadi kesalahan sistem" };
+    }
+}
+
 export async function updateProfileAddress(data: {
     address: string;
     province: string;

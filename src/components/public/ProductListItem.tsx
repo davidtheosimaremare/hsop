@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Plus, Check, ShoppingCart } from "lucide-react";
+import { ShoppingCart, Check } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useCart } from "@/lib/useCart";
@@ -82,7 +82,7 @@ export default function ProductListItem({ product }: ProductListItemProps) {
                     <div className="mt-1">
                         {product.availableToSell > 0 ? (
                             <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-50 text-green-600 border border-green-200">
-                                Stok: {product.availableToSell} Unit
+                                Stock: {product.availableToSell} Unit
                             </span>
                         ) : (
                             <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
@@ -93,28 +93,20 @@ export default function ProductListItem({ product }: ProductListItemProps) {
                 </div>
 
                 {/* Price & Action */}
-                <div className="flex-shrink-0 text-right">
-                    <p className="text-sm font-bold text-red-600 mb-2">
+                <div className="flex-shrink-0 flex items-center gap-2">
+                    <p className="text-sm font-bold text-red-600">
                         Rp {formatPrice(product.price)}
                     </p>
                     <button
                         onClick={handleAddToCart}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${isAdded
+                        className={`w-7 h-7 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${
+                            isAdded
                                 ? 'bg-green-500 text-white'
-                                : 'bg-red-600 text-white hover:bg-red-700'
-                            }`}
+                                : 'bg-red-100 text-red-600 hover:bg-red-600 hover:text-white'
+                        }`}
+                        title="Tambah ke Keranjang"
                     >
-                        {isAdded ? (
-                            <>
-                                <Check className="w-3.5 h-3.5" />
-                                Ditambahkan
-                            </>
-                        ) : (
-                            <>
-                                <ShoppingCart className="w-3.5 h-3.5" />
-                                Tambah
-                            </>
-                        )}
+                        {isAdded ? <Check className="w-4 h-4" /> : <ShoppingCart className="w-3.5 h-3.5" />}
                     </button>
                 </div>
             </div>

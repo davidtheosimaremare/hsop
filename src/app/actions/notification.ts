@@ -128,3 +128,83 @@ export async function deleteNotification(notificationId: string) {
         return { success: false, error: "Gagal menghapus notifikasi" };
     }
 }
+
+export async function createNotification(data: {
+    userId: string;
+    title: string;
+    message: string;
+    type?: "INFO" | "SUCCESS" | "WARNING" | "ERROR" | "UPGRADE" | "ORDER" | "QUOTATION" | "PROFILE";
+    link?: string;
+}) {
+    try {
+        const notification = await db.notification.create({
+            data: {
+                userId: data.userId,
+                title: data.title,
+                message: data.message,
+                type: data.type || "INFO",
+                link: data.link
+            }
+        });
+
+        revalidatePath("/dashboard/notifikasi");
+        return { success: true, notification };
+    } catch (error) {
+        console.error("createNotification error:", error);
+        return { success: false, error: "Gagal membuat notifikasi" };
+    }
+}
+
+export async function notifyAdmins(data: {
+    title: string;
+    message: string;
+    type?: "INFO" | "SUCCESS" | "WARNING" | "ERROR" | "UPGRADE" | "ORDER" | "QUOTATION" | "PROFILE";
+    link?: string;
+}) {
+    try {
+        const admins = await db.user.findMany({
+            where: {
+                role: { in: ["SUPER_ADMIN", "ADMIN", "MANAGER"] },
+                isActive: true
+            },
+            select: { id: true }
+        });
+
+        if (admins.length === 0) return { success: true, count: 0 };
+
+        await db.notification.createMany({
+            data: admins.map(admin => ({
+                userId: admin.id,
+                title: data.title,
+                message: data.message,
+                type: data.type || "INFO",
+                link: data.link
+            }))
+        });
+
+        revalidatePath("/admin");
+        return { success: true, count: admins.length };
+    } catch (error) {
+        console.error("notifyAdmins error:", error);
+        return { success: false, error: "Gagal mengirim notifikasi ke admin" };
+    }
+}
+
+export async function clearNotifications() {
+    try {
+        const session = await getSession();
+        if (!session?.user) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        await db.notification.deleteMany({
+            where: { userId: session.user.id }
+        });
+
+        revalidatePath("/dashboard/notifikasi");
+        return { success: true };
+    } catch (error) {
+        console.error("clearNotifications error:", error);
+        return { success: false, error: "Gagal membersihkan notifikasi" };
+    }
+}

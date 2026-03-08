@@ -180,7 +180,7 @@ export async function updateCustomerDiscounts(
 }
 
 export async function createManualCustomer(data: {
-    type: "BISNIS" | "RETAIL" | "RESELLER" | "GENERAL";
+    type: "BISNIS" | "RETAIL" | "RESELLER" | "GENERAL" | "GeneralCustomer";
     name: string; // Contact Person Name
     email: string; // Login Email
     phone: string; // CP Phone
@@ -281,7 +281,7 @@ export async function createManualCustomer(data: {
 }
 
 export async function updateCustomer(id: string, data: {
-    type: "BISNIS" | "RETAIL" | "RESELLER";
+    type: "BISNIS" | "RETAIL" | "RESELLER" | "GeneralCustomer";
     name: string;
     email: string;
     phone: string;
@@ -485,7 +485,7 @@ export async function updateCustomerAvatarAction(customerId: string, imageUrl: s
     }
 }
 
-export async function upgradeCustomerType(id: string, type: "CORPORATE" | "RETAIL") {
+export async function upgradeCustomerType(id: string, type: "BISNIS" | "GeneralCustomer") {
     try {
         await db.customer.update({
             where: { id },

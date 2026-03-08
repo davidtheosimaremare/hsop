@@ -39,8 +39,13 @@ import {
     Truck,
     Upload,
     Download,
+    CheckCircle,
+    Tag,
+    Check,
+    X,
+    PackageCheck,
 } from "lucide-react";
-import { getQuotationDetail, processQuotation, submitQuotationOffer, saveQuotationDraft, fetchAccurateQuotationList, updateQuotationHSQ } from "@/app/actions/quotation";
+import { getQuotationDetail, processQuotation, submitQuotationOffer, saveQuotationDraft, fetchAccurateQuotationList, updateQuotationHSQ, approveHsq, respondToSpecialDiscountRequest } from "@/app/actions/quotation";
 import { uploadFile } from "@/app/actions/upload";
 import { getProductsForAlternative, getProductCategories } from "@/app/actions/product";
 import { format, formatDistanceToNow } from "date-fns";
@@ -48,7 +53,7 @@ import { id as localeId } from "date-fns/locale";
 import { toast } from "sonner";
 import { calculatePriceInfo } from "@/lib/pricing";
 import { getCustomerPricingDataById, type CustomerPricingData } from "@/app/actions/customer-pricing";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
     Select,
@@ -59,10 +64,12 @@ import {
 } from "@/components/ui/select";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-    PENDING: { label: "Menunggu", color: "text-yellow-700", bg: "bg-yellow-100 border-yellow-200" },
-    PROCESSING: { label: "Penawaran Resmi", color: "text-blue-700", bg: "bg-blue-100 border-blue-200" },
-    OFFERED: { label: "Pesanan (HSO)", color: "text-purple-700", bg: "bg-purple-100 border-purple-200" },
-    COMPLETED: { label: "Pesanan Dikirim", color: "text-green-700", bg: "bg-green-100 border-green-200" },
+    PENDING: { label: "Penawaran Masuk", color: "text-yellow-700", bg: "bg-yellow-100 border-yellow-200" },
+    OFFERED: { label: "Penawaran", color: "text-blue-700", bg: "bg-blue-100 border-blue-200" },
+    CONFIRMED: { label: "PO Diterima", color: "text-violet-700", bg: "bg-violet-100 border-violet-200" },
+    PROCESSING: { label: "Pesanan (HSO)", color: "text-purple-700", bg: "bg-purple-100 border-purple-200" },
+    SHIPPED: { label: "Dikirim", color: "text-sky-700", bg: "bg-sky-100 border-sky-200" },
+    COMPLETED: { label: "Selesai", color: "text-green-700", bg: "bg-green-100 border-green-200" },
     CANCELLED: { label: "Dibatalkan", color: "text-red-700", bg: "bg-red-100 border-red-200" },
 };
 
@@ -133,6 +140,9 @@ export default function QuotationDetailPage() {
 
     // Process Dialog state
     const [isProcessDialogOpen, setIsProcessDialogOpen] = useState(false);
+    const [isRejectionDialogOpen, setIsRejectionDialogOpen] = useState(false);
+    const [rejectionReason, setRejectionReason] = useState("");
+    const [isProcessingRequest, setIsProcessingRequest] = useState(false);
     const [officialNo, setOfficialNo] = useState("");
     const [accurateId, setAccurateId] = useState<number | null>(null);
     const [pdfFile, setPdfFile] = useState<File | null>(null);
@@ -404,6 +414,47 @@ export default function QuotationDetailPage() {
         } finally {
             setIsSaving(false);
         }
+    };
+
+    const handleAcceptDiscountRequest = async () => {
+        setIsProcessingRequest(true);
+        try {
+            const res = await respondToSpecialDiscountRequest(id, true);
+            if (res.success) {
+                toast.success("Permintaan diskon diterima");
+                setTimeout(() => {
+                    document.getElementById("discount-box")?.scrollIntoView({ behavior: "smooth", block: "center" });
+                }, 300);
+                await loadData();
+            } else {
+                toast.error(res.error || "Gagal memproses permintaan");
+            }
+        } catch (e) {
+            toast.error("Terjadi kesalahan");
+        }
+        setIsProcessingRequest(false);
+    };
+
+    const handleRejectDiscountRequest = async () => {
+        if (!rejectionReason.trim()) {
+            toast.error("Harap masukkan alasan penolakan");
+            return;
+        }
+        setIsProcessingRequest(true);
+        try {
+            const res = await respondToSpecialDiscountRequest(id, false, rejectionReason);
+            if (res.success) {
+                toast.success("Permintaan diskon ditolak");
+                setIsRejectionDialogOpen(false);
+                setRejectionReason("");
+                await loadData();
+            } else {
+                toast.error(res.error || "Gagal memproses permintaan");
+            }
+        } catch (e) {
+            toast.error("Terjadi kesalahan");
+        }
+        setIsProcessingRequest(false);
     };
 
     const handleSaveDraft = async () => {
@@ -710,13 +761,20 @@ export default function QuotationDetailPage() {
         );
     }
 
-    const status = STATUS_CONFIG[quotation.status] || STATUS_CONFIG.PENDING;
+    const statusObj = STATUS_CONFIG[quotation.status] || STATUS_CONFIG.PENDING;
+    const isHsqApproved = quotation?.isHsqApproved === true;
+
+    // Override label for finalized offer
+    const status = (quotation.status === "OFFERED" && isHsqApproved)
+        ? { ...statusObj, label: "Penawaran Disetujui", color: "text-emerald-700", bg: "bg-emerald-50 border-emerald-200" }
+        : statusObj;
+
     const isOffered = quotation.status === "OFFERED";
     const isCompleted = quotation.status === "COMPLETED";
     const isInProcess = quotation.status === "PROCESSING";
     const isPending = quotation.status === "PENDING";
     // OFFERED tanpa HSO = masih bisa edit penawaran (user mungkin sudah upload PO / minta diskon)
-    const isHsqEditable = isOffered && !quotation.accurateHsoNo && !quotation.accurateHsoId;
+    const isHsqEditable = isOffered && !quotation.accurateHsoNo && !quotation.accurateHsoId && !isHsqApproved;
     const isEditable = isPending || isInProcess || isHsqEditable;
     const isAdminEditable = isEditable;
 
@@ -752,8 +810,12 @@ export default function QuotationDetailPage() {
                                 </Badge>
                             </div>
                             <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">SQ: {quotation.quotationNo}</span>
-                                {quotation.accurateHsqNo && <span className="text-[10px] font-mono font-bold text-blue-500 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">HSQ: {quotation.accurateHsqNo}</span>}
+                                {!isHsqApproved && (
+                                    <>
+                                        <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">SQ: {quotation.quotationNo}</span>
+                                        {quotation.accurateHsqNo && <span className="text-[10px] font-mono font-bold text-blue-500 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">HSQ: {quotation.accurateHsqNo}</span>}
+                                    </>
+                                )}
                                 {quotation.accurateHsoNo && <span className="text-[10px] font-mono font-bold text-purple-500 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">HSO: {quotation.accurateHsoNo}</span>}
                                 {quotation.accurateDoNo && <span className="text-[10px] font-mono font-bold text-green-500 bg-green-50 px-2 py-0.5 rounded border border-green-200">DO: {quotation.accurateDoNo}</span>}
                             </div>
@@ -769,13 +831,13 @@ export default function QuotationDetailPage() {
                             <span className="text-[10px] font-bold text-slate-500">Dibuat <span className="text-slate-400">{format(new Date(quotation.createdAt), "dd MMM yyyy, HH:mm")}</span></span>
                         </div>
                     )}
-                    {quotation.processedAt && (
+                    {!isHsqApproved && quotation.processedAt && (
                         <div className="flex items-center gap-1.5 px-4 border-r border-slate-100">
                             <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
                             <span className="text-[10px] font-bold text-slate-500">HSQ <span className="text-slate-400">{format(new Date(quotation.processedAt), "dd MMM yyyy, HH:mm")}</span></span>
                         </div>
                     )}
-                    {quotation.confirmedAt && (
+                    {!isHsqApproved && quotation.confirmedAt && (
                         <div className="flex items-center gap-1.5 px-4 border-r border-slate-100">
                             <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
                             <span className="text-[10px] font-bold text-slate-500">HSO <span className="text-slate-400">{format(new Date(quotation.confirmedAt), "dd MMM yyyy, HH:mm")}</span></span>
@@ -985,21 +1047,21 @@ export default function QuotationDetailPage() {
                                 <Clock className="w-3.5 h-3.5 text-slate-400" />
                                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                                     Dibuat {format(new Date(quotation.createdAt), "dd MMM yyyy, HH:mm")}
-                                    {quotation.processedAt && (
+                                    {!isHsqApproved && quotation.processedAt && (
                                         <> • Diproses {format(new Date(quotation.processedAt), "dd MMM yyyy, HH:mm")}</>
                                     )}
                                 </p>
                             </div>
                             <div className="flex items-center gap-3 mt-2 flex-wrap">
-                                {/* SQ ref — always show */}
-                                {(quotation.status === "OFFERED" || quotation.status === "COMPLETED") && quotation.accurateHsoNo && (
+                                {/* SQ ref — only when still PENDING/RFQ stage */}
+                                {quotation.status === "PENDING" && (
                                     <div className="flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
                                         <FileSearch className="w-3 h-3 text-slate-500" />
                                         <span className="text-[10px] font-black text-slate-600 uppercase tracking-tight">SQ: {quotation.quotationNo}</span>
                                     </div>
                                 )}
-                                {/* HSQ ref — when different */}
-                                {quotation.accurateHsqNo && quotation.accurateHsqNo !== quotation.quotationNo && (
+                                {/* HSQ ref — hidden if OFFERED+ or as per requested to remove when finalized */}
+                                {quotation.status === "PENDING" && quotation.accurateHsqNo && quotation.accurateHsqNo !== quotation.quotationNo && (
                                     <div className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded-md border border-slate-200">
                                         <FileSearch className="w-3 h-3 text-slate-500" />
                                         <span className="text-[10px] font-black text-slate-700 uppercase tracking-tight">Ref: {quotation.accurateHsqNo}</span>
@@ -1029,7 +1091,27 @@ export default function QuotationDetailPage() {
                     </div>
 
                     <div className="flex items-center gap-3">
-                        {isPending && (
+                        {(isHsqEditable && !fromOrders) && (
+                            <Button
+                                onClick={async () => {
+                                    if (confirm("Apakah Anda yakin ingin menyetujui HSQ ini? Setelah disetujui, penawaran akan dikunci dan tidak dapat diedit lagi.")) {
+                                        const res = await approveHsq(quotation.id);
+                                        if (res.success) {
+                                            toast.success("HSQ berhasil disetujui dan dikunci");
+                                            window.location.reload();
+                                        } else {
+                                            toast.error(res.error || "Gagal menyetujui HSQ");
+                                        }
+                                    }
+                                }}
+                                className="h-10 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-200 transition-all flex items-center gap-2 group"
+                            >
+                                <CheckCircle className="w-4 h-4" />
+                                HSQ Sudah Disetujui
+                            </Button>
+                        )}
+
+                        {(isPending && !fromOrders) && (
                             <Dialog open={isProcessDialogOpen} onOpenChange={(open) => {
                                 setIsProcessDialogOpen(open);
                                 if (open && accurateDocs.length === 0) fetchAccurateDocs("", 1);
@@ -1060,7 +1142,7 @@ export default function QuotationDetailPage() {
                                     <div className="px-8 pb-8 pt-2 space-y-6">
                                         <div className="space-y-5">
                                             <div className="space-y-2">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Nomor Penawaran Resmi (Accurate)</Label>
+                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Nomor Penawaran Disetujui (Accurate)</Label>
                                                 <div className="relative group/search">
                                                     <FileSearch className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within/search:text-red-500 transition-colors pointer-events-none" />
                                                     <Input
@@ -1157,13 +1239,13 @@ export default function QuotationDetailPage() {
                                             className="w-full h-14 bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-red-900/20 active:scale-95 transition-all text-sm"
                                         >
                                             {isProcessing ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
-                                            Konfirmasi & Mulai Proses
+                                            Konfirmasi & Kirim Penawaran
                                         </Button>
                                     </div>
                                 </DialogContent>
                             </Dialog>
                         )}
-                        {isHsqEditable && (
+                        {(isHsqEditable && !fromOrders) && (
                             <Dialog open={isUpdateHsqDialogOpen} onOpenChange={(open) => {
                                 setIsUpdateHsqDialogOpen(open);
                                 if (open) {
@@ -1316,35 +1398,45 @@ export default function QuotationDetailPage() {
                                 </DialogContent>
                             </Dialog>
                         )}
-                        {isAdminEditable && !isHsqEditable && (
-                            <Button
-                                onClick={handleSaveDraft}
-                                disabled={isSaving || isSubmitting}
-                                variant="outline"
-                                className="border-2 border-slate-200 font-bold px-6 rounded-xl hover:bg-slate-50"
-                            >
-                                {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-                                Simpan Draft
-                            </Button>
-                        )}
                     </div>
                 </div>
             </div>
 
-            {/* Banner: Mode Edit HSQ */}
-            {isHsqEditable && (
-                <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-2xl">
-                    <Info className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                        <p className="text-xs font-black text-blue-800 uppercase tracking-wider">Mode Edit Penawaran HSQ</p>
-                        <p className="text-xs text-blue-700 mt-0.5">
-                            Penawaran ini sudah memiliki nomor HSQ <span className="font-black">{quotation.accurateHsqNo}</span> namun belum dikonversi ke HSO.
-                            Kamu bisa mengubah items, diskon, dan file penawaran. Setelah selesai, klik <span className="font-black">Update Penawaran</span> di pojok kanan atas.
-                            Status akan otomatis berubah ke HSO begitu webhook dari Accurate masuk.
-                        </p>
+            {/* Banner Informasi Editability untuk HSQ */}
+            {
+                isHsqEditable && !fromOrders ? (
+                    <div className="bg-blue-50 border-2 border-blue-200 rounded-[2rem] p-6 flex items-start gap-6 shadow-sm mb-6">
+                        <div className="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center text-blue-600 flex-shrink-0">
+                            <Info className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h4 className="text-sm font-black text-blue-900 uppercase tracking-tight">Mode Edit Penawaran Disetujui (HSQ)</h4>
+                            <p className="text-xs font-bold text-blue-700/80 mt-1 leading-relaxed">
+                                Penawaran ini sudah berstatus HSQ, namun Anda masih dapat mengubah produk, diskon, atau <span className="text-blue-600 underline decoration-blue-300 underline-offset-2 decoration-2">mengganti file PDF penawaran</span> jika terdapat revisi.
+                                Klik tombol <span className="bg-blue-600 text-white px-1.5 py-0.5 rounded text-[10px] uppercase mx-1 tracking-wider">Update Penawaran</span> untuk menyimpan perubahan item dan mengupload file PDF baru.
+                                <br />
+                                Jika sudah final, klik tombol <span className="text-emerald-600 font-bold uppercase mx-1">HSQ Sudah Disetujui</span> di bagian atas untuk mengunci penawaran ini.
+                            </p>
+                        </div>
                     </div>
-                </div>
-            )}
+                ) : (isHsqApproved && !fromOrders) && (
+                    <div className="bg-emerald-50 border-2 border-emerald-200 rounded-[2rem] p-6 flex items-start gap-6 shadow-sm mb-6">
+                        <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-600 flex-shrink-0">
+                            <CheckCircle className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h4 className="text-sm font-black text-emerald-900 uppercase tracking-tight">Penawaran (HSQ) Telah Disetujui</h4>
+                            <p className="text-xs font-bold text-emerald-700/80 mt-1 leading-relaxed">
+                                Penawaran ini telah disetujui dan dikunci oleh Admin. Item dan diskon sudah tidak dapat diubah lagi.
+                                Anda dapat melanjutkan proses ke Pesanan (HSO) setelah customer mengunggah PO.
+                            </p>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* Activities summary etc. */}
+
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 {/* Left Column (Main Info) */}
@@ -1419,240 +1511,292 @@ export default function QuotationDetailPage() {
                             </div>
                         </div>
 
-                        {quotation.notes && (
-                            <>
-                                {/* Divider */}
-                                <div className="h-10 w-px bg-slate-100 hidden 2xl:block" />
+                        {
+                            quotation.notes && (
+                                <>
+                                    {/* Divider */}
+                                    <div className="h-10 w-px bg-slate-100 hidden 2xl:block" />
 
-                                {/* Quick Note */}
-                                <div className="flex-1 min-w-[300px] bg-red-50/30 border border-red-100/50 p-3 rounded-2xl flex items-start gap-3 relative overflow-hidden group">
-                                    <div className="absolute top-0 right-0 p-2 opacity-5">
-                                        <MessageSquare className="w-8 h-8" />
+                                    {/* Quick Note */}
+                                    <div className="flex-1 min-w-[300px] bg-red-50/30 border border-red-100/50 p-3 rounded-2xl flex items-start gap-3 relative overflow-hidden group">
+                                        <div className="absolute top-0 right-0 p-2 opacity-5">
+                                            <MessageSquare className="w-8 h-8" />
+                                        </div>
+                                        <div className="w-8 h-8 rounded-lg bg-red-100/50 flex items-center justify-center flex-shrink-0">
+                                            <MessageSquare className="w-4 h-4 text-red-500" />
+                                        </div>
+                                        <div>
+                                            <span className="text-[9px] font-bold text-red-500 uppercase tracking-widest block mb-0.5">Catatan Customer</span>
+                                            <p className="text-[11px] font-bold text-red-900 leading-tight line-clamp-2">"{quotation.notes}"</p>
+                                        </div>
                                     </div>
-                                    <div className="w-8 h-8 rounded-lg bg-red-100/50 flex items-center justify-center flex-shrink-0">
-                                        <MessageSquare className="w-4 h-4 text-red-500" />
+                                </>
+                            )
+                        }
+
+                        {
+                            quotation.specialDiscountRequest && (
+                                <>
+                                    <div className="h-10 w-px bg-slate-100 hidden 2xl:block" />
+                                    <div className="flex-1 min-w-[320px] bg-amber-50 border border-amber-200 p-4 rounded-3xl flex items-start gap-4 relative overflow-hidden group shadow-sm">
+                                        <div className="absolute top-0 right-0 p-3 opacity-10">
+                                            <Tag className="w-12 h-12 text-amber-500" />
+                                        </div>
+                                        <div className="w-10 h-10 rounded-2xl bg-amber-100 flex items-center justify-center flex-shrink-0">
+                                            <Tag className="w-5 h-5 text-amber-600" />
+                                        </div>
+                                        <div className="flex-1 z-10">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Permintaan Diskon Khusus</span>
+                                                    <Badge className="bg-amber-600 text-white text-[9px] font-black h-5 px-2 rounded-lg uppercase shadow-sm">Special Request</Badge>
+                                                </div>
+                                            </div>
+                                            <p className="text-xs font-bold text-amber-900 leading-relaxed mb-4 italic bg-white/50 p-3 rounded-2xl border border-amber-100/50">
+                                                "{quotation.specialDiscountNote || "User meminta diskon tambahan tanpa catatan."}"
+                                            </p>
+                                            <div className="flex items-center gap-2 mt-auto">
+                                                <Button
+                                                    size="sm"
+                                                    onClick={handleAcceptDiscountRequest}
+                                                    disabled={isProcessingRequest}
+                                                    className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase tracking-widest px-4 rounded-xl shadow-lg shadow-emerald-200"
+                                                >
+                                                    <Check className="w-3 h-3 mr-1.5" />
+                                                    Terima & Atur Diskon
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => setIsRejectionDialogOpen(true)}
+                                                    disabled={isProcessingRequest}
+                                                    className="h-8 border-amber-200 bg-white text-amber-600 hover:bg-amber-100 font-bold text-[10px] uppercase tracking-widest px-4 rounded-xl shadow-sm"
+                                                >
+                                                    <X className="w-3 h-3 mr-1.5" />
+                                                    Tolak Permintaan
+                                                </Button>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <span className="text-[9px] font-bold text-red-500 uppercase tracking-widest block mb-0.5">Catatan Customer</span>
-                                        <p className="text-[11px] font-bold text-red-900 leading-tight line-clamp-2">"{quotation.notes}"</p>
-                                    </div>
-                                </div>
-                            </>
-                        )}
+                                </>
+                            )
+                        }
                     </div>
 
                     {/* Product Items + Pricing Summary */}
                     <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[2rem]">
-                        <CardHeader className="bg-white border-b border-slate-100/80 py-3 px-6 flex flex-row items-center justify-between rounded-t-[2rem]">
-                            <CardTitle className="text-xs font-black uppercase tracking-wider flex items-center gap-2 text-slate-700">
+                        <CardHeader className="bg-slate-50/80 border-b border-slate-100 py-4 px-6 flex flex-row items-center justify-between">
+                            <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-slate-800">
                                 <Package className="w-4 h-4 text-red-600" /> Daftar Produk Penawaran
                             </CardTitle>
                             <div className="flex items-center gap-3">
-                                <Dialog>
-                                    <DialogTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="h-8 rounded-xl border-dashed border-slate-200 text-slate-500 hover:text-red-600 hover:border-red-200 hover:bg-red-50 font-black text-[10px] uppercase px-3 shadow-none transition-all"
-                                            onClick={() => {
-                                                setSearchQuery("");
-                                                setSearchResults([]);
-                                                setStockFilter("all");
-                                                setSelectedCategory("All");
-                                                searchAltProducts("", "All", "Produk Baru", "all");
-                                            }}
-                                        >
-                                            <Plus className="w-3.5 h-3.5 mr-1.5" /> Tambah Produk
-                                        </Button>
-                                    </DialogTrigger>
-                                    <DialogContent className="w-[90vw] max-w-[1400px] min-w-[320px] h-[90vh] flex flex-col p-0 overflow-hidden border-none shadow-2xl rounded-[2rem]">
-                                        <div className="bg-white px-8 py-6 relative border-b border-slate-100">
-                                            <DialogHeader>
-                                                <DialogTitle className="text-xl font-black uppercase tracking-tight text-slate-900 text-center">Tambah Produk Baru</DialogTitle>
-                                            </DialogHeader>
-                                        </div>
-                                        <div className="flex flex-col flex-1 overflow-hidden bg-white">
-                                            <div className="px-8 pt-6 pb-4 border-b border-slate-100">
-                                                <div className="relative">
-                                                    <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                                                    <Input
-                                                        placeholder="Cari produk untuk ditambahkan..."
-                                                        className="pl-14 h-14 text-sm font-bold border-slate-200 focus-visible:ring-red-500 rounded-2xl shadow-sm bg-slate-50/50"
-                                                        value={searchQuery}
-                                                        onChange={(e) => {
-                                                            const val = e.target.value;
-                                                            setSearchQuery(val);
-                                                            clearTimeout((window as any).__newSearchTimer);
-                                                            (window as any).__newSearchTimer = setTimeout(() => {
-                                                                searchAltProducts(val, selectedCategory, "Produk Baru", stockFilter);
-                                                            }, 300);
-                                                        }}
-                                                    />
-                                                </div>
-
-                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-                                                    {/* Category Selector */}
-                                                    <div className="space-y-1.5 transition-all">
-                                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Kategori Produk</Label>
-                                                        <Select
-                                                            value={selectedCategory}
-                                                            onValueChange={(val) => {
-                                                                setSelectedCategory(val);
-                                                                setCurrentPage(1);
-                                                                searchAltProducts(searchQuery, val, "Produk Baru", stockFilter, 1);
+                                {!fromOrders && (
+                                    <Dialog>
+                                        <DialogTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-8 rounded-xl border-dashed border-slate-200 text-slate-500 hover:text-red-600 hover:border-red-200 hover:bg-red-50 font-black text-[10px] uppercase px-3 shadow-none transition-all"
+                                                onClick={() => {
+                                                    setSearchQuery("");
+                                                    setSearchResults([]);
+                                                    setStockFilter("all");
+                                                    setSelectedCategory("All");
+                                                    searchAltProducts("", "All", "Produk Baru", "all");
+                                                }}
+                                            >
+                                                <Plus className="w-3.5 h-3.5 mr-1.5" /> Tambah Produk
+                                            </Button>
+                                        </DialogTrigger>
+                                        <DialogContent className="w-[90vw] max-w-[1400px] min-w-[320px] h-[90vh] flex flex-col p-0 overflow-hidden border-none shadow-2xl rounded-[2rem]">
+                                            <div className="bg-white px-8 py-6 relative border-b border-slate-100">
+                                                <DialogHeader>
+                                                    <DialogTitle className="text-xl font-black uppercase tracking-tight text-slate-900 text-center">Tambah Produk Baru</DialogTitle>
+                                                </DialogHeader>
+                                            </div>
+                                            <div className="flex flex-col flex-1 overflow-hidden bg-white">
+                                                <div className="px-8 pt-6 pb-4 border-b border-slate-100">
+                                                    <div className="relative">
+                                                        <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                                                        <Input
+                                                            placeholder="Cari produk untuk ditambahkan..."
+                                                            className="pl-14 h-14 text-sm font-bold border-slate-200 focus-visible:ring-red-500 rounded-2xl shadow-sm bg-slate-50/50"
+                                                            value={searchQuery}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value;
+                                                                setSearchQuery(val);
+                                                                clearTimeout((window as any).__newSearchTimer);
+                                                                (window as any).__newSearchTimer = setTimeout(() => {
+                                                                    searchAltProducts(val, selectedCategory, "Produk Baru", stockFilter);
+                                                                }, 300);
                                                             }}
-                                                        >
-                                                            <SelectTrigger className="h-12 bg-white border-slate-200 rounded-xl font-bold text-slate-700 shadow-sm focus:ring-red-500">
-                                                                <SelectValue placeholder="Pilih Kategori" />
-                                                            </SelectTrigger>
-                                                            <SelectContent className="rounded-2xl border-slate-200 shadow-xl max-h-[300px]">
-                                                                <SelectItem value="All" className="font-bold">Semua Kategori</SelectItem>
-                                                                {categories.map((cat) => (
-                                                                    <SelectItem key={cat} value={cat} className="font-bold">{cat}</SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
+                                                        />
                                                     </div>
 
-                                                    {/* Stock Filter Selector */}
-                                                    <div className="space-y-1.5 transition-all">
-                                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Status Stok</Label>
-                                                        <Select
-                                                            value={stockFilter}
-                                                            onValueChange={(val) => {
-                                                                setStockFilter(val);
-                                                                setCurrentPage(1);
-                                                                searchAltProducts(searchQuery, selectedCategory, "Produk Baru", val, 1);
-                                                            }}
-                                                        >
-                                                            <SelectTrigger className="h-12 bg-white border-slate-200 rounded-xl font-bold text-slate-700 shadow-sm focus:ring-red-500">
-                                                                <SelectValue placeholder="Pilih Status Stok" />
-                                                            </SelectTrigger>
-                                                            <SelectContent className="rounded-2xl border-slate-200 shadow-xl">
-                                                                <SelectItem value="all" className="font-bold">Semua Status</SelectItem>
-                                                                <SelectItem value="ready" className="font-bold text-green-600">Stock Ready</SelectItem>
-                                                                <SelectItem value="indent" className="font-bold text-orange-600">Indent / Pre-order</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                                                        {/* Category Selector */}
+                                                        <div className="space-y-1.5 transition-all">
+                                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Kategori Produk</Label>
+                                                            <Select
+                                                                value={selectedCategory}
+                                                                onValueChange={(val) => {
+                                                                    setSelectedCategory(val);
+                                                                    setCurrentPage(1);
+                                                                    searchAltProducts(searchQuery, val, "Produk Baru", stockFilter, 1);
+                                                                }}
+                                                            >
+                                                                <SelectTrigger className="h-12 bg-white border-slate-200 rounded-xl font-bold text-slate-700 shadow-sm focus:ring-red-500">
+                                                                    <SelectValue placeholder="Pilih Kategori" />
+                                                                </SelectTrigger>
+                                                                <SelectContent className="rounded-2xl border-slate-200 shadow-xl max-h-[300px]">
+                                                                    <SelectItem value="All" className="font-bold">Semua Kategori</SelectItem>
+                                                                    {categories.map((cat) => (
+                                                                        <SelectItem key={cat} value={cat} className="font-bold">{cat}</SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
 
-                                                    {/* Info Result */}
-                                                    <div className="flex flex-col justify-end items-end pb-1 px-1">
-                                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1">Total Hasil</span>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-xl font-black text-slate-900">{totalCount}</span>
-                                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Produk</span>
+                                                        {/* Stock Filter Selector */}
+                                                        <div className="space-y-1.5 transition-all">
+                                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Status Stok</Label>
+                                                            <Select
+                                                                value={stockFilter}
+                                                                onValueChange={(val) => {
+                                                                    setStockFilter(val);
+                                                                    setCurrentPage(1);
+                                                                    searchAltProducts(searchQuery, selectedCategory, "Produk Baru", val, 1);
+                                                                }}
+                                                            >
+                                                                <SelectTrigger className="h-12 bg-white border-slate-200 rounded-xl font-bold text-slate-700 shadow-sm focus:ring-red-500">
+                                                                    <SelectValue placeholder="Pilih Status Stok" />
+                                                                </SelectTrigger>
+                                                                <SelectContent className="rounded-2xl border-slate-200 shadow-xl">
+                                                                    <SelectItem value="all" className="font-bold">Semua Status</SelectItem>
+                                                                    <SelectItem value="ready" className="font-bold text-green-600">Stock Ready</SelectItem>
+                                                                    <SelectItem value="indent" className="font-bold text-orange-600">Indent / Pre-order</SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
+
+                                                        {/* Info Result */}
+                                                        <div className="flex flex-col justify-end items-end pb-1 px-1">
+                                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1">Total Hasil</span>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-xl font-black text-slate-900">{totalCount}</span>
+                                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Produk</span>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                            <div className="flex-1 overflow-y-auto p-8">
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                                                    {searchResults.map((res: any) => (
-                                                        <div key={res.sku} className="flex items-start gap-4 p-5 rounded-2xl border border-slate-100 bg-slate-50/50 hover:border-red-200 hover:bg-red-50/20 transition-all group/res overflow-hidden relative">
-                                                            <div className="w-16 h-16 rounded-xl bg-white border border-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0 group-hover/res:scale-105 transition-all">
-                                                                {res.image ? <img src={res.image} className="w-full h-full object-cover" /> : <Package className="w-6 h-6 text-slate-200" />}
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <h4 className="text-[11px] font-black text-slate-800 line-clamp-2 leading-tight uppercase tracking-tight">{res.name}</h4>
-                                                                <div className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-widest">{res.sku}</div>
-                                                                {(() => {
-                                                                    const pInfo = pricingData ? calculatePriceInfo(
-                                                                        res.price,
-                                                                        res.category,
-                                                                        pricingData.customer,
-                                                                        pricingData.categoryMappings,
-                                                                        res.availableToSell || 0,
-                                                                        pricingData.discountRules
-                                                                    ) : null;
+                                                <div className="flex-1 overflow-y-auto p-8">
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                                        {searchResults.map((res: any) => (
+                                                            <div key={res.sku} className="flex items-start gap-4 p-5 rounded-2xl border border-slate-100 bg-slate-50/50 hover:border-red-200 hover:bg-red-50/20 transition-all group/res overflow-hidden relative">
+                                                                <div className="w-16 h-16 rounded-xl bg-white border border-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0 group-hover/res:scale-105 transition-all">
+                                                                    {res.image ? <img src={res.image} className="w-full h-full object-cover" /> : <Package className="w-6 h-6 text-slate-200" />}
+                                                                </div>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <h4 className="text-[11px] font-black text-slate-800 line-clamp-2 leading-tight uppercase tracking-tight">{res.name}</h4>
+                                                                    <div className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-widest">{res.sku}</div>
+                                                                    {(() => {
+                                                                        const pInfo = pricingData ? calculatePriceInfo(
+                                                                            res.price,
+                                                                            res.category,
+                                                                            pricingData.customer,
+                                                                            pricingData.categoryMappings,
+                                                                            res.availableToSell || 0,
+                                                                            pricingData.discountRules
+                                                                        ) : null;
 
-                                                                    if (pInfo?.hasDiscount) {
+                                                                        if (pInfo?.hasDiscount) {
+                                                                            return (
+                                                                                <div className="mt-1 space-y-0.5">
+                                                                                    <div className="flex items-center gap-1.5 opacity-60">
+                                                                                        <span className="text-[8px] font-bold text-slate-400 line-through">
+                                                                                            <span>Rp</span> {fmtPrice(res.price)}
+                                                                                        </span>
+                                                                                        <span className="text-[8px] font-black text-red-600 bg-red-50 px-1 rounded uppercase tracking-tighter">-{pInfo.discountStr}%</span>
+                                                                                    </div>
+                                                                                    <div className="text-sm font-black text-red-600 tracking-tight">
+                                                                                        <span className="text-[10px] font-bold mr-0.5">Rp</span>{fmtPrice(pInfo.discountedPrice)}
+                                                                                    </div>
+                                                                                </div>
+                                                                            );
+                                                                        }
+
                                                                         return (
-                                                                            <div className="mt-1 space-y-0.5">
-                                                                                <div className="flex items-center gap-1.5 opacity-60">
-                                                                                    <span className="text-[8px] font-bold text-slate-400 line-through">
-                                                                                        <span>Rp</span> {fmtPrice(res.price)}
-                                                                                    </span>
-                                                                                    <span className="text-[8px] font-black text-red-600 bg-red-50 px-1 rounded uppercase tracking-tighter">-{pInfo.discountStr}%</span>
-                                                                                </div>
-                                                                                <div className="text-sm font-black text-red-600 tracking-tight">
-                                                                                    <span className="text-[10px] font-bold mr-0.5">Rp</span>{fmtPrice(pInfo.discountedPrice)}
-                                                                                </div>
+                                                                            <div className="text-sm font-black text-red-600 mt-1 tracking-tight">
+                                                                                <span className="text-[10px] font-bold mr-0.5">Rp</span>{fmtPrice(res.price)}
                                                                             </div>
                                                                         );
-                                                                    }
+                                                                    })()}
+                                                                </div>
+                                                                <Button
+                                                                    size="sm"
+                                                                    className="rounded-xl font-black text-[9px] uppercase bg-white border-2 border-slate-200 text-slate-900 hover:bg-red-600 hover:text-white hover:border-red-600 h-8 px-2.5 transition-all flex-shrink-0 active:scale-95"
+                                                                    onClick={() => addNewItemToQuotation(res)}
+                                                                >
+                                                                    Tambah
+                                                                </Button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
 
-                                                                    return (
-                                                                        <div className="text-sm font-black text-red-600 mt-1 tracking-tight">
-                                                                            <span className="text-[10px] font-bold mr-0.5">Rp</span>{fmtPrice(res.price)}
-                                                                        </div>
-                                                                    );
-                                                                })()}
+                                                    {/* Pagination Controls */}
+                                                    {totalPages > 1 && (
+                                                        <div className="flex items-center justify-center gap-2 mt-10 mb-6 bg-white py-4 sticky bottom-0 border-t border-slate-100">
+                                                            <Button
+                                                                variant="outline"
+                                                                size="icon"
+                                                                disabled={currentPage === 1 || isSearching}
+                                                                className="rounded-xl h-10 w-10 border-slate-200"
+                                                                onClick={() => {
+                                                                    const next = currentPage - 1;
+                                                                    setCurrentPage(next);
+                                                                    searchAltProducts(searchQuery, selectedCategory, "Produk Baru", stockFilter, next);
+                                                                }}
+                                                            >
+                                                                <ChevronLeft className="w-4 h-4" />
+                                                            </Button>
+                                                            <div className="flex items-center gap-1.5 mx-2">
+                                                                <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Halaman</span>
+                                                                <span className="text-sm font-black text-slate-900 bg-slate-100 px-3 py-1 rounded-xl border border-slate-200">{currentPage}</span>
+                                                                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">dari {totalPages}</span>
                                                             </div>
                                                             <Button
-                                                                size="sm"
-                                                                className="rounded-xl font-black text-[9px] uppercase bg-white border-2 border-slate-200 text-slate-900 hover:bg-red-600 hover:text-white hover:border-red-600 h-8 px-2.5 transition-all flex-shrink-0 active:scale-95"
-                                                                onClick={() => addNewItemToQuotation(res)}
+                                                                variant="outline"
+                                                                size="icon"
+                                                                disabled={currentPage === totalPages || isSearching}
+                                                                className="rounded-xl h-10 w-10 border-slate-200"
+                                                                onClick={() => {
+                                                                    const next = currentPage + 1;
+                                                                    setCurrentPage(next);
+                                                                    searchAltProducts(searchQuery, selectedCategory, "Produk Baru", stockFilter, next);
+                                                                }}
                                                             >
-                                                                Tambah
+                                                                <ChevronRight className="w-4 h-4" />
                                                             </Button>
                                                         </div>
-                                                    ))}
-                                                </div>
+                                                    )}
 
-                                                {/* Pagination Controls */}
-                                                {totalPages > 1 && (
-                                                    <div className="flex items-center justify-center gap-2 mt-10 mb-6 bg-white py-4 sticky bottom-0 border-t border-slate-100">
-                                                        <Button
-                                                            variant="outline"
-                                                            size="icon"
-                                                            disabled={currentPage === 1 || isSearching}
-                                                            className="rounded-xl h-10 w-10 border-slate-200"
-                                                            onClick={() => {
-                                                                const next = currentPage - 1;
-                                                                setCurrentPage(next);
-                                                                searchAltProducts(searchQuery, selectedCategory, "Produk Baru", stockFilter, next);
-                                                            }}
-                                                        >
-                                                            <ChevronLeft className="w-4 h-4" />
-                                                        </Button>
-                                                        <div className="flex items-center gap-1.5 mx-2">
-                                                            <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Halaman</span>
-                                                            <span className="text-sm font-black text-slate-900 bg-slate-100 px-3 py-1 rounded-xl border border-slate-200">{currentPage}</span>
-                                                            <span className="text-xs font-black text-slate-400 uppercase tracking-widest">dari {totalPages}</span>
+                                                    {searchResults.length === 0 && !isSearching && (
+                                                        <div className="flex flex-col items-center justify-center py-20 opacity-30">
+                                                            <Search className="w-12 h-12 mb-4" />
+                                                            <p className="text-sm font-black uppercase tracking-widest text-center">Produk tidak ditemukan.<br />Coba ganti kata kunci atau kategori.</p>
                                                         </div>
-                                                        <Button
-                                                            variant="outline"
-                                                            size="icon"
-                                                            disabled={currentPage === totalPages || isSearching}
-                                                            className="rounded-xl h-10 w-10 border-slate-200"
-                                                            onClick={() => {
-                                                                const next = currentPage + 1;
-                                                                setCurrentPage(next);
-                                                                searchAltProducts(searchQuery, selectedCategory, "Produk Baru", stockFilter, next);
-                                                            }}
-                                                        >
-                                                            <ChevronRight className="w-4 h-4" />
-                                                        </Button>
-                                                    </div>
-                                                )}
-
-                                                {searchResults.length === 0 && !isSearching && (
-                                                    <div className="flex flex-col items-center justify-center py-20 opacity-30">
-                                                        <Search className="w-12 h-12 mb-4" />
-                                                        <p className="text-sm font-black uppercase tracking-widest text-center">Produk tidak ditemukan.<br />Coba ganti kata kunci atau kategori.</p>
-                                                    </div>
-                                                )}
-                                                {isSearching && (
-                                                    <div className="flex flex-col items-center justify-center py-20 opacity-50">
-                                                        <Loader2 className="w-10 h-10 animate-spin text-red-600 mb-4" />
-                                                        <p className="text-sm font-black uppercase tracking-widest">Memuat produk...</p>
-                                                    </div>
-                                                )}
+                                                    )}
+                                                    {isSearching && (
+                                                        <div className="flex flex-col items-center justify-center py-20 opacity-50">
+                                                            <Loader2 className="w-10 h-10 animate-spin text-red-600 mb-4" />
+                                                            <p className="text-sm font-black uppercase tracking-widest">Memuat produk...</p>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
-                                        </div>
-                                    </DialogContent>
-                                </Dialog>
+                                        </DialogContent>
+                                    </Dialog>
+                                )}
                                 <span className="bg-white px-3 py-1 rounded-full text-[9px] font-black text-slate-400 border border-slate-100 shadow-sm uppercase tracking-[0.2em]">
                                     {items.length} Item
                                 </span>
@@ -1737,7 +1881,7 @@ export default function QuotationDetailPage() {
 
                                                             {/* Admin Note Section */}
                                                             <div className="flex-1 min-w-[200px]">
-                                                                {isEditable ? (
+                                                                {isEditable && !fromOrders ? (
                                                                     <div className="flex items-center gap-3">
                                                                         <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Keterangan:</span>
                                                                         <div className="flex-1 relative group/input">
@@ -1762,7 +1906,7 @@ export default function QuotationDetailPage() {
                                                             </div>
 
                                                             {/* Alternative Products Trigger - shown for all items when admin can edit */}
-                                                            {isAdminEditable && (
+                                                            {(isAdminEditable && !fromOrders) && (
                                                                 <Dialog>
                                                                     <DialogTrigger asChild>
                                                                         <Button
@@ -1903,7 +2047,7 @@ export default function QuotationDetailPage() {
                                                                     </DialogContent>
                                                                 </Dialog>
                                                             )}
-                                                            {isAdminEditable && (
+                                                            {(isAdminEditable && !fromOrders) && (
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="icon"
@@ -1947,7 +2091,7 @@ export default function QuotationDetailPage() {
                                                                 </div>
                                                                 <div className="flex items-center gap-4 flex-shrink-0">
                                                                     <div className="text-xs font-black text-red-600 tracking-tight">Rp {fmtPrice(alt.price)}</div>
-                                                                    {isAdminEditable && (
+                                                                    {(isAdminEditable && !fromOrders) && (
                                                                         <div className="flex items-center gap-1">
                                                                             <Button
                                                                                 variant="ghost"
@@ -1973,7 +2117,7 @@ export default function QuotationDetailPage() {
                                                             {/* Alternative Note */}
                                                             <div className="flex items-center gap-2 pl-1 mt-0.5">
                                                                 <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex-shrink-0">Keterangan:</span>
-                                                                {isAdminEditable ? (
+                                                                {(isAdminEditable && !fromOrders) ? (
                                                                     <div className="flex-1 relative group/altnote">
                                                                         <MessageSquare className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-300 group-focus-within/altnote:text-red-400 transition-colors pointer-events-none" />
                                                                         <input
@@ -2014,8 +2158,8 @@ export default function QuotationDetailPage() {
                                         </span>
                                     </div>
 
-                                    {isAdminEditable && (
-                                        <div className="space-y-3 pt-4 border-t border-slate-100">
+                                    {(isAdminEditable && !fromOrders) && (
+                                        <div id="discount-box" className="space-y-3 pt-4 border-t border-slate-100 scroll-mt-20">
                                             <div className="flex items-center justify-between">
                                                 <Label className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Diskon SQ (%)</Label>
                                                 <span className="text-[9px] font-bold text-slate-400">Gunakan &quot;+&quot; untuk diskon bertahap (Mis: 10+5)</span>
@@ -2058,29 +2202,48 @@ export default function QuotationDetailPage() {
                                     </div>
                                 </div>
                             </div>
-
-                            {/* Quotation Global Notes (Internal) */}
-                            {isEditable && (
-                                <div className="p-6 pt-0">
-                                    <Card className="border border-slate-100 shadow-sm bg-slate-50/30 overflow-hidden rounded-[2rem]">
-                                        <CardHeader className="bg-white/50 border-b border-slate-100/80 py-4">
-                                            <CardTitle className="text-[10px] font-black uppercase tracking-wider flex items-center gap-2 text-slate-700">
-                                                <MessageSquare className="w-3.5 h-3.5 text-red-600" /> Catatan Admin (Internal)
-                                            </CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="p-4">
-                                            <Textarea
-                                                value={adminNotes}
-                                                onChange={(e) => setAdminNotes(e.target.value)}
-                                                placeholder="Tambahkan catatan khusus untuk tim..."
-                                                className="min-h-[100px] text-xs font-bold border-slate-200 focus-visible:ring-red-500 rounded-2xl bg-white border-none shadow-inner"
-                                            />
-                                        </CardContent>
-                                    </Card>
-                                </div>
-                            )}
                         </CardContent>
                     </Card>
+
+                    {/* Quotation Global Notes (Internal) - Always shown when editable or if fromOrders is true */}
+                    {(isEditable || fromOrders) && (
+                        <div className={fromOrders ? "" : "pt-0"}>
+                            <Card className="border border-slate-100 shadow-sm bg-slate-50/30 overflow-hidden rounded-[2rem]">
+                                <CardHeader className="bg-slate-50/80 border-b border-slate-100 py-4 px-6">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-7 h-7 rounded-lg bg-white flex items-center justify-center text-slate-700 shadow-sm">
+                                            <FileText className="w-3.5 h-3.5 text-red-600" />
+                                        </div>
+                                        <CardTitle className="text-xs font-black uppercase tracking-widest text-slate-800">
+                                            Catatan Global Penawaran (Internal)
+                                        </CardTitle>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="p-4">
+                                    <div className="space-y-4">
+                                        <Textarea
+                                            value={adminNotes}
+                                            onChange={(e) => setAdminNotes(e.target.value)}
+                                            placeholder="Tambahkan catatan khusus untuk tim..."
+                                            className="min-h-[100px] text-xs font-bold border-slate-200 focus-visible:ring-red-500 rounded-2xl bg-white border-none shadow-inner"
+                                        />
+                                        {fromOrders && (
+                                            <div className="flex justify-end pt-2">
+                                                <Button
+                                                    onClick={() => triggerSaveDraft()}
+                                                    disabled={isSaving}
+                                                    className="bg-red-600 hover:bg-red-700 text-white font-black text-[10px] uppercase tracking-widest px-6 rounded-xl shadow-lg shadow-red-200"
+                                                >
+                                                    {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Save className="w-3.5 h-3.5 mr-2" />}
+                                                    Simpan Catatan Internal
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )}
                 </div>
 
 
@@ -2088,204 +2251,210 @@ export default function QuotationDetailPage() {
                 <div className="lg:col-span-4 space-y-6">
 
                     {/* ── HPO Customer Card: muncul jika ada dokumen HPO dari customer ── */}
-                    {quotation.userPoPath && (
-                        <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[2rem]">
-                            <CardHeader className="bg-gradient-to-r from-violet-50 to-purple-100/30 border-b border-violet-100 py-4">
-                                <CardTitle className="text-[10px] font-black uppercase tracking-wider flex items-center gap-2 text-violet-800">
-                                    <FileUp className="w-3.5 h-3.5 text-violet-600" /> HPO Customer
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-4 space-y-3">
-                                <div className="flex items-start gap-3 p-3 bg-violet-50 rounded-xl border border-violet-100">
-                                    <FileText className="w-5 h-5 text-violet-500 flex-shrink-0 mt-0.5" />
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-bold text-violet-900">Purchase Order Customer</p>
-                                        {quotation.poNotes && (
-                                            <p className="text-[10px] text-violet-600 mt-0.5 font-medium">{quotation.poNotes}</p>
-                                        )}
-                                    </div>
-                                </div>
-                                <a
-                                    href={quotation.userPoPath}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center justify-center gap-2 w-full py-2 px-4 bg-violet-600 hover:bg-violet-700 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-colors"
-                                >
-                                    <Download className="w-3.5 h-3.5" /> Unduh Dokumen HPO
-                                </a>
-                            </CardContent>
-                        </Card>
-                    )}
-
-                    {/* ── HSO Card: muncul saat status OFFERED atau COMPLETED ── */}
-                    {(quotation.status === "OFFERED" || quotation.status === "COMPLETED") && (
-                        <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[2rem]">
-                            <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100/50 border-b border-blue-100 py-4">
-                                <CardTitle className="text-[10px] font-black uppercase tracking-wider flex items-center gap-2 text-blue-800">
-                                    <FileText className="w-3.5 h-3.5 text-blue-600" /> Sales Order (HSO)
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-4 space-y-4">
-                                {/* HSO Number */}
-                                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-xl border border-blue-100">
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-blue-600">No. HSO Accurate</span>
-                                    <span className="font-mono font-bold text-blue-900 text-sm">{quotation.accurateHsoNo ?? "—"}</span>
-                                </div>
-
-                                {/* Upload file SO */}
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-600">
-                                        Dokumen SO (PDF)
-                                    </label>
-                                    {quotation.adminSoPdfPath ? (
-                                        <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
-                                            <div className="flex items-center gap-2">
-                                                <FileText className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                                                <span className="text-xs font-bold text-slate-700 truncate max-w-[140px]">
-                                                    {quotation.adminSoPdfPath.split("/").pop()}
-                                                </span>
-                                            </div>
-                                            <a href={quotation.adminSoPdfPath} target="_blank" rel="noopener noreferrer"
-                                                className="text-[10px] font-black text-blue-600 hover:text-blue-800 uppercase tracking-widest">
-                                                Buka
-                                            </a>
-                                        </div>
-                                    ) : (
-                                        <div className="text-xs text-slate-400 text-center p-4 border-2 border-dashed border-slate-200 rounded-xl">
-                                            Belum ada file SO
-                                        </div>
-                                    )}
-                                    <label className="flex items-center gap-2 cursor-pointer w-full">
-                                        <input
-                                            type="file"
-                                            accept=".pdf"
-                                            className="hidden"
-                                            onChange={async (e) => {
-                                                const file = e.target.files?.[0];
-                                                if (!file) return;
-                                                const fd = new FormData();
-                                                fd.append("file", file);
-                                                const sanitized = (quotation.accurateHsoNo ?? quotation.quotationNo).replace(/\//g, "-");
-                                                const now = new Date();
-                                                const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}-${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}${String(now.getSeconds()).padStart(2, "0")}`;
-                                                fd.append("filename", `${sanitized}-SO-${stamp}.pdf`);
-                                                const res = await uploadFile(fd, true);
-                                                if (res.success && res.url) {
-                                                    await fetch("/api/quotation/update-field", {
-                                                        method: "POST",
-                                                        headers: { "Content-Type": "application/json" },
-                                                        body: JSON.stringify({ id: quotation.id, field: "adminSoPdfPath", value: res.url }),
-                                                    });
-                                                    toast.success("File SO berhasil diunggah");
-                                                    loadData();
-                                                }
-                                            }}
-                                        />
-                                        <span className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-700 transition-colors cursor-pointer">
-                                            <FileUp className="w-3.5 h-3.5" />
-                                            {quotation.adminSoPdfPath ? "Ganti File SO" : "Upload File SO"}
-                                        </span>
-                                    </label>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
-
-                    {/* ── HDO Card: muncul saat status COMPLETED ── */}
-                    {quotation.status === "COMPLETED" && (
-                        <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[2rem]">
-                            <CardHeader className="bg-gradient-to-r from-green-50 to-green-100/50 border-b border-green-100 py-4">
-                                <CardTitle className="text-[10px] font-black uppercase tracking-wider flex items-center gap-2 text-green-800">
-                                    <FileText className="w-3.5 h-3.5 text-green-600" /> Delivery Order (HDO) & Dokumen Pengiriman
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-4 space-y-5">
-                                {/* HDO Number */}
-                                <div className="flex items-center justify-between p-3 bg-green-50 rounded-xl border border-green-100">
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-green-600">No. HDO Accurate</span>
-                                    <span className="font-mono font-bold text-green-900 text-sm">{quotation.accurateDoNo ?? "—"}</span>
-                                </div>
-
-                                {/* Surat Jalan */}
-                                {(["adminDoPdfPath", "adminInvoicePdfPath", "taxInvoiceUrl"] as const).map((field) => {
-                                    const labels: Record<string, string> = {
-                                        adminDoPdfPath: "Surat Jalan",
-                                        adminInvoicePdfPath: "Invoice / Faktur Penjualan",
-                                        taxInvoiceUrl: "Faktur Pajak",
-                                    };
-                                    const fileUrl = quotation[field];
-                                    return (
-                                        <div key={field} className="space-y-2">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-600">
-                                                {labels[field]}
-                                            </label>
-                                            {fileUrl ? (
-                                                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
-                                                    <div className="flex items-center gap-2">
-                                                        <FileText className="w-4 h-4 text-green-500 flex-shrink-0" />
-                                                        <span className="text-xs font-bold text-slate-700 truncate max-w-[130px]">
-                                                            {fileUrl.split("/").pop()}
-                                                        </span>
-                                                    </div>
-                                                    <a href={fileUrl} target="_blank" rel="noopener noreferrer"
-                                                        className="text-[10px] font-black text-green-600 hover:text-green-800 uppercase tracking-widest">
-                                                        Buka
-                                                    </a>
-                                                </div>
-                                            ) : (
-                                                <div className="text-xs text-slate-400 text-center p-3 border-2 border-dashed border-slate-200 rounded-xl">
-                                                    Belum ada file
-                                                </div>
+                    {
+                        quotation.userPoPath && (
+                            <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[2rem]">
+                                <CardHeader className="bg-slate-50/80 border-b border-slate-100 py-4 px-6">
+                                    <CardTitle className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-slate-800">
+                                        <FileUp className="w-3.5 h-3.5 text-red-600" /> HPO Customer
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="p-4 space-y-3">
+                                    <div className="flex items-start gap-3 p-3 bg-violet-50 rounded-xl border border-violet-100">
+                                        <FileText className="w-5 h-5 text-violet-500 flex-shrink-0 mt-0.5" />
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-xs font-bold text-violet-900">Purchase Order Customer</p>
+                                            {quotation.poNotes && (
+                                                <p className="text-[10px] text-violet-600 mt-0.5 font-medium">{quotation.poNotes}</p>
                                             )}
-                                            <label className="flex items-center gap-2 cursor-pointer w-full">
-                                                <input
-                                                    type="file"
-                                                    accept=".pdf"
-                                                    className="hidden"
-                                                    onChange={async (e) => {
-                                                        const file = e.target.files?.[0];
-                                                        if (!file) return;
-                                                        const fd = new FormData();
-                                                        fd.append("file", file);
-                                                        const tag = field === "adminDoPdfPath" ? "DO" : field === "adminInvoicePdfPath" ? "INV" : "TAX";
-                                                        const sanitized = (quotation.accurateDoNo ?? quotation.quotationNo).replace(/\//g, "-");
-                                                        const now = new Date();
-                                                        const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
-                                                        fd.append("filename", `${sanitized}-${tag}-${stamp}.pdf`);
-                                                        const res = await uploadFile(fd, true);
-                                                        if (res.success && res.url) {
-                                                            await fetch("/api/quotation/update-field", {
-                                                                method: "POST",
-                                                                headers: { "Content-Type": "application/json" },
-                                                                body: JSON.stringify({ id: quotation.id, field, value: res.url }),
-                                                            });
-                                                            toast.success(`${labels[field]} berhasil diunggah`);
-                                                            loadData();
-                                                        }
-                                                    }}
-                                                />
-                                                <span className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-green-700 transition-colors cursor-pointer">
-                                                    <FileUp className="w-3.5 h-3.5" />
-                                                    {fileUrl ? `Ganti ${labels[field]}` : `Upload ${labels[field]}`}
-                                                </span>
-                                            </label>
                                         </div>
-                                    );
-                                })}
-                            </CardContent>
-                        </Card>
-                    )}
+                                    </div>
+                                    <a
+                                        href={quotation.userPoPath}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center justify-center gap-2 w-full py-2 px-4 bg-violet-600 hover:bg-violet-700 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-colors"
+                                    >
+                                        <Download className="w-3.5 h-3.5" /> Unduh Dokumen HPO
+                                    </a>
+                                </CardContent>
+                            </Card>
+                        )
+                    }
+
+                    {/* ── HSO Card: muncul saat status PROCESSING, SHIPPED, atau COMPLETED ── */}
+                    {
+                        ["PROCESSING", "SHIPPED", "COMPLETED"].includes(quotation.status) && (
+                            <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[2rem]">
+                                <CardHeader className="bg-slate-50/80 border-b border-slate-100 py-4 px-6">
+                                    <CardTitle className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-slate-800">
+                                        <FileText className="w-3.5 h-3.5 text-red-600" /> Sales Order (HSO)
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="p-4 space-y-4">
+                                    {/* HSO Number */}
+                                    <div className="flex items-center justify-between p-3 bg-blue-50 rounded-xl border border-blue-100">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-blue-600">No. HSO Accurate</span>
+                                        <span className="font-mono font-bold text-blue-900 text-sm">{quotation.accurateHsoNo ?? "—"}</span>
+                                    </div>
+
+                                    {/* Upload file SO */}
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+                                            Dokumen SO (PDF)
+                                        </label>
+                                        {quotation.adminSoPdfPath ? (
+                                            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
+                                                <div className="flex items-center gap-2">
+                                                    <FileText className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                                                    <span className="text-xs font-bold text-slate-700 truncate max-w-[140px]">
+                                                        {quotation.adminSoPdfPath.split("/").pop()}
+                                                    </span>
+                                                </div>
+                                                <a href={quotation.adminSoPdfPath} target="_blank" rel="noopener noreferrer"
+                                                    className="text-[10px] font-black text-blue-600 hover:text-blue-800 uppercase tracking-widest">
+                                                    Buka
+                                                </a>
+                                            </div>
+                                        ) : (
+                                            <div className="text-xs text-slate-400 text-center p-4 border-2 border-dashed border-slate-200 rounded-xl">
+                                                Belum ada file SO
+                                            </div>
+                                        )}
+                                        <label className="flex items-center gap-2 cursor-pointer w-full">
+                                            <input
+                                                type="file"
+                                                accept=".pdf"
+                                                className="hidden"
+                                                onChange={async (e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (!file) return;
+                                                    const fd = new FormData();
+                                                    fd.append("file", file);
+                                                    const sanitized = (quotation.accurateHsoNo ?? quotation.quotationNo).replace(/\//g, "-");
+                                                    const now = new Date();
+                                                    const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}-${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}${String(now.getSeconds()).padStart(2, "0")}`;
+                                                    fd.append("filename", `${sanitized}-SO-${stamp}.pdf`);
+                                                    const res = await uploadFile(fd, true);
+                                                    if (res.success && res.url) {
+                                                        await fetch("/api/quotation/update-field", {
+                                                            method: "POST",
+                                                            headers: { "Content-Type": "application/json" },
+                                                            body: JSON.stringify({ id: quotation.id, field: "adminSoPdfPath", value: res.url }),
+                                                        });
+                                                        toast.success("File SO berhasil diunggah");
+                                                        loadData();
+                                                    }
+                                                }}
+                                            />
+                                            <span className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-700 transition-colors cursor-pointer">
+                                                <FileUp className="w-3.5 h-3.5" />
+                                                {quotation.adminSoPdfPath ? "Ganti File SO" : "Upload File SO"}
+                                            </span>
+                                        </label>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )
+                    }
+
+                    {/* ── HDO Card: muncul saat status SHIPPED atau lebih ── */}
+                    {
+                        ["SHIPPED", "COMPLETED"].includes(quotation.status) && (
+                            <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[2rem]">
+                                <CardHeader className="bg-slate-50/80 border-b border-slate-100 py-4 px-6">
+                                    <CardTitle className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-slate-800">
+                                        <PackageCheck className="w-3.5 h-3.5 text-red-600" /> Pengiriman & Penagihan (HDO/HINV)
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="p-4 space-y-5">
+                                    {/* HDO Number */}
+                                    <div className="flex items-center justify-between p-3 bg-green-50 rounded-xl border border-green-100">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-green-600">No. HDO Accurate</span>
+                                        <span className="font-mono font-bold text-green-900 text-sm">{quotation.accurateDoNo ?? "—"}</span>
+                                    </div>
+
+                                    {/* Surat Jalan */}
+                                    {(["adminDoPdfPath", "adminInvoicePdfPath", "taxInvoiceUrl"] as const).map((field) => {
+                                        const labels: Record<string, string> = {
+                                            adminDoPdfPath: "Surat Jalan",
+                                            adminInvoicePdfPath: "Invoice / Faktur Penjualan",
+                                            taxInvoiceUrl: "Faktur Pajak",
+                                        };
+                                        const fileUrl = quotation[field];
+                                        return (
+                                            <div key={field} className="space-y-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+                                                    {labels[field]}
+                                                </label>
+                                                {fileUrl ? (
+                                                    <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
+                                                        <div className="flex items-center gap-2">
+                                                            <FileText className="w-4 h-4 text-green-500 flex-shrink-0" />
+                                                            <span className="text-xs font-bold text-slate-700 truncate max-w-[130px]">
+                                                                {fileUrl.split("/").pop()}
+                                                            </span>
+                                                        </div>
+                                                        <a href={fileUrl} target="_blank" rel="noopener noreferrer"
+                                                            className="text-[10px] font-black text-green-600 hover:text-green-800 uppercase tracking-widest">
+                                                            Buka
+                                                        </a>
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-xs text-slate-400 text-center p-3 border-2 border-dashed border-slate-200 rounded-xl">
+                                                        Belum ada file
+                                                    </div>
+                                                )}
+                                                <label className="flex items-center gap-2 cursor-pointer w-full">
+                                                    <input
+                                                        type="file"
+                                                        accept=".pdf"
+                                                        className="hidden"
+                                                        onChange={async (e) => {
+                                                            const file = e.target.files?.[0];
+                                                            if (!file) return;
+                                                            const fd = new FormData();
+                                                            fd.append("file", file);
+                                                            const tag = field === "adminDoPdfPath" ? "DO" : field === "adminInvoicePdfPath" ? "INV" : "TAX";
+                                                            const sanitized = (quotation.accurateDoNo ?? quotation.quotationNo).replace(/\//g, "-");
+                                                            const now = new Date();
+                                                            const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+                                                            fd.append("filename", `${sanitized}-${tag}-${stamp}.pdf`);
+                                                            const res = await uploadFile(fd, true);
+                                                            if (res.success && res.url) {
+                                                                await fetch("/api/quotation/update-field", {
+                                                                    method: "POST",
+                                                                    headers: { "Content-Type": "application/json" },
+                                                                    body: JSON.stringify({ id: quotation.id, field, value: res.url }),
+                                                                });
+                                                                toast.success(`${labels[field]} berhasil diunggah`);
+                                                                loadData();
+                                                            }
+                                                        }}
+                                                    />
+                                                    <span className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-green-700 transition-colors cursor-pointer">
+                                                        <FileUp className="w-3.5 h-3.5" />
+                                                        {fileUrl ? `Ganti ${labels[field]}` : `Upload ${labels[field]}`}
+                                                    </span>
+                                                </label>
+                                            </div>
+                                        );
+                                    })}
+                                </CardContent>
+                            </Card>
+                        )
+                    }
 
 
 
                     {/* Activity Log Card */}
                     <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[2rem] sticky top-6">
-                        <CardHeader className="bg-white border-b border-slate-100/80 py-4">
-                            <CardTitle className="text-[10px] font-black uppercase tracking-wider flex items-center gap-2 text-slate-700">
+                        <CardHeader className="bg-slate-50/80 border-b border-slate-100 py-4 px-6">
+                            <CardTitle className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-slate-800">
                                 <History className="w-3.5 h-3.5 text-red-600" /> Log Aktivitas
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="pt-6">
+                        <CardContent>
                             <ScrollArea className="h-[calc(100vh-500px)] min-h-[300px]">
                                 <div className="space-y-6 pl-2">
                                     {(quotation.activities || []).map((activity: any, idx: number) => (
@@ -2351,7 +2520,57 @@ export default function QuotationDetailPage() {
 
 
                 </div>
+
+                {/* Modal Penolakan Diskon */}
+                <Dialog open={isRejectionDialogOpen} onOpenChange={setIsRejectionDialogOpen}>
+                    <DialogContent className="max-w-md rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl bg-white animate-in zoom-in-95 duration-300">
+                        <div className="p-8 pb-4">
+                            <DialogHeader>
+                                <DialogTitle className="text-2xl font-black tracking-tight flex items-center gap-3 text-slate-900 uppercase">
+                                    <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center">
+                                        <XCircle className="w-6 h-6 text-red-600" />
+                                    </div>
+                                    Tolak Permintaan Diskon
+                                </DialogTitle>
+                                <DialogDescription className="text-xs font-bold text-slate-400 mt-2">
+                                    Masukkan alasan penolakan untuk diinformasikan kepada customer melalui history transaksi.
+                                </DialogDescription>
+                            </DialogHeader>
+                        </div>
+
+                        <div className="px-8 pb-8 pt-2 space-y-6">
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Alasan Penolakan</Label>
+                                <textarea
+                                    placeholder="Masukkan alasan penolakan..."
+                                    className="w-full h-32 p-4 text-sm font-bold border-2 border-slate-100 focus:border-red-500 rounded-2xl bg-slate-50 transition-all outline-none resize-none"
+                                    value={rejectionReason}
+                                    onChange={(e) => setRejectionReason(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="flex gap-3">
+                                <Button
+                                    variant="outline"
+                                    className="flex-1 h-12 rounded-2xl border-slate-200 font-black text-xs uppercase tracking-wider"
+                                    onClick={() => setIsRejectionDialogOpen(false)}
+                                    disabled={isProcessingRequest}
+                                >
+                                    Batal
+                                </Button>
+                                <Button
+                                    className="flex-1 h-12 bg-red-600 hover:bg-red-700 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-xl shadow-red-900/20 active:scale-95 transition-all"
+                                    onClick={handleRejectDiscountRequest}
+                                    disabled={isProcessingRequest || !rejectionReason.trim()}
+                                >
+                                    {isProcessingRequest ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
+                                    Kirim Penolakan
+                                </Button>
+                            </div>
+                        </div>
+                    </DialogContent>
+                </Dialog>
             </div>
-        </div>
+        </div >
     );
 }

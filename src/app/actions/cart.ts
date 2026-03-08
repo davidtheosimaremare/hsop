@@ -5,9 +5,10 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { createAccurateHSQ } from "@/lib/accurate";
 import { logActivity } from "./activity";
+import { notifyAdmins } from "./notification";
 
-// Generate sequential EST/YY/MM/XXXXX quotation number for drafts (estimasi)
-async function generateEstimateNo(): Promise<string> {
+// Generate sequential EST/YY/MM/XXXXX quotation number for draft estimations
+export async function generateEstimateNo(): Promise<string> {
     const now = new Date();
     const year = String(now.getFullYear()).substring(2); // 2 digit (e.g., 26)
     const month = String(now.getMonth() + 1).padStart(2, '0'); // 2 digit (e.g., 02)
@@ -30,7 +31,7 @@ async function generateEstimateNo(): Promise<string> {
 }
 
 // Generate sequential HRSQ/YY/MM/XXXXX quotation number for submitted quotations (penawaran)
-async function generateRFQNo(): Promise<string> {
+export async function generateRFQNo(): Promise<string> {
     const now = new Date();
     const year = String(now.getFullYear()).substring(2); // 2 digit (e.g., 26)
     const month = String(now.getMonth() + 1).padStart(2, '0'); // 2 digit (e.g., 02)
@@ -78,6 +79,7 @@ interface CartItem {
     readyStock?: number;
     indent?: number;
     discountStr?: string;
+    stockStatus?: string;
 }
 
 // For guest users - send via email AND save to database
@@ -133,7 +135,8 @@ export async function submitCartQuotation(
                                     basePrice: basePrice,
                                     discountPercent: discountPercent,
                                     discountAmount: discountAmount,
-                                    discountStr: item.discountStr
+                                    discountStr: item.discountStr,
+                                    stockStatus: item.stockStatus
                                 };
                             }),
                         },
@@ -160,9 +163,17 @@ export async function submitCartQuotation(
         // Log Activity
         await logActivity(quotation.id, "SQ_CREATED", "SQ Baru Dibuat", `Guest (${email}) mengirimkan permintaan penawaran (SQ) nomor ${quotation.quotationNo}.`, "USER");
 
+        // Notify Admins
+        await notifyAdmins({
+            title: "Permintaan Penawaran Baru (Guest)",
+            message: `Terdapat permintaan penawaran baru ${quotation.quotationNo} dari guest ${email}.`,
+            type: "QUOTATION",
+            link: `/admin/sales/quotations/${quotation.quotationNo.replace(/\//g, "-")}`
+        });
+
         // Send email notification
         try {
-            await sendCartQuotation(email, phone, items, totalPrice);
+            await sendCartQuotation(email, phone, items, totalPrice, quotation.quotationNo);
         } catch (emailError) {
             console.error("[submitCartQuotation] Email failed:", emailError);
         }
@@ -298,6 +309,7 @@ export async function saveQuotationToDb(
                         phone: user.phone || "",
                         totalAmount: totalPrice,
                         status: status,
+                        isEstimation: status === 'DRAFT',
                         shippingAddress: finalShippingAddress,
                         userClientId: userClientId,
                         clientName: clientName,
@@ -316,7 +328,8 @@ export async function saveQuotationToDb(
                                     basePrice: basePrice,
                                     discountPercent: discountPercent,
                                     discountAmount: discountAmount,
-                                    discountStr: item.discountStr
+                                    discountStr: item.discountStr,
+                                    stockStatus: item.stockStatus
                                 };
                             }),
                         },
@@ -355,7 +368,8 @@ export async function saveQuotationToDb(
                 user.email,
                 user.phone || "",
                 items,
-                totalPrice
+                totalPrice,
+                quotation.quotationNo
             );
             console.log("[saveQuotationToDb] Email sent");
         } catch (emailError) {
@@ -372,6 +386,14 @@ export async function saveQuotationToDb(
             ? `${user.customer.company} (${user.name || user.email})`
             : (user.name || user.email);
         await logActivity(quotation.id, "SQ_CREATED", "SQ Baru Dibuat", `User mengirimkan permintaan penawaran (SQ) nomor ${quotation.quotationNo}.`, performerInfo);
+
+        // Notify Admins
+        await notifyAdmins({
+            title: "Permintaan Penawaran Baru",
+            message: `Terdapat permintaan penawaran baru ${quotation.quotationNo} dari ${performerInfo}.`,
+            type: "QUOTATION",
+            link: `/admin/sales/quotations/${quotation.quotationNo.replace(/\//g, "-")}`
+        });
 
         try {
             console.log("[saveQuotationToDb] Sending WA to sales...");

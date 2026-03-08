@@ -200,39 +200,67 @@ export async function getPublicProductBySlug(slug: string) {
     });
 }
 
-export async function getRelatedProducts(category: string, excludeId: string) {
+export async function getRelatedProducts(category: string, excludeId: string, name: string = "") {
     const hiddenCategories = await db.category.findMany({
         where: { isVisible: false },
         select: { name: true }
     });
     const hiddenCategoryNames = hiddenCategories.map(c => c.name);
 
-    return await db.product.findMany({
+    // Clean name for better matching
+    // We take the first 2 words of the name which usually contain the series/model info
+    const nameWords = name.split(/[\s-]+/).filter(w => w.length >= 3).slice(0, 2);
+    
+    // We'll try to find products that match name words first
+    const relatedProducts = await db.product.findMany({
         where: {
             category: category ? { contains: category, mode: "insensitive" } : (hiddenCategoryNames.length > 0 ? { notIn: hiddenCategoryNames } : undefined),
             id: { not: excludeId },
-            isVisible: true
+            isVisible: true,
+            AND: nameWords.map(word => ({
+                name: { contains: word, mode: "insensitive" }
+            }))
         },
-        take: 6,
-        orderBy: { createdAt: 'desc' }
-    });
-}
-
-export async function getCategoryMappings() {
-    const mappings = await db.categoryMapping.findMany();
-
-    // Group by discountType
-    const grouped = {
-        LP: [] as string[],
-        CP: [] as string[],
-        LIGHTING: [] as string[]
-    };
-
-    mappings.forEach(m => {
-        if (m.discountType === "LP") grouped.LP.push(m.categoryName);
-        else if (m.discountType === "CP") grouped.CP.push(m.categoryName);
-        else if (m.discountType === "LIGHTING") grouped.LIGHTING.push(m.categoryName);
+        take: 8,
+        orderBy: { name: 'asc' }
     });
 
-    return grouped;
+    // If we didn't find enough products with ALL keywords, try matching ANY keyword
+    let finalProducts = [...relatedProducts];
+    if (finalProducts.length < 4) {
+        const anyWordProducts = await db.product.findMany({
+            where: {
+                category: category ? { contains: category, mode: "insensitive" } : (hiddenCategoryNames.length > 0 ? { notIn: hiddenCategoryNames } : undefined),
+                id: { not: excludeId },
+                id: { notIn: finalProducts.map(p => p.id) },
+                isVisible: true,
+                OR: nameWords.map(word => ({
+                    name: { contains: word, mode: "insensitive" }
+                }))
+            },
+            take: 8 - finalProducts.length,
+            orderBy: { name: 'asc' }
+        });
+        finalProducts = [...finalProducts, ...anyWordProducts];
+    }
+
+    // Fallback: If still not enough, just get any from the same category
+    if (finalProducts.length < 8) {
+        const fallbackProducts = await db.product.findMany({
+            where: {
+                category: category ? { contains: category, mode: "insensitive" } : (hiddenCategoryNames.length > 0 ? { notIn: hiddenCategoryNames } : undefined),
+                AND: [
+                    { id: { not: excludeId } },
+                    { id: { notIn: finalProducts.map(p => p.id) } }
+                ],
+                isVisible: true
+            },
+            take: 8 - finalProducts.length,
+            orderBy: { createdAt: 'desc' }
+        });
+        finalProducts = [...finalProducts, ...fallbackProducts];
+    }
+
+    return finalProducts.slice(0, 8);
 }
+

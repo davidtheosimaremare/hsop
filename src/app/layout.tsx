@@ -18,15 +18,35 @@ import { NavigationProgress } from "@/components/layout/NavigationProgress";
 import { AuthProvider } from "@/components/auth/CanAccess";
 
 
+import { getSiteSetting } from "@/app/actions/settings";
+
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "Shop Hokiindo - Distributor Siemens Electrical Indonesia",
-  description: "Shop Hokiindo adalah distributor resmi produk Siemens Electrical di Indonesia. Temukan berbagai produk electrical berkualitas tinggi untuk kebutuhan proyek Anda.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const companyDetails = await getSiteSetting("company_details") as any;
+  const siteTitle = companyDetails?.siteTitle || companyDetails?.name || "Hokiindoshop";
+  const tagline = companyDetails?.siteTagline || "Distributor Siemens Electrical Indonesia";
+  
+  return {
+    title: {
+      template: `%s | ${siteTitle}`,
+      default: `${siteTitle} - ${tagline}`,
+    },
+    description: companyDetails?.description || `${siteTitle} adalah distributor resmi produk Siemens Electrical di Indonesia. Temukan berbagai produk electrical berkualitas tinggi untuk kebutuhan proyek Anda.`,
+    icons: {
+      icon: [
+        { url: companyDetails?.favicon || "/favicon.ico", type: "image/x-icon" },
+        { url: "/logo-H.png", type: "image/png" },
+      ],
+      apple: [
+        { url: "/apple-icon.png" },
+      ],
+    },
+  };
+}
 
 export default function RootLayout({
   children,

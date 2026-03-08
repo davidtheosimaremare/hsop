@@ -10,6 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
     ArrowLeft,
+    User,
+    Mail,
+    Phone,
+    MapPin,
     Loader2,
     Package,
     CheckCircle2,
@@ -21,6 +25,8 @@ import {
     ImageIcon,
     AlertCircle,
     Download,
+    FileDown,
+    FileSpreadsheet,
     RefreshCw,
     ShieldCheck,
     Clock,
@@ -30,9 +36,10 @@ import {
     CreditCard,
     X,
     Tag,
-    FileUp,
     PackageCheck,
     BadgePercent,
+    UploadCloud,
+    FileUp,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { getQuotationDetail, userSelectAlternative, userUndoAlternative, acceptProforma, updateQuotationAddress, cancelQuotation } from "@/app/actions/quotation";
@@ -43,6 +50,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Trash, XCircle } from "lucide-react";
+import { exportQuotationPDF, exportQuotationExcel, type QuotationExportData } from "@/lib/export-quotation";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -64,35 +72,41 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 
+// Stage mapping (client-facing):
+// 1 = Permintaan (DRAFT/PENDING)
+// 2 = Penawaran  (OFFERED)
+// 3 = Pesanan Diproses (CONFIRMED/PROCESSING)
+// 4 = Pengiriman (SHIPPED)
+// 5 = Selesai    (COMPLETED)
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; stage: number }> = {
-    DRAFT: { label: "Penawaran", color: "text-gray-700", bg: "bg-gray-100 border-gray-200", stage: 1 },
-    PENDING: { label: "Penawaran", color: "text-amber-700", bg: "bg-amber-50 border-amber-200", stage: 1 },
-    OFFERED: { label: "Penawaran Ditinjau", color: "text-violet-700", bg: "bg-violet-50 border-violet-200", stage: 2 },
-    CONFIRMED: { label: "Menunggu Verifikasi", color: "text-indigo-700", bg: "bg-indigo-50 border-indigo-200", stage: 3 },
-    PROCESSING: { label: "Pembayaran", color: "text-blue-700", bg: "bg-blue-50 border-blue-200", stage: 4 },
-    SHIPPED: { label: "Dikirim", color: "text-sky-700", bg: "bg-sky-50 border-sky-200", stage: 5 },
-    COMPLETED: { label: "Selesai", color: "text-emerald-700", bg: "bg-emerald-50 border-emerald-200", stage: 6 },
+    DRAFT: { label: "Draf Estimasi", color: "text-gray-700", bg: "bg-gray-100 border-gray-200", stage: 1 },
+    PENDING: { label: "Permintaan Penawaran", color: "text-emerald-700", bg: "bg-emerald-50 border-emerald-200", stage: 1 },
+    OFFERED: { label: "Penawaran", color: "text-violet-700", bg: "bg-violet-50 border-violet-200", stage: 2 },
+    CONFIRMED: { label: "Pesanan Diproses", color: "text-indigo-700", bg: "bg-indigo-50 border-indigo-200", stage: 3 },
+    PROCESSING: { label: "Pesanan Diproses", color: "text-blue-700", bg: "bg-blue-50 border-blue-200", stage: 3 },
+    SHIPPED: { label: "Pengiriman", color: "text-sky-700", bg: "bg-sky-50 border-sky-200", stage: 4 },
+    COMPLETED: { label: "Selesai", color: "text-emerald-700", bg: "bg-emerald-50 border-emerald-200", stage: 5 },
     CANCELLED: { label: "Dibatalkan", color: "text-red-700", bg: "bg-red-50 border-red-200", stage: 0 },
 };
 
 const STATUS_DESCRIPTIONS: Record<string, string> = {
-    DRAFT: "Simpan pesanan sebagai draft untuk dilengkapi nanti. Draft akan disimpan dan dapat dilanjutkan kapan saja.",
-    PENDING: "Draft penawaran telah berhasil dikirimkan ke Hokiindo. Admin akan segera memverifikasi data dan mengirimkan dokumen SQ resmi.",
-    OFFERED: "Tim sales sedang meninjau permintaan Anda. Harga dan ketersediaan akan dikonfirmasi secepatnya.",
-    CONFIRMED: "Penawaran telah dikonfirmasi. Tim kami akan memverifikasi data pesanan sebelum diproses ke pembayaran.",
-    PROCESSING: "Silakan lakukan pembayaran sesuai tagihan. Upload bukti pembayaran untuk mempercepat proses verifikasi.",
-    SHIPPED: "Pesanan Anda sedang dalam perjalanan. Pantau status pengiriman melalui nomor resi yang tersedia.",
-    COMPLETED: "Pesanan telah selesai dan diterima dengan baik. Terima kasih telah berbelanja di Hokiindo!",
-    CANCELLED: "Penawaran ini telah dibatalkan. Anda dapat membuat penawaran baru kapan saja.",
+    DRAFT: "Permintaan Anda telah disimpan. Segera lengkapi detail dan kirimkan untuk diproses oleh tim Hokiindo.",
+    PENDING: "Permintaan penawaran Anda telah dikirimkan. Tim Hokiindo sedang menyiapkan dokumen penawaran resmi untuk Anda.",
+    OFFERED: "Penawaran resmi dari Hokiindo telah tersedia. Tinjau rincian penawaran dan konfirmasi untuk melanjutkan pesanan.",
+    CONFIRMED: "Pesanan Anda telah dikonfirmasi dan sedang diproses oleh tim kami.",
+    PROCESSING: "Pesanan Anda sedang diproses oleh tim kami.",
+    SHIPPED: "Pesanan Anda sedang dalam perjalanan. Pantau nomor resi untuk informasi pengiriman terkini.",
+    COMPLETED: "Pesanan telah selesai dan diterima. Terima kasih telah berbelanja di Hokiindo!",
+    CANCELLED: "Penawaran ini telah dibatalkan. Anda dapat membuat permintaan baru kapan saja.",
 };
 
+// Client-facing steps (5 tahap, berlaku untuk semua tipe customer)
 const STEPS = [
-    { s: 1, l: "Penawaran", icon: FileText },
-    { s: 2, l: "Penawaran Resmi", icon: Send },
-    { s: 3, l: "Verifikasi", icon: ShieldCheck },
-    { s: 4, l: "Pembayaran", icon: CreditCard },
-    { s: 5, l: "Pengiriman", icon: Truck },
-    { s: 6, l: "Selesai", icon: CheckCircle2 },
+    { s: 1, l: "Permintaan", icon: FileText },
+    { s: 2, l: "Penawaran", icon: Send },
+    { s: 3, l: "Pesanan Diproses", icon: PackageCheck },
+    { s: 4, l: "Pengiriman", icon: Truck },
+    { s: 5, l: "Selesai", icon: CheckCircle2 },
 ];
 
 export default function UserTransactionDetailPage() {
@@ -117,7 +131,8 @@ export default function UserTransactionDetailPage() {
 
     const [receiptEvidence, setReceiptEvidence] = useState("");
     const [returnReason, setReturnReason] = useState("");
-    const [returnEvidence, setReturnEvidence] = useState("");
+    const [returnEvidences, setReturnEvidences] = useState<string[]>([]);
+    const [returnUploadProgress, setReturnUploadProgress] = useState(0);
     const [isReturning, setIsReturning] = useState(false);
     const [isReceiptChecked, setIsReceiptChecked] = useState(false);
     const [receiptEvidences, setReceiptEvidences] = useState<string[]>([]);
@@ -187,7 +202,7 @@ export default function UserTransactionDetailPage() {
         let slug: string;
         if (["PENDING", "DRAFT"].includes(quotation.status)) slug = fmt("SQ");
         else if (quotation.status === "OFFERED") slug = toSlug(quotation.accurateHsqNo || fmt("HSQ").replace(/\//g, "-"));
-        else if (quotation.status === "CONFIRMED") slug = toSlug(quotation.accurateHsoNo || fmt("HSO").replace(/\//g, "-"));
+        else if (["CONFIRMED", "PROCESSING"].includes(quotation.status)) slug = toSlug(quotation.accurateHsoNo || fmt("HSO").replace(/\//g, "-"));
         else if (quotation.status === "SHIPPED") slug = toSlug(quotation.accurateDoNo || fmt("HDO").replace(/\//g, "-"));
         else if (quotation.status === "COMPLETED") slug = fmt("INV");
         else slug = fmt("SQ");
@@ -326,13 +341,48 @@ export default function UserTransactionDetailPage() {
         setIsSubmitting(false);
     };
 
+    const handleMultipleReturnUploads = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
+
+        setIsUploading(true);
+        setReturnUploadProgress(0);
+
+        const urls: string[] = [...returnEvidences];
+        let c = 0;
+
+        for (const file of files) {
+            const formData = new FormData();
+            formData.append("file", file);
+            try {
+                const result = await uploadFile(formData);
+                if (result.success && result.url) {
+                    urls.push(result.url);
+                } else {
+                    toast.error(`Gagal upload ${file.name}`);
+                }
+            } catch (err) {
+                console.error(err);
+                toast.error(`Error upload ${file.name}`);
+            }
+            c++;
+            setReturnUploadProgress((c / files.length) * 100);
+            setReturnEvidences([...urls]);
+        }
+
+        setIsUploading(false);
+        setReturnUploadProgress(0);
+        e.target.value = '';
+    };
+
     const handleRequestReturn = async () => {
-        if (!returnReason || !returnEvidence) {
-            toast.error("Mohon isi alasan dan upload bukti foto/video.");
+        if (!returnReason || returnEvidences.length === 0) {
+            toast.error("Mohon isi alasan dan upload minimal 1 bukti foto/video.");
             return;
         }
         setIsSubmitting(true);
-        await userRequestReturn(id, returnReason, returnEvidence);
+        const evidenceData = returnEvidences.length > 0 ? JSON.stringify(returnEvidences) : "";
+        await userRequestReturn(id, returnReason, evidenceData);
         await loadData();
         toast.success("Pengajuan retur terkirim");
         setIsReturning(false);
@@ -363,8 +413,11 @@ export default function UserTransactionDetailPage() {
         setIsSubmitting(false);
     };
 
+    // Tidak bisa kembali ke stage sebelumnya setelah proses berjalan
     const handleViewStageChange = (targetStage: number) => {
-        setViewStage(targetStage);
+        // hanya boleh pindah ke stage yang sudah selesai (untuk lihat riwayat), tapi tetap
+        // kita nonaktifkan navigasi ke belakang — viewStage selalu = currentStage
+        void targetStage;
     };
 
 
@@ -388,6 +441,40 @@ export default function UserTransactionDetailPage() {
             toast.error(result.error || "Gagal membatalkan penawaran");
         }
         setIsCancelling(false);
+    };
+
+    const prepareExportData = (): QuotationExportData | null => {
+        if (!quotation) return null;
+        return {
+            quotationNo: displayNo,
+            createdAt: quotation.createdAt,
+            status: STATUS_CONFIG[quotation.status]?.label || quotation.status,
+            totalAmount: finalTotal,
+            clientName: quotation.clientName || undefined,
+            title: "PENAWARAN HARGA",
+            typeLabel: "Nomor Penawaran",
+            items: items.map((item: any) => {
+                const status = item.stockStatus || (item.currentStock > 0 ? 'READY' : 'INDENT');
+                return {
+                    productSku: item.productSku,
+                    productName: item.productName,
+                    brand: item.brand || "",
+                    quantity: item.quantity,
+                    price: item.price,
+                    stockStatus: status === 'READY' ? 'READY' : 'INDENT'
+                };
+            })
+        };
+    };
+
+    const downloadPDF = async () => {
+        const data = prepareExportData();
+        if (data) await exportQuotationPDF(data);
+    };
+
+    const downloadExcel = async () => {
+        const data = prepareExportData();
+        if (data) await exportQuotationExcel(data);
     };
 
     if (isLoading) {
@@ -415,6 +502,7 @@ export default function UserTransactionDetailPage() {
     const isCorporate = ["CORPORATE", "BISNIS", "B2B", "COMPANY"].includes(custType);
     const isRetail = ["RITEL", "RETAIL", "PERSONAL"].includes(custType);
     const isGeneralCustomer = !isCorporate && !isRetail;
+
     const items = quotation.items || [];
     const hasDiscount = quotation.specialDiscount && quotation.specialDiscount > 0;
     const discountAmount = hasDiscount ? quotation.totalAmount * (quotation.specialDiscount / 100) : 0;
@@ -422,194 +510,197 @@ export default function UserTransactionDetailPage() {
 
     const displayNo = (() => {
         const no = quotation.quotationNo || "";
-        // Strip any existing SQ/ HSQ/ RFQ/ etc. prefix, then rebuild
-        const baseNo = no.replace(/^[A-Z]+\//, ""); // "SQ/26/03/1" → "26/03/1"
+        const baseNo = no.replace(/^[A-Z]+\//, "");
         const fmt = (p: string) => `${p}/${baseNo}`;
         if (quotation.status === "PENDING" || quotation.status === "DRAFT") return fmt("SQ");
         if (quotation.status === "OFFERED") return quotation.accurateHsqNo || fmt("HSQ");
         if (quotation.status === "CONFIRMED") return quotation.accurateHsoNo || fmt("HSO");
+        if (quotation.status === "PROCESSING") return quotation.accurateHsoNo || fmt("HSO");
         if (quotation.status === "SHIPPED") return quotation.accurateDoNo || fmt("HDO");
         if (quotation.status === "COMPLETED") return fmt("INV");
         return fmt("SQ");
     })();
 
-    let status = STATUS_CONFIG[quotation.status] || STATUS_CONFIG.PENDING;
-    // Override labels to reflect document naming
-    if (quotation.status === "OFFERED") status = { ...status, label: "Penawaran (HSQ)" };
-    if (quotation.status === "CONFIRMED") status = { ...status, label: isRetail ? "Diproses" : "Pesanan (HSO)" };
-    if (quotation.status === "PROCESSING") status = { ...status, label: "Pembayaran" };
-
+    const status = STATUS_CONFIG[quotation.status] || STATUS_CONFIG.PENDING;
     const currentStage = status.stage;
 
-    // Filter steps for Retail/General - remove Verification stage + rename
-    const filteredSteps = isGeneralCustomer
-        ? STEPS.filter(s => s.s !== 3).map(step => {
-            if (step.s === 4) return { ...step, l: "Pembayaran" };
-            return step;
-        })
-        : STEPS.filter(s => s.s !== 4 && s.s !== 3).map(step => {
-            // For Corporate/Retail: 1(Penawaran), 2(Penawaran Resmi), 3(Pesanan), 5(Pengiriman), 6(Selesai)
-            // Wait, the user wants: Penawaran -> Penawaran Resmi -> Pesanan -> Pengiriman -> Selesai
-            // So we take 1, 2, 3(renamed to Pesanan), 5, 6
-            return { ...step };
-        }).concat([
-            { s: 3, l: "Pesanan", icon: ShieldCheck }
-        ]).sort((a, b) => a.s - b.s).filter(s => s.s !== 4);
-
-    // Let's refine the logic to be exactly as requested:
-    const finalSteps = isGeneralCustomer
-        ? [
-            { s: 1, l: "Penawaran", icon: FileText },
-            { s: 2, l: "Penawaran Resmi", icon: Send },
-            { s: 4, l: "Pembayaran", icon: CreditCard },
-            { s: 5, l: "Pengiriman", icon: Truck },
-            { s: 6, l: "Selesai", icon: CheckCircle2 }
-        ]
-        : [
-            { s: 1, l: "Penawaran", icon: FileText },
-            { s: 2, l: "Penawaran Resmi", icon: Send },
-            { s: 3, l: "Pesanan", icon: PackageCheck },
-            { s: 5, l: "Pengiriman", icon: Truck },
-            { s: 6, l: "Selesai", icon: CheckCircle2 }
-        ];
+    // Semua customer pakai 5 step yang sama (Permintaan → Penawaran → Pesanan Diproses → Pengiriman → Selesai)
+    const finalSteps = STEPS;
 
     return (
         <div className="max-w-5xl mx-auto pb-20 px-4 md:px-0 mt-4">
             {/* ─── Hero Header ─── */}
-            <div className="relative rounded-xl bg-white border border-gray-200 p-5 md:p-6 mb-6 overflow-hidden shadow-sm">
-                <div className="relative z-10">
+            <div className="relative rounded-2xl overflow-hidden mb-6 shadow-sm border border-gray-100">
+                {/* Background gradient accent */}
+                <div className="absolute inset-0 bg-gradient-to-br from-white via-white to-red-50/40 pointer-events-none" />
+
+                <div className="relative z-10 p-5 md:p-6">
                     <button
                         onClick={() => router.push("/dashboard/transaksi")}
-                        className="inline-flex items-center gap-1.5 text-gray-500 hover:text-red-600 text-sm transition-colors mb-4 group"
+                        className="inline-flex items-center gap-1.5 text-gray-400 hover:text-red-600 text-xs font-medium transition-colors mb-5 group"
                     >
-                        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-                        Kembali ke Transaksi
+                        <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+                        Kembali ke Riwayat Transaksi
                     </button>
 
-                    <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-                        <div>
-                            <div className="flex items-center gap-3 mb-1 flex-wrap">
-                                <h1 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">{displayNo}</h1>
-                                <span className={`inline-flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full border ${status.bg} ${status.color}`}>
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-5">
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-2.5 flex-wrap">
+                                <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full border ${status.bg} ${status.color}`}>
+                                    <span className="w-1.5 h-1.5 rounded-full bg-current opacity-80" />
                                     {status.label}
                                 </span>
                                 {['PENDING', 'DRAFT', 'OFFERED', 'PROCESSING', 'CONFIRMED'].includes(quotation.status) && (
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setIsCancelOpen(true)}
-                                        className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 px-3"
-                                    >
-                                        Batalkan SQ
-                                    </Button>
+                                    <div className="flex items-center gap-3">
+                                        <button
+                                            onClick={() => setIsCancelOpen(true)}
+                                            className={`inline-flex items-center gap-1 text-[11px] font-medium transition-colors ${['CONFIRMED', 'PROCESSING'].includes(quotation.status)
+                                                ? 'text-gray-300 pointer-events-none'
+                                                : 'text-gray-400 hover:text-red-500'
+                                                }`}
+                                        >
+                                            <X className="w-3 h-3" /> Batalkan
+                                        </button>
+                                        <div className="w-px h-3 bg-gray-200" />
+                                        <button
+                                            onClick={downloadPDF}
+                                            className="inline-flex items-center gap-1 text-[11px] font-bold text-gray-500 hover:text-red-600 transition-colors"
+                                        >
+                                            <FileDown className="w-3 h-3 text-red-500" /> Penawaran PDF
+                                        </button>
+                                        <button
+                                            onClick={downloadExcel}
+                                            className="inline-flex items-center gap-1 text-[11px] font-bold text-gray-500 hover:text-emerald-600 transition-colors"
+                                        >
+                                            <FileSpreadsheet className="w-3 h-3 text-emerald-500" /> Excel
+                                        </button>
+                                    </div>
                                 )}
                             </div>
-                            <p className="text-gray-500 text-sm">
-                                {format(new Date(quotation.createdAt), "dd MMM yyyy, HH:mm")}
+                            <h1 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight font-mono">{displayNo}</h1>
+                            <p className="text-xs text-gray-400">
+                                Dibuat: {format(new Date(quotation.createdAt), "dd MMM yyyy, HH:mm")}
                             </p>
                         </div>
-                        <div className="flex flex-col items-end">
-                            <p className="text-gray-500 text-xs uppercase tracking-wider font-medium">Total</p>
-                            <p className="text-2xl md:text-3xl font-bold text-red-600">
-                                Rp {fmtPrice(finalTotal)}
+
+                        <div className="sm:text-right">
+                            <p className="text-[10px] text-gray-400 uppercase tracking-widest font-semibold mb-1">Total Transaksi</p>
+                            <p className="text-2xl md:text-3xl font-bold text-gray-900">
+                                Rp <span className="text-red-600">{fmtPrice(finalTotal)}</span>
                             </p>
                             {hasDiscount && (
-                                <p className="text-xs text-emerald-600 mt-0.5 font-medium">
-                                    Diskon {quotation.specialDiscount}% applied
-                                </p>
+                                <div className="flex sm:justify-end items-center gap-1.5 mt-1">
+                                    <span className="text-xs text-gray-400 line-through">Rp {fmtPrice(quotation.totalAmount)}</span>
+                                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-100">
+                                        -{quotation.specialDiscount}%
+                                    </span>
+                                </div>
                             )}
                         </div>
                     </div>
                 </div>
             </div>
 
+
+
             {/* ─── Progress Stepper ─── */}
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-6 overflow-x-auto">
-                <div className="flex items-center min-w-[480px]">
-                    {finalSteps.map((step, idx) => {
-                        const StepIcon = step.icon;
-                        const isCurrentStatusStage = currentStage === step.s;
-                        const isCompletedStatusStage = currentStage > step.s;
-                        const isBeingViewed = viewStage === step.s;
-                        const isPast = isCompletedStatusStage;
+            {quotation.status !== "CANCELLED" && (
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6 overflow-x-auto">
+                    <div className="flex items-start min-w-[480px]">
+                        {finalSteps.map((step, idx) => {
+                            const StepIcon = step.icon;
+                            const isCompleted = currentStage > step.s;
+                            const isCurrent = currentStage === step.s;
+                            const isFuture = currentStage < step.s;
 
-                        return (
-                            <div key={idx} className="flex items-center flex-1 last:flex-none">
-                                <div
-                                    className={`flex flex-col items-center gap-1.5 relative z-10 transition-all duration-300 ${isPast ? "cursor-pointer hover:scale-105 active:scale-95 group" : ""}`}
-                                    onClick={() => isPast && handleViewStageChange(step.s)}
-                                    title={isPast ? `Klik untuk melihat tahap ${step.l}` : undefined}
-                                >
-                                    <div
-                                        className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 ${isCompletedStatusStage
-                                            ? "bg-emerald-500 text-white shadow-md shadow-emerald-200"
-                                            : isCurrentStatusStage
-                                                ? "bg-red-600 text-white shadow-md shadow-red-200 ring-4 ring-red-100"
-                                                : "bg-gray-100 text-gray-400"
-                                            } ${isBeingViewed ? "ring-2 ring-blue-400 ring-offset-2 scale-110" : ""} ${isPast ? "group-hover:bg-emerald-600" : ""}`}
-                                    >
-                                        {isCompletedStatusStage ? (
-                                            <CheckCircle2 className="w-4.5 h-4.5" />
-                                        ) : (
-                                            <StepIcon className="w-4 h-4" />
-                                        )}
+                            return (
+                                <div key={idx} className="flex items-start flex-1 last:flex-none">
+                                    <div className="flex flex-col items-center gap-2 relative z-10 min-w-[64px]">
+                                        {/* Circle */}
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 relative
+                                            ${isCompleted
+                                                ? "bg-emerald-500 text-white shadow-md shadow-emerald-200/60"
+                                                : isCurrent
+                                                    ? "bg-red-600 text-white shadow-lg shadow-red-200 ring-4 ring-red-100"
+                                                    : "bg-gray-100 text-gray-300"
+                                            }`}
+                                        >
+                                            {isCompleted
+                                                ? <CheckCircle2 className="w-5 h-5" />
+                                                : <StepIcon className="w-4.5 h-4.5" />
+                                            }
+                                            {isCurrent && (
+                                                <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-red-500 border-2 border-white animate-pulse" />
+                                            )}
+                                        </div>
+                                        {/* Label */}
+                                        <span className={`text-[10px] font-semibold text-center leading-tight whitespace-nowrap transition-colors
+                                            ${isCompleted ? "text-emerald-600" : isCurrent ? "text-red-600" : "text-gray-300"}`}
+                                        >
+                                            {step.l}
+                                        </span>
                                     </div>
-                                    <span className={`text-[11px] font-semibold whitespace-nowrap transition-colors ${isBeingViewed ? "text-blue-600" : isCurrentStatusStage ? "text-red-600" : isCompletedStatusStage ? "text-emerald-600" : "text-gray-400"
-                                        } ${isPast ? "group-hover:text-emerald-700" : ""}`}>
-                                        {step.l}
-                                    </span>
+                                    {/* Connector line */}
+                                    {idx < finalSteps.length - 1 && (
+                                        <div className={`h-[2px] flex-1 mx-2 mt-5 rounded-full transition-all duration-500
+                                            ${currentStage > step.s ? "bg-emerald-400" : "bg-gray-100"}`}
+                                        />
+                                    )}
                                 </div>
-                                {idx < finalSteps.length - 1 && (
-                                    <div className={`h-[2px] flex-1 mx-3 -mt-5 rounded-full transition-colors ${currentStage > step.s ? "bg-emerald-400" : "bg-gray-100"
-                                        }`} />
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-
-            {/* ─── OFFERED: Penawaran Resmi Banner ─── */}
-            {quotation.status === "OFFERED" && (
-                <div className="bg-white border border-red-200 rounded-xl p-3 mb-6 shadow-md shadow-red-100/30">
-                    <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 bg-red-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <FileText className="w-4.5 h-4.5 text-red-600" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                                <p className="text-black font-bold text-sm">
-                                    <span className="text-red-700">🎉 Penawaran Resmi</span> Telah Dikirim!
-                                </p>
-                                {displayNo && (
-                                    <span className="bg-gray-100 px-2 py-0.5 rounded text-[10px] font-mono font-bold text-gray-800 border border-gray-200">
-                                        {displayNo}
-                                    </span>
-                                )}
-                            </div>
-                            <p className="text-gray-900 text-[11px] mt-0.5 leading-tight opacity-80">
-                                Tinjau rincian &amp; dokumen di bawah, lalu klik <strong className="text-red-600">Setuju &amp; Konfirmasi</strong> untuk memesan.
-                            </p>
-                        </div>
+                            );
+                        })}
                     </div>
                 </div>
             )}
 
-            {/* ─── Status Description Box (for other statuses) ─── */}
-            {quotation.status !== "OFFERED" && (
-                <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6">
-                    <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <Info className="w-4 h-4 text-blue-600" />
-                        </div>
-                        <div>
-                            <p className="text-sm font-semibold text-blue-900 mb-1">
-                                {STATUS_CONFIG[quotation.status]?.label}
-                            </p>
-                            <p className="text-sm text-blue-700 leading-relaxed">
-                                {STATUS_DESCRIPTIONS[quotation.status] || "Proses pesanan sedang berjalan."}
-                            </p>
-                        </div>
+            {/* ─── Status Info Banner ─── */}
+            {quotation.status === "CANCELLED" ? (
+                <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-2xl p-4 mb-6">
+                    <div className="w-9 h-9 bg-red-100 rounded-xl flex items-center justify-center shrink-0">
+                        <XCircle className="w-4.5 h-4.5 text-red-600" />
+                    </div>
+                    <div>
+                        <p className="text-sm font-bold text-red-800">Transaksi Dibatalkan</p>
+                        <p className="text-xs text-red-600 mt-0.5 leading-relaxed">{STATUS_DESCRIPTIONS.CANCELLED}</p>
+                    </div>
+                </div>
+            ) : quotation.status === "OFFERED" ? (
+                <div className="flex items-start gap-3 bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-200 rounded-2xl p-4 mb-6 shadow-sm">
+                    <div className="w-9 h-9 bg-violet-100 rounded-xl flex items-center justify-center shrink-0">
+                        <FileText className="w-4.5 h-4.5 text-violet-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-violet-900">Penawaran Resmi Tersedia</p>
+                        <p className="text-xs text-violet-700 mt-0.5 leading-relaxed">
+                            Tinjau rincian penawaran di bawah. Klik <strong>Setuju &amp; Konfirmasi</strong> untuk melanjutkan pesanan.
+                        </p>
+                    </div>
+                    {displayNo && (
+                        <span className="shrink-0 bg-white border border-violet-200 px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold text-violet-800 shadow-sm">
+                            {displayNo}
+                        </span>
+                    )}
+                </div>
+            ) : quotation.status === "COMPLETED" ? (
+                <div className="flex items-start gap-3 bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-2xl p-4 mb-6">
+                    <div className="w-9 h-9 bg-emerald-100 rounded-xl flex items-center justify-center shrink-0">
+                        <CheckCircle2 className="w-4.5 h-4.5 text-emerald-600" />
+                    </div>
+                    <div>
+                        <p className="text-sm font-bold text-emerald-900">Pesanan Selesai</p>
+                        <p className="text-xs text-emerald-700 mt-0.5 leading-relaxed">{STATUS_DESCRIPTIONS.COMPLETED}</p>
+                    </div>
+                </div>
+            ) : (
+                <div className="flex items-start gap-3 bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-6">
+                    <div className="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
+                        <Info className="w-4.5 h-4.5 text-blue-600" />
+                    </div>
+                    <div>
+                        <p className="text-sm font-bold text-blue-900">{status.label}</p>
+                        <p className="text-xs text-blue-700 mt-0.5 leading-relaxed">
+                            {STATUS_DESCRIPTIONS[quotation.status] || "Proses pesanan sedang berjalan."}
+                        </p>
                     </div>
                 </div>
             )}
@@ -685,14 +776,10 @@ export default function UserTransactionDetailPage() {
                                             <p className="font-medium text-gray-900 text-[13px] leading-snug truncate">{item.productName}</p>
                                             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                                                 <span className="text-[11px] text-gray-400 font-mono">{item.productSku}</span>
-                                                {item.stockStatus === "INDENT" && (
-                                                    <span className="text-[9px] text-orange-700 bg-orange-50 border border-orange-200/70 px-1.5 py-px rounded-full font-semibold leading-none">Indent</span>
-                                                )}
-                                                {item.isAvailable === true && !item.stockStatus && (
-                                                    <span className="text-[9px] text-emerald-700 bg-emerald-50 border border-emerald-200/70 px-1.5 py-px rounded-full font-semibold leading-none">✓ Ready</span>
-                                                )}
-                                                {item.isAvailable === false && !item.stockStatus && (
-                                                    <span className="text-[9px] text-red-600 bg-red-50 border border-red-200/70 px-1.5 py-px rounded-full font-semibold leading-none">Stok Habis</span>
+                                                {item.stockStatus === "INDENT" || (item.isAvailable === false && !item.stockStatus) ? (
+                                                    <span className="text-[9px] text-orange-700 bg-orange-50 border border-orange-200/70 px-1.5 py-px rounded-full font-semibold leading-none uppercase tracking-tighter">Indent</span>
+                                                ) : (
+                                                    <span className="text-[9px] text-emerald-700 bg-emerald-50 border border-emerald-200/70 px-1.5 py-px rounded-full font-semibold leading-none uppercase tracking-tighter">✓ Ready Stock</span>
                                                 )}
                                             </div>
                                             {item.adminNote && (
@@ -777,8 +864,8 @@ export default function UserTransactionDetailPage() {
 
 
 
-                    {/* ─── Stage 5: Shipping ─── */}
-                    {viewStage === 5 && (
+                    {/* ─── Stage 4: Shipping ─── */}
+                    {viewStage === 4 && (
                         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
                             <div className="px-5 py-3.5 border-b border-gray-100 flex items-center gap-2">
                                 <div className="w-7 h-7 rounded-lg bg-sky-50 flex items-center justify-center">
@@ -825,7 +912,11 @@ export default function UserTransactionDetailPage() {
                                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                                 {receiptEvidences.map((url, idx) => (
                                                     <div key={idx} className="relative group aspect-square rounded-xl border border-gray-200 overflow-hidden shadow-sm bg-gray-50">
-                                                        <img src={url} alt={`Evidence ${idx + 1}`} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                                                        {url.match(/\.(mp4|webm|ogg|mov)$/i) ? (
+                                                            <video src={url} className="w-full h-full object-cover transition-transform group-hover:scale-105" controls />
+                                                        ) : (
+                                                            <img src={url} alt={`Evidence ${idx + 1}`} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                                                        )}
                                                         <button
                                                             onClick={() => setReceiptEvidences(prev => prev.filter((_, i) => i !== idx))}
                                                             className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
@@ -873,7 +964,7 @@ export default function UserTransactionDetailPage() {
                                         </div>
                                     )}
 
-                                    {currentStage === 5 && (
+                                    {currentStage === 4 && (
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild>
                                                 <Button
@@ -911,8 +1002,8 @@ export default function UserTransactionDetailPage() {
                         </div>
                     )}
 
-                    {/* ─── Stage 6: Completed / Return ─── */}
-                    {(viewStage === 6 || quotation.returnRequest) && (
+                    {/* ─── Stage 5: Completed / Return ─── */}
+                    {(viewStage === 5 || quotation.returnRequest) && (
                         <div className="space-y-4">
                             <div className="bg-gradient-to-r from-emerald-50 to-green-50 rounded-xl border border-emerald-200/60 p-5 flex items-start gap-4">
                                 <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
@@ -932,11 +1023,15 @@ export default function UserTransactionDetailPage() {
                                                         const p = JSON.parse(quotation.receiptEvidencePath);
                                                         if (Array.isArray(p)) {
                                                             return p.map((url, i) => (
-                                                                <img key={i} src={url} className="w-20 h-20 object-cover rounded-lg border border-emerald-200 shadow-sm" />
+                                                                url.match(/\.(mp4|webm|ogg|mov)$/i) ?
+                                                                    <video key={i} src={url} className="w-20 h-20 object-cover rounded-lg border border-emerald-200 shadow-sm" controls /> :
+                                                                    <img key={i} src={url} className="w-20 h-20 object-cover rounded-lg border border-emerald-200 shadow-sm" />
                                                             ));
                                                         }
                                                     } catch (e) { }
-                                                    return <img src={quotation.receiptEvidencePath} className="w-20 h-20 object-cover rounded-lg border border-emerald-200 shadow-sm" />;
+                                                    return quotation.receiptEvidencePath.match(/\.(mp4|webm|ogg|mov)$/i) ?
+                                                        <video src={quotation.receiptEvidencePath} className="w-20 h-20 object-cover rounded-lg border border-emerald-200 shadow-sm" controls /> :
+                                                        <img src={quotation.receiptEvidencePath} className="w-20 h-20 object-cover rounded-lg border border-emerald-200 shadow-sm" />;
                                                 })()}
                                             </div>
                                         </div>
@@ -965,7 +1060,27 @@ export default function UserTransactionDetailPage() {
                                                     <span className="text-sm font-medium text-amber-800">Menunggu Review Admin</span>
                                                 </div>
                                                 <p className="text-sm text-gray-700"><strong>Alasan:</strong> {quotation.returnReason}</p>
-                                                {quotation.returnEvidencePath && <img src={quotation.returnEvidencePath} className="w-28 rounded-lg border" />}
+                                                {quotation.returnEvidencePath && (
+                                                    <div className="flex flex-wrap gap-2 mt-2">
+                                                        {(() => {
+                                                            try {
+                                                                const p = JSON.parse(quotation.returnEvidencePath);
+                                                                if (Array.isArray(p)) {
+                                                                    return p.map((url, i) => (
+                                                                        url.match(/\.(mp4|webm|ogg|mov)$/i) ?
+                                                                            <video key={i} src={url} className="w-28 rounded-lg border" controls /> :
+                                                                            <img key={i} src={url} className="w-28 object-cover rounded-lg border" />
+                                                                    ));
+                                                                }
+                                                            } catch (e) { }
+                                                            return quotation.returnEvidencePath.match(/\.(mp4|webm|ogg|mov)$/i) ? (
+                                                                <video src={quotation.returnEvidencePath} className="w-28 rounded-lg border" controls />
+                                                            ) : (
+                                                                <img src={quotation.returnEvidencePath} className="w-28 object-cover rounded-lg border" />
+                                                            );
+                                                        })()}
+                                                    </div>
+                                                )}
                                             </div>
                                         ) : (
                                             <>
@@ -978,10 +1093,52 @@ export default function UserTransactionDetailPage() {
                                                         className="text-sm h-20 resize-none"
                                                     />
                                                 </div>
-                                                <div className="space-y-1.5">
-                                                    <Label className="text-xs font-semibold">Bukti Foto/Video</Label>
-                                                    <Input type="file" accept="image/*,video/*" onChange={(e) => handleFileUpload(e, setReturnEvidence)} disabled={isUploading} className="text-sm" />
-                                                    {isUploading && <Loader2 className="w-4 h-4 animate-spin text-gray-400" />}
+                                                <div className="space-y-3">
+                                                    <Label className="text-xs font-semibold block mb-1">Bukti Foto / Video</Label>
+
+                                                    <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-red-200 rounded-xl hover:bg-red-50/50 hover:border-red-300 transition-colors cursor-pointer group mb-1.5">
+                                                        <div className="flex flex-col items-center justify-center pt-4 pb-5">
+                                                            <UploadCloud className="w-6 h-6 text-red-400 group-hover:text-red-500 mb-2 transition-colors" />
+                                                            <p className="text-xs text-red-600 font-medium tracking-tight">Klik untuk unggah (Bisa multiple file)</p>
+                                                            <p className="text-[10px] text-red-400 mt-0.5">Mendukung Foto & Video (Sesuai kebutuhan)</p>
+                                                        </div>
+                                                        <input type="file" multiple accept="image/*,video/*" className="hidden" onChange={handleMultipleReturnUploads} disabled={isUploading} />
+                                                    </label>
+
+                                                    {isUploading && (
+                                                        <div className="space-y-1.5 bg-gray-50 border border-gray-100 p-3 rounded-xl mb-3">
+                                                            <div className="flex items-center justify-between text-xs text-gray-500 font-medium">
+                                                                <span className="flex items-center gap-1.5 pointer-events-none">
+                                                                    <Loader2 className="w-3.5 h-3.5 animate-spin text-red-500" />
+                                                                    Mengunggah file...
+                                                                </span>
+                                                                <span className="font-mono text-[10px] bg-white px-1.5 rounded-sm shadow-sm">{Math.round(returnUploadProgress)}%</span>
+                                                            </div>
+                                                            <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+                                                                <div className="h-full bg-red-500 rounded-full transition-all duration-300" style={{ width: `${returnUploadProgress}%` }} />
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {returnEvidences.length > 0 && (
+                                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                                            {returnEvidences.map((url, idx) => (
+                                                                <div key={idx} className="relative group aspect-square rounded-xl border border-gray-200 overflow-hidden shadow-sm bg-gray-50">
+                                                                    {url.match(/\.(mp4|webm|ogg|mov)$/i) ? (
+                                                                        <video src={url} className="w-full h-full object-cover transition-transform group-hover:scale-105" controls />
+                                                                    ) : (
+                                                                        <img src={url} alt={`Evidence ${idx + 1}`} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                                                                    )}
+                                                                    <button
+                                                                        onClick={() => setReturnEvidences(prev => prev.filter((_, i) => i !== idx))}
+                                                                        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                                                                    >
+                                                                        <X className="w-3.5 h-3.5" />
+                                                                    </button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <div className="flex gap-2 justify-end pt-1">
                                                     <Button variant="ghost" size="sm" onClick={() => setIsReturning(false)} className="text-xs">Batal</Button>
@@ -989,7 +1146,7 @@ export default function UserTransactionDetailPage() {
                                                         size="sm"
                                                         className="bg-red-600 text-white text-xs"
                                                         onClick={handleRequestReturn}
-                                                        disabled={isSubmitting || !returnReason || !returnEvidence}
+                                                        disabled={isSubmitting || !returnReason || returnEvidences.length === 0}
                                                     >
                                                         {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Send className="w-3.5 h-3.5 mr-1.5" />}
                                                         Kirim Pengajuan
@@ -1003,32 +1160,33 @@ export default function UserTransactionDetailPage() {
                         </div>
                     )}
 
-                    {/* Shipping Address - MOVED TO BOTTOM */}
-                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mt-5">
-                        <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-blue-50/50">
+                    {/* Shipping Address */}
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mt-5">
+                        <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
-                                    <Truck className="w-4 h-4 text-blue-600" />
+                                <div className="w-7 h-7 rounded-lg bg-sky-50 flex items-center justify-center">
+                                    <Truck className="w-3.5 h-3.5 text-sky-600" />
                                 </div>
-                                <h3 className="font-bold text-sm text-blue-900">Alamat Pengiriman</h3>
+                                <h3 className="font-bold text-sm text-gray-800">Alamat Pengiriman</h3>
                             </div>
                             {(quotation.status === "DRAFT" || quotation.status === "PENDING") && (
-                                <Button variant="ghost" size="sm" className="h-7 text-[10px] text-blue-600 font-bold hover:text-blue-700 hover:bg-blue-50" onClick={() => setIsAddressModalOpen(true)}>
-                                    Ganti
+                                <Button variant="ghost" size="sm" className="h-7 text-[11px] text-red-600 font-bold hover:text-red-700 hover:bg-red-50 rounded-lg px-3" onClick={() => setIsAddressModalOpen(true)}>
+                                    Ubah
                                 </Button>
                             )}
                         </div>
                         <div className="p-4">
                             {quotation.shippingAddress ? (
-                                <div className="space-y-1">
-                                    <p className="text-xs text-gray-700 leading-relaxed font-medium">{quotation.shippingAddress}</p>
-                                </div>
+                                <>
+                                    <p className="text-xs text-gray-600 leading-relaxed">{quotation.shippingAddress}</p>
+                                    <p className="text-[10px] text-gray-400 mt-3 italic">* Alamat ini digunakan khusus untuk pengiriman pesanan ini.</p>
+                                </>
                             ) : (
-                                <div className="flex flex-col items-center py-4 text-center">
-                                    <AlertCircle className="w-8 h-8 text-amber-500 mb-2 opacity-40" />
-                                    <p className="text-xs text-gray-500 font-medium">Alamat belum dipilih</p>
+                                <div className="flex flex-col items-center py-5 text-center">
+                                    <AlertCircle className="w-8 h-8 text-amber-400 mb-2 opacity-50" />
+                                    <p className="text-xs text-gray-500 font-medium">Alamat pengiriman belum dipilih</p>
                                     {(quotation.status === "DRAFT" || quotation.status === "PENDING") && (
-                                        <Button size="sm" variant="outline" className="mt-3 text-[11px] h-8 border-dashed border-gray-300 hover:border-blue-400 hover:text-blue-600" onClick={() => setIsAddressModalOpen(true)}>
+                                        <Button size="sm" variant="outline" className="mt-3 text-[11px] h-8 border-dashed hover:border-red-400 hover:text-red-600 rounded-xl" onClick={() => setIsAddressModalOpen(true)}>
                                             Pilih Alamat
                                         </Button>
                                     )}
@@ -1047,134 +1205,114 @@ export default function UserTransactionDetailPage() {
                     {viewStage === 2 && (
                         <div className="space-y-4">
                             {/* HSQ Document Card */}
-                            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-                                <div className={`px-5 py-3.5 border-b border-gray-100 ${currentStage > 2
-                                    ? "bg-gradient-to-r from-emerald-50 to-emerald-100/50"
-                                    : "bg-gradient-to-r from-red-50 to-red-100/50"
+                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                                <div className={`px-5 py-4 border-b border-gray-100 ${currentStage > 2
+                                    ? "bg-gradient-to-r from-emerald-50 to-emerald-100/40"
+                                    : "bg-gradient-to-r from-violet-50 to-purple-50"
                                     }`}>
-                                    <div className="flex items-center gap-2">
-                                        <div className={`w-6 h-6 rounded-md flex items-center justify-center ${currentStage > 2 ? "bg-emerald-100" : "bg-red-100"
-                                            }`}>
-                                            <FileText className={`w-3 h-3 ${currentStage > 2 ? "text-emerald-600" : "text-red-600"}`} />
+                                    <div className="flex items-center gap-2.5">
+                                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${currentStage > 2 ? "bg-emerald-100" : "bg-violet-100"}`}>
+                                            <FileText className={`w-4 h-4 ${currentStage > 2 ? "text-emerald-600" : "text-violet-600"}`} />
                                         </div>
                                         <div>
-                                            <h3 className={`font-bold text-sm ${currentStage > 2 ? "text-emerald-900" : "text-red-900"}`}>
-                                                {currentStage > 2 ? "Penawaran Disetujui" : "Dokumen Penawaran (HSQ)"}
+                                            <h3 className={`font-bold text-sm ${currentStage > 2 ? "text-emerald-900" : "text-violet-900"}`}>
+                                                {currentStage > 2 ? "Penawaran Dikonfirmasi" : "Dokumen Penawaran"}
                                             </h3>
-                                            <p className={`text-[10px] mt-0.5 ${currentStage > 2 ? "text-emerald-600" : "text-red-500"}`}>
+                                            <p className={`text-[10px] mt-0.5 ${currentStage > 2 ? "text-emerald-600" : "text-violet-500"}`}>
                                                 {currentStage > 2
-                                                    ? "Penawaran telah dikonfirmasi & dilanjutkan ke pesanan"
+                                                    ? "Penawaran telah dikonfirmasi & pesanan dilanjutkan"
                                                     : "Tinjau dokumen penawaran resmi dari Hokiindo"}
                                             </p>
                                         </div>
                                     </div>
                                 </div>
+
                                 <div className="p-4 space-y-3">
-                                    {/* PO / Konfirmasi action — only when currently at stage 2 — MOVED TO TOP */}
+                                    {/* Aksi Konfirmasi — hanya saat currentStage === 2 */}
                                     {currentStage === 2 && (
-                                        <div className="space-y-3 pb-3 mb-3 border-b border-gray-100">
-                                            {isGeneralCustomer ? (
-                                                <div className="space-y-3">
-                                                    <p className="text-xs text-red-700">
-                                                        Silakan tinjau kembali daftar produk dan detail penawaran. Jika sesuai, silakan setujui untuk melanjutkan ke tahap pesanan.
-                                                    </p>
-                                                    <Button
-                                                        className="w-full h-10 bg-red-600 hover:bg-red-700 text-white shadow-sm text-xs font-semibold"
-                                                        onClick={handleSubmitPO}
-                                                        disabled={isSubmitting}
-                                                    >
-                                                        {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
-                                                        Lanjutkan Pemesanan & Pembayaran
-                                                    </Button>
-                                                </div>
-                                            ) : (
-                                                <div className="space-y-3">
-                                                    {/* Upload HPO (for corporate & retail) */}
-                                                    <div className="space-y-1.5">
-                                                        <Label className="text-xs font-semibold text-gray-700">Upload Purchase Order (PO) Perusahaan</Label>
-                                                        <div className="relative">
-                                                            <label className={`flex items-center gap-2 cursor-pointer border-2 border-dashed rounded-lg px-3 py-2.5 transition-colors ${hpoFile ? "border-red-400 bg-red-50" : "border-gray-200 hover:border-red-300 hover:bg-red-50/30"
-                                                                }`}>
-                                                                <input
-                                                                    type="file"
-                                                                    accept=".pdf,.jpg,.jpeg,.png"
-                                                                    className="hidden"
-                                                                    disabled={currentStage > 2}
-                                                                    onChange={(e) => {
-                                                                        const file = e.target.files?.[0];
-                                                                        if (file) setHpoFile(file);
-                                                                    }}
-                                                                />
-                                                                <FileUp className="w-4 h-4 text-red-400 flex-shrink-0" />
-                                                                <span className="text-xs text-gray-600 flex-1 min-w-0 truncate">
-                                                                    {hpoFile ? hpoFile.name : (quotation.userPoPath ? "Ganti dokumen PO" : "Pilih PDF/Gambar (opsional)")}
-                                                                </span>
-                                                            </label>
-                                                        </div>
-                                                        {quotation.userPoPath && !hpoFile && (
-                                                            <div className="flex items-center gap-2 text-xs text-emerald-600 bg-emerald-50 px-2 py-1.5 rounded-md border border-emerald-100">
-                                                                <CheckCircle2 className="w-3 h-3" />
-                                                                <span>PO sudah diunggah —</span>
-                                                                <a href={quotation.userPoPath} target="_blank" rel="noreferrer" className="underline font-semibold hover:text-emerald-800">Lihat</a>
-                                                            </div>
-                                                        )}
-                                                    </div>
+                                        <div className="space-y-3 pb-3 mb-1 border-b border-gray-100">
+                                            <p className="text-xs text-gray-600 leading-relaxed">
+                                                Tinjau kembali daftar produk dan detail penawaran. Jika sudah sesuai, konfirmasi untuk melanjutkan pesanan.
+                                            </p>
 
-                                                    {/* Special Discount Request */}
-                                                    <div className="space-y-3 pt-1">
-                                                        <div className="flex items-center space-x-2 bg-gray-50 p-2.5 rounded-lg border border-gray-100">
-                                                            <Checkbox
-                                                                id="special-discount"
-                                                                checked={specialDiscountRequest}
-                                                                onCheckedChange={(checked) => setSpecialDiscountRequest(!!checked)}
+                                            {/* Upload PO — opsional untuk semua tipe */}
+                                            <div className="space-y-1.5">
+                                                <Label className="text-xs font-semibold text-gray-600">
+                                                    Upload PO Perusahaan <span className="font-normal text-gray-400">(opsional)</span>
+                                                </Label>
+                                                <label className={`flex items-center gap-2 cursor-pointer border-2 border-dashed rounded-xl px-3 py-2.5 transition-colors ${hpoFile ? "border-violet-400 bg-violet-50" : "border-gray-200 hover:border-violet-300 hover:bg-violet-50/30"}`}>
+                                                    <input
+                                                        type="file"
+                                                        accept=".pdf,.jpg,.jpeg,.png"
+                                                        className="hidden"
+                                                        onChange={(e) => {
+                                                            const file = e.target.files?.[0];
+                                                            if (file) setHpoFile(file);
+                                                        }}
+                                                    />
+                                                    <FileUp className="w-4 h-4 text-violet-400 flex-shrink-0" />
+                                                    <span className="text-xs text-gray-500 flex-1 min-w-0 truncate">
+                                                        {hpoFile ? hpoFile.name : (quotation.userPoPath ? "Ganti dokumen PO" : "Pilih PDF / Gambar")}
+                                                    </span>
+                                                </label>
+                                                {quotation.userPoPath && !hpoFile && (
+                                                    <div className="flex items-center gap-2 text-xs text-emerald-600 bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-100">
+                                                        <CheckCircle2 className="w-3 h-3 shrink-0" />
+                                                        <span>PO sudah diunggah —</span>
+                                                        <a href={quotation.userPoPath} target="_blank" rel="noreferrer" className="underline font-semibold hover:text-emerald-800">Lihat</a>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Special Discount Request — hanya untuk non-general */}
+                                            {!isGeneralCustomer && (
+                                                <div className="space-y-3">
+                                                    <div className="flex items-center space-x-2 bg-gray-50 p-2.5 rounded-xl border border-gray-100 cursor-pointer"
+                                                        onClick={() => setSpecialDiscountRequest(!specialDiscountRequest)}>
+                                                        <Checkbox
+                                                            id="special-discount"
+                                                            checked={specialDiscountRequest}
+                                                            onCheckedChange={(checked) => setSpecialDiscountRequest(!!checked)}
+                                                        />
+                                                        <label htmlFor="special-discount" className="text-xs font-semibold text-gray-700 cursor-pointer flex items-center gap-1.5">
+                                                            <Tag className="w-3.5 h-3.5 text-red-500" />
+                                                            Ajukan Diskon Tambahan
+                                                        </label>
+                                                    </div>
+                                                    {specialDiscountRequest && (
+                                                        <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                                                            <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Keterangan / Alasan Diskon</Label>
+                                                            <Textarea
+                                                                placeholder="Tuliskan alasan atau catatan untuk tim sales..."
+                                                                value={specialDiscountNote}
+                                                                onChange={(e) => setSpecialDiscountNote(e.target.value)}
+                                                                className="text-xs min-h-[60px] resize-none bg-white border-gray-200 focus:border-violet-400"
                                                             />
-                                                            <label
-                                                                htmlFor="special-discount"
-                                                                className="text-xs font-semibold text-gray-700 cursor-pointer flex items-center gap-1.5"
-                                                            >
-                                                                <Tag className="w-3.5 h-3.5 text-red-500" />
-                                                                Ajukan Diskon Tambahan
-                                                            </label>
                                                         </div>
-
-                                                        {specialDiscountRequest && (
-                                                            <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
-                                                                <Label className="text-[10px] font-bold text-gray-500 uppercase">Keterangan / Alasan Diskon</Label>
-                                                                <Textarea
-                                                                    placeholder="Tuliskan alasan atau catatan tambahan untuk tim sales..."
-                                                                    value={specialDiscountNote}
-                                                                    onChange={(e) => setSpecialDiscountNote(e.target.value)}
-                                                                    className="text-xs min-h-[60px] resize-none bg-white border-gray-200 focus:border-red-400 focus:ring-red-400"
-                                                                />
-                                                                <p className="text-[10px] text-gray-400 leading-tight italic">
-                                                                    *Permintaan diskon akan ditinjau oleh tim sales kami.
-                                                                </p>
-                                                            </div>
-                                                        )}
-                                                    </div>
+                                                    )}
                                                 </div>
                                             )}
 
-                                            {/* Submit Button */}
-                                            <div className="flex gap-2 pt-1">
-                                                {/* Confirm & proceed */}
-                                                <Button
-                                                    className="flex-1 h-9 bg-red-600 hover:bg-red-700 text-white shadow-sm text-xs font-semibold"
-                                                    onClick={handleSubmitPO}
-                                                    disabled={isSubmitting}
-                                                >
-                                                    {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />}
-                                                    Setuju & Konfirmasi
-                                                </Button>
-                                            </div>
+                                            {/* Tombol Konfirmasi */}
+                                            <Button
+                                                className="w-full h-11 bg-red-600 hover:bg-red-700 text-white shadow-sm text-sm font-bold rounded-xl"
+                                                onClick={handleSubmitPO}
+                                                disabled={isSubmitting}
+                                            >
+                                                {isSubmitting
+                                                    ? <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                                    : <CheckCircle2 className="w-4 h-4 mr-2" />
+                                                }
+                                                Setuju &amp; Konfirmasi Pesanan
+                                            </Button>
                                         </div>
                                     )}
 
                                     {/* HSQ Number badge */}
                                     {quotation.accurateHsqNo && (
-                                        <div className="flex items-center justify-between bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-                                            <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest">Nomor HSQ</span>
-                                            <span className="font-mono font-bold text-red-900 text-sm">{quotation.accurateHsqNo}</span>
+                                        <div className="flex items-center justify-between bg-gray-50 border border-gray-100 rounded-xl px-3 py-2">
+                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">No. Penawaran</span>
+                                            <span className="font-mono font-bold text-gray-800 text-sm">{quotation.accurateHsqNo}</span>
                                         </div>
                                     )}
 
@@ -1184,277 +1322,252 @@ export default function UserTransactionDetailPage() {
                                             href={quotation.adminQuotePdfPath}
                                             target="_blank"
                                             rel="noreferrer"
-                                            className="flex items-center gap-3 p-3 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors group"
+                                            className="flex items-center gap-3 p-3 bg-violet-50 border border-violet-200 rounded-xl hover:bg-violet-100 transition-colors group"
                                         >
-                                            <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                            <div className="w-9 h-9 bg-violet-600 rounded-lg flex items-center justify-center flex-shrink-0">
                                                 <FileText className="w-4 h-4 text-white" />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-xs font-bold text-red-900">Dokumen Penawaran Resmi</p>
-                                                <p className="text-[10px] text-red-500 truncate">{quotation.adminQuotePdfPath.split("/").pop()}</p>
+                                                <p className="text-xs font-bold text-violet-900">Dokumen Penawaran Resmi</p>
+                                                <p className="text-[10px] text-violet-500 truncate mt-0.5">{quotation.adminQuotePdfPath.split("/").pop()}</p>
                                             </div>
-                                            <ArrowUpRight className="w-4 h-4 text-red-500 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                                            <Download className="w-4 h-4 text-violet-400 group-hover:text-violet-700 transition-colors" />
                                         </a>
                                     ) : (
-                                        <div className="text-center py-4 text-xs text-gray-400">
-                                            Dokumen HSQ sedang disiapkan oleh tim sales
+                                        <div className="text-center py-5 text-xs text-gray-400 bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
+                                            Dokumen penawaran sedang disiapkan oleh tim sales
                                         </div>
                                     )}
-
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    {/* Stage 3: Verification Waiting */}
-                    {viewStage === 3 && !isGeneralCustomer && (
-                        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-                            <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-blue-50">
-                                <h3 className="font-semibold text-indigo-900 text-sm">Verifikasi Pesanan</h3>
-                                <p className="text-[11px] text-indigo-600 mt-0.5">Tim admin sedang meninjau PO Anda</p>
-                            </div>
-                            <div className="p-6 flex flex-col items-center text-center space-y-3">
-                                <div className="w-12 h-12 rounded-full bg-indigo-50 flex items-center justify-center animate-pulse">
-                                    <ShieldCheck className="w-6 h-6 text-indigo-600" />
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-sm font-semibold text-gray-900">Pesanan Sedang Diproses</p>
-                                    <p className="text-xs text-gray-500 leading-relaxed">
-                                        Admin kami sedang melakukan verifikasi dan penyesuaian stok berdasarkan PO yang Anda kirimkan.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Stage 4: Processing - Invoice & Payment (Also Stage 3 for General Customers) */}
-                    {(viewStage === 4 || (viewStage === 3 && isGeneralCustomer)) && (
+                    {/* Stage 3: Processing / Payment */}
+                    {viewStage === 3 && (
                         <div className="space-y-4">
 
-                            {/* Dokumen HSO khusus B2B */}
-                            {isCorporate && quotation.adminSoPdfPath && (
-                                <div className="bg-indigo-50 rounded-xl border border-indigo-200 p-4 mb-4">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <FileText className="w-5 h-5 text-indigo-600" />
-                                        <h3 className="font-semibold text-indigo-900 text-sm">Dokumen Sales Order (HSO)</h3>
+                            {/* Dokumen HSO (semua tipe, jika sudah tersedia) */}
+                            {quotation.adminSoPdfPath && (
+                                <a
+                                    href={quotation.adminSoPdfPath}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="flex items-center gap-3 p-3.5 bg-indigo-50 border border-indigo-200 rounded-2xl hover:bg-indigo-100 transition-colors group"
+                                >
+                                    <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                                        <PackageCheck className="w-4.5 h-4.5 text-white" />
                                     </div>
-                                    <p className="text-xs text-indigo-700 mb-2">Silakan tinjau kembali Sales Order resmi kami berikut referensi TOP-nya.</p>
-                                    <div className="flex flex-col sm:flex-row gap-3">
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-xs font-bold text-indigo-900">Konfirmasi Pesanan (HSO)</p>
                                         {quotation.termOfPayment && (
-                                            <div className="bg-white/60 px-3 py-1.5 rounded border border-indigo-100/50">
-                                                <span className="text-[10px] text-indigo-500 font-bold block">TOP</span>
-                                                <span className="text-sm font-semibold text-indigo-900">{quotation.termOfPayment}</span>
+                                            <p className="text-[10px] text-indigo-500 mt-0.5">TOP: {quotation.termOfPayment}</p>
+                                        )}
+                                    </div>
+                                    <Download className="w-4 h-4 text-indigo-400 group-hover:text-indigo-700 transition-colors" />
+                                </a>
+                            )}
+
+                            {/* Invoice / Tagihan — hanya untuk General Customer */}
+                            {isGeneralCustomer && (<>
+                                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                                    {/* Invoice Header */}
+                                    <div className="bg-gradient-to-r from-gray-900 to-gray-800 px-5 py-4 text-white">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-[10px] text-gray-400 uppercase tracking-widest font-semibold">Tagihan Pembayaran</p>
+                                                <h3 className="font-bold text-base mt-0.5">PT Hokiindo Raya</h3>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-[10px] text-gray-400">No. SO</p>
+                                                <p className="font-mono font-semibold text-sm">{quotation.accurateHsoNo || quotation.quotationNo}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Item List */}
+                                    <div className="px-5 py-4">
+                                        <table className="w-full text-xs">
+                                            <thead>
+                                                <tr className="text-gray-500 border-b">
+                                                    <th className="text-left py-2 font-medium">Produk</th>
+                                                    <th className="text-center py-2 font-medium w-12">Qty</th>
+                                                    <th className="text-right py-2 font-medium">Harga</th>
+                                                    <th className="text-right py-2 font-medium">Total</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {items.map((item: any) => (
+                                                    <tr key={item.id} className="border-b border-dashed border-gray-100">
+                                                        <td className="py-2.5">
+                                                            <p className="font-medium text-gray-900 text-xs">{item.productName || item.product?.name}</p>
+                                                            <p className="text-[10px] text-gray-400">{item.sku || item.product?.sku}</p>
+                                                        </td>
+                                                        <td className="text-center text-gray-600">{item.quantity}</td>
+                                                        <td className="text-right text-gray-600">Rp {(item.price || 0).toLocaleString('id-ID')}</td>
+                                                        <td className="text-right font-medium text-gray-900">Rp {((item.price || 0) * item.quantity).toLocaleString('id-ID')}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* Totals */}
+                                    <div className="px-5 pb-4 space-y-1.5">
+                                        <div className="flex justify-between text-xs text-gray-500">
+                                            <span>Subtotal</span>
+                                            <span>Rp {quotation.totalAmount?.toLocaleString('id-ID')}</span>
+                                        </div>
+                                        {hasDiscount && (
+                                            <div className="flex justify-between text-xs text-emerald-600">
+                                                <span>Diskon {quotation.specialDiscount}%</span>
+                                                <span>- Rp {discountAmount.toLocaleString('id-ID')}</span>
                                             </div>
                                         )}
-                                        <div className="flex-1"></div>
-                                        <a href={quotation.adminSoPdfPath} target="_blank" rel="noreferrer"
-                                            className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold py-2 px-4 rounded-lg inline-flex items-center justify-center gap-2 transition-colors">
-                                            <Download className="w-3.5 h-3.5" /> Unduh Dokumen HSO
-                                        </a>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Invoice / Faktur Tagihan */}
-                            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                                {/* Invoice Header */}
-                                <div className="bg-gradient-to-r from-slate-800 to-slate-900 px-5 py-4 text-white">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <h3 className="font-bold text-base">FAKTUR TAGIHAN</h3>
-                                            <p className="text-slate-300 text-xs mt-0.5">PT Hokiindo Raya</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-xs text-slate-300">No. SO</p>
-                                            <p className="font-mono font-semibold text-sm">{quotation.accurateHsoNo || quotation.quotationNo}</p>
+                                        <div className="flex justify-between text-sm font-bold text-gray-900 pt-2 border-t border-gray-200">
+                                            <span>Total Tagihan</span>
+                                            <span>Rp {finalTotal.toLocaleString('id-ID')}</span>
                                         </div>
                                     </div>
-                                </div>
 
-                                {/* Item List */}
-                                <div className="px-5 py-4">
-                                    <table className="w-full text-xs">
-                                        <thead>
-                                            <tr className="text-gray-500 border-b">
-                                                <th className="text-left py-2 font-medium">Produk</th>
-                                                <th className="text-center py-2 font-medium w-12">Qty</th>
-                                                <th className="text-right py-2 font-medium">Harga</th>
-                                                <th className="text-right py-2 font-medium">Total</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {items.map((item: any) => (
-                                                <tr key={item.id} className="border-b border-dashed border-gray-100">
-                                                    <td className="py-2.5">
-                                                        <p className="font-medium text-gray-900 text-xs">{item.productName || item.product?.name}</p>
-                                                        <p className="text-[10px] text-gray-400">{item.sku || item.product?.sku}</p>
-                                                    </td>
-                                                    <td className="text-center text-gray-600">{item.quantity}</td>
-                                                    <td className="text-right text-gray-600">Rp {(item.price || 0).toLocaleString('id-ID')}</td>
-                                                    <td className="text-right font-medium text-gray-900">Rp {((item.price || 0) * item.quantity).toLocaleString('id-ID')}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                {/* Totals */}
-                                <div className="px-5 pb-4 space-y-1.5">
-                                    <div className="flex justify-between text-xs text-gray-500">
-                                        <span>Subtotal</span>
-                                        <span>Rp {quotation.totalAmount?.toLocaleString('id-ID')}</span>
+                                    {/* Bank Account */}
+                                    <div className="mx-5 mb-4 p-3.5 bg-blue-50 rounded-xl border border-blue-200">
+                                        <p className="text-[10px] text-blue-500 font-bold uppercase tracking-wider mb-2">Transfer ke:</p>
+                                        <p className="text-xs font-bold text-blue-900">PT HOKIINDO RAYA</p>
+                                        <p className="text-xs text-blue-700 mt-0.5">Bank BCA</p>
+                                        <div className="flex items-center gap-2 mt-1.5">
+                                            <p className="text-base font-mono font-bold text-blue-900">5520715667</p>
+                                            <button
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText('5520715667');
+                                                    toast.success('Nomor rekening berhasil disalin');
+                                                }}
+                                                className="text-[10px] text-blue-600 bg-blue-100 hover:bg-blue-200 px-2 py-0.5 rounded-md transition-colors cursor-pointer font-semibold"
+                                            >
+                                                Salin
+                                            </button>
+                                        </div>
                                     </div>
-                                    {hasDiscount && (
-                                        <div className="flex justify-between text-xs text-emerald-600">
-                                            <span>Diskon {quotation.specialDiscount}%</span>
-                                            <span>- Rp {discountAmount.toLocaleString('id-ID')}</span>
+
+                                    {/* Payment Info */}
+                                    {quotation.adminNotes && (
+                                        <div className="mx-5 mb-4 p-3 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-800">
+                                            <p className="font-semibold mb-1 flex items-center gap-1.5">
+                                                <Info className="w-3.5 h-3.5" /> Catatan Pesanan
+                                            </p>
+                                            <p className="whitespace-pre-wrap">{quotation.adminNotes}</p>
                                         </div>
                                     )}
-                                    <div className="flex justify-between text-sm font-bold text-gray-900 pt-2 border-t border-gray-200">
-                                        <span>Total Tagihan</span>
-                                        <span>Rp {finalTotal.toLocaleString('id-ID')}</span>
-                                    </div>
-                                </div>
 
-                                {/* Bank Account */}
-                                <div className="mx-5 mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                                    <p className="text-xs font-semibold text-blue-900 mb-1">Transfer ke:</p>
-                                    <p className="text-xs text-blue-800">PT HOKIINDO RAYA</p>
-                                    <p className="text-xs text-blue-800">Bank BCA</p>
-                                    <div className="flex items-center gap-2 mt-0.5">
-                                        <p className="text-sm font-mono font-bold text-blue-900">5520715667</p>
-                                        <button
-                                            onClick={() => {
-                                                navigator.clipboard.writeText('5520715667');
-                                                toast.success('Nomor rekening berhasil disalin');
-                                            }}
-                                            className="text-[10px] text-blue-600 bg-blue-100 hover:bg-blue-200 px-2 py-0.5 rounded transition-colors cursor-pointer"
-                                        >
-                                            Salin
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* Payment Info */}
-                                {quotation.adminNotes && (
-                                    <div className="mx-5 mb-4 p-3 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-800">
-                                        <p className="font-semibold mb-1 flex items-center gap-1.5">
-                                            <Info className="w-3.5 h-3.5" /> Catatan Pesanan
-                                        </p>
-                                        <p className="whitespace-pre-wrap">{quotation.adminNotes}</p>
-                                    </div>
-                                )}
-
-                                {(currentStage === 4 || (currentStage === 3 && isGeneralCustomer)) && (
-                                    <div className="px-5 pb-5">
-                                        <Button
-                                            className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-sm h-11 font-semibold"
-                                            onClick={() => setIsPaymentModalOpen(true)}
-                                            disabled={isPaymentUploading}
-                                        >
-                                            <CreditCard className="w-4 h-4 mr-2" />
-                                            {quotation.paymentProofPath ? 'Ganti Bukti Pembayaran' : 'Upload Bukti Pembayaran'}
-                                        </Button>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Payment Confirmation Button + Modal */}
-                            {quotation.paymentProofPath && (
-                                <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-4 mb-4">
-                                    <div className="flex items-center gap-2 mb-3">
-                                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                                        <h3 className="font-semibold text-emerald-800 text-sm">Bukti Pembayaran Terkirim</h3>
-                                    </div>
-                                    {quotation.paymentProofPath.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? (
-                                        <div className="mb-2">
-                                            <img src={quotation.paymentProofPath} alt="Bukti Pembayaran" className="w-full max-w-[200px] h-auto rounded-lg border border-emerald-200 shadow-sm" />
+                                    {(currentStage === 3) && (
+                                        <div className="px-5 pb-5">
+                                            <Button
+                                                className="w-full bg-red-600 hover:bg-red-700 text-white shadow-sm h-11 font-bold rounded-xl text-sm"
+                                                onClick={() => setIsPaymentModalOpen(true)}
+                                                disabled={isPaymentUploading}
+                                            >
+                                                <CreditCard className="w-4 h-4 mr-2" />
+                                                {quotation.paymentProofPath ? 'Ganti Bukti Pembayaran' : 'Upload Bukti Pembayaran'}
+                                            </Button>
                                         </div>
-                                    ) : null}
-                                    <a href={quotation.paymentProofPath} target="_blank" rel="noreferrer"
-                                        className="text-xs text-emerald-600 hover:text-emerald-700 underline flex items-center gap-1 w-fit">
-                                        <FileText className="w-3 h-3" /> Lihat file bukti pembayaran
-                                    </a>
+                                    )}
                                 </div>
-                            )}
 
-                            <Dialog open={isPaymentModalOpen} onOpenChange={(open) => {
-                                setIsPaymentModalOpen(open);
-                                if (!open) setPaymentFileOpen(null);
-                            }}>
-                                <DialogContent>
-                                    <DialogHeader>
-                                        <DialogTitle>Upload Bukti Pembayaran</DialogTitle>
-                                        <DialogDescription>
-                                            Silakan upload bukti transfer sesuai total tagihan. File yang diterima: gambar, PDF, atau dokumen.
-                                        </DialogDescription>
-                                    </DialogHeader>
-                                    <div className="py-4">
-                                        <Input
-                                            type="file"
-                                            accept="image/*,.pdf,.doc,.docx"
-                                            className="text-sm cursor-pointer"
-                                            onChange={(e) => {
-                                                const file = e.target.files?.[0];
-                                                if (file) setPaymentFileOpen(file);
-                                            }}
-                                        />
-                                        {paymentFileOpen && <p className="text-xs text-gray-500 mt-2">File terpilih: {paymentFileOpen.name}</p>}
+                                {/* Bukti Pembayaran Terkirim */}
+                                {quotation.paymentProofPath && (
+                                    <div className="bg-emerald-50 rounded-2xl border border-emerald-200 p-4">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                            <h3 className="font-bold text-emerald-800 text-sm">Bukti Pembayaran Dikirim</h3>
+                                        </div>
+                                        {quotation.paymentProofPath.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? (
+                                            <img src={quotation.paymentProofPath} alt="Bukti Pembayaran" className="w-full max-w-[180px] h-auto rounded-xl border border-emerald-200 shadow-sm mb-2" />
+                                        ) : null}
+                                        <a href={quotation.paymentProofPath} target="_blank" rel="noreferrer"
+                                            className="text-xs text-emerald-600 hover:text-emerald-700 underline flex items-center gap-1 w-fit font-medium">
+                                            <FileText className="w-3 h-3" /> Lihat bukti pembayaran
+                                        </a>
                                     </div>
-                                    <DialogFooter>
-                                        <Button variant="outline" onClick={() => setIsPaymentModalOpen(false)} disabled={isPaymentUploading}>Batal</Button>
-                                        <Button
-                                            onClick={async () => {
-                                                if (!paymentFileOpen) {
-                                                    toast.error('Pilih file terlebih dahulu');
-                                                    return;
-                                                }
-                                                setIsPaymentUploading(true);
-                                                try {
-                                                    const formData = new FormData();
-                                                    formData.append('file', paymentFileOpen);
-                                                    const res = await uploadFile(formData);
-                                                    if (res.success && res.url) {
-                                                        const result = await userUploadPaymentProof(quotation.id, res.url);
-                                                        if (result.success) {
-                                                            toast.success('Bukti pembayaran berhasil diupload');
-                                                            const newData = await getQuotationDetail(quotation.id);
-                                                            if (newData?.quotation) setQuotation(newData.quotation);
-                                                            setIsPaymentModalOpen(false);
-                                                        } else {
-                                                            toast.error(result.error || 'Gagal menyimpan bukti pembayaran');
-                                                        }
-                                                    } else {
-                                                        toast.error('Gagal mengupload file ke server');
+                                )}
+
+                                <Dialog open={isPaymentModalOpen} onOpenChange={(open) => {
+                                    setIsPaymentModalOpen(open);
+                                    if (!open) setPaymentFileOpen(null);
+                                }}>
+                                    <DialogContent>
+                                        <DialogHeader>
+                                            <DialogTitle>Upload Bukti Pembayaran</DialogTitle>
+                                            <DialogDescription>
+                                                Silakan upload bukti transfer sesuai total tagihan. File yang diterima: gambar, PDF, atau dokumen.
+                                            </DialogDescription>
+                                        </DialogHeader>
+                                        <div className="py-4">
+                                            <Input
+                                                type="file"
+                                                accept="image/*,.pdf,.doc,.docx"
+                                                className="text-sm cursor-pointer"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) setPaymentFileOpen(file);
+                                                }}
+                                            />
+                                            {paymentFileOpen && <p className="text-xs text-gray-500 mt-2">File terpilih: {paymentFileOpen.name}</p>}
+                                        </div>
+                                        <DialogFooter>
+                                            <Button variant="outline" onClick={() => setIsPaymentModalOpen(false)} disabled={isPaymentUploading}>Batal</Button>
+                                            <Button
+                                                onClick={async () => {
+                                                    if (!paymentFileOpen) {
+                                                        toast.error('Pilih file terlebih dahulu');
+                                                        return;
                                                     }
-                                                } catch (err) {
-                                                    toast.error('Terjadi kesalahan saat upload');
-                                                } finally {
-                                                    setIsPaymentUploading(false);
-                                                }
-                                            }}
-                                            disabled={!paymentFileOpen || isPaymentUploading}
-                                            className="bg-emerald-600 hover:bg-emerald-700"
-                                        >
-                                            {isPaymentUploading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                                            Simpan Bukti Pembayaran
-                                        </Button>
-                                    </DialogFooter>
-                                </DialogContent>
-                            </Dialog>
+                                                    setIsPaymentUploading(true);
+                                                    try {
+                                                        const formData = new FormData();
+                                                        formData.append('file', paymentFileOpen);
+                                                        const res = await uploadFile(formData);
+                                                        if (res.success && res.url) {
+                                                            const result = await userUploadPaymentProof(quotation.id, res.url);
+                                                            if (result.success) {
+                                                                toast.success('Bukti pembayaran berhasil diupload');
+                                                                const newData = await getQuotationDetail(quotation.id);
+                                                                if (newData?.quotation) setQuotation(newData.quotation);
+                                                                setIsPaymentModalOpen(false);
+                                                            } else {
+                                                                toast.error(result.error || 'Gagal menyimpan bukti pembayaran');
+                                                            }
+                                                        } else {
+                                                            toast.error('Gagal mengupload file ke server');
+                                                        }
+                                                    } catch (err) {
+                                                        toast.error('Terjadi kesalahan saat upload');
+                                                    } finally {
+                                                        setIsPaymentUploading(false);
+                                                    }
+                                                }}
+                                                disabled={!paymentFileOpen || isPaymentUploading}
+                                                className="bg-emerald-600 hover:bg-emerald-700"
+                                            >
+                                                {isPaymentUploading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                                                Simpan Bukti Pembayaran
+                                            </Button>
+                                        </DialogFooter>
+                                    </DialogContent>
+                                </Dialog>
+                            </>)}
                         </div>
                     )}
 
                     {/* Activity Log */}
-                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                         <div className="px-5 py-3.5 border-b border-gray-100 flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-md bg-slate-100 flex items-center justify-center">
-                                <Clock className="w-3 h-3 text-slate-600" />
+                            <div className="w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center">
+                                <Clock className="w-3 h-3 text-slate-500" />
                             </div>
-                            <h3 className="font-semibold text-gray-900 text-sm">Aktivitas</h3>
+                            <h3 className="font-semibold text-gray-900 text-sm">Riwayat Aktivitas</h3>
                         </div>
                         <div className="p-4">
-                            <div className="relative space-y-0">
+                            <div className="relative space-y-0 max-h-72 overflow-y-auto pr-1">
                                 {/* Timeline line */}
                                 <div className="absolute left-[7px] top-2 bottom-2 w-px bg-gray-100" />
 
@@ -1519,7 +1632,22 @@ export default function UserTransactionDetailPage() {
                                                 <div className="min-w-0 -mt-0.5">
                                                     <p className="text-[12px] font-bold text-gray-800 leading-snug">{log.title}</p>
                                                     <p className="text-[11px] text-gray-500 leading-relaxed mt-0.5 break-words font-medium">
-                                                        {log.description || format(new Date(log.createdAt), "dd MMM, HH:mm")}
+                                                        {log.description ? (() => {
+                                                            // Parse markdown-style links: [label](url)
+                                                            const parts = log.description.split(/(\[[^\]]+\]\([^)]+\))/g);
+                                                            return parts.map((part: string, pi: number) => {
+                                                                const match = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+                                                                if (match) {
+                                                                    return (
+                                                                        <a key={pi} href={match[2]} target="_blank" rel="noreferrer"
+                                                                            className="inline-flex items-center gap-1 text-red-600 hover:text-red-700 font-bold underline underline-offset-2 hover:no-underline">
+                                                                            <Download className="w-3 h-3 shrink-0" />{match[1]}
+                                                                        </a>
+                                                                    );
+                                                                }
+                                                                return part;
+                                                            });
+                                                        })() : format(new Date(log.createdAt), "dd MMM, HH:mm")}
                                                     </p>
                                                     {log.description && (
                                                         <p className="text-[10px] text-gray-400 mt-1 font-normal">
@@ -1567,99 +1695,89 @@ export default function UserTransactionDetailPage() {
             {
                 (quotation.adminQuotePdfPath || quotation.userPoPath || quotation.adminSoPdfPath || quotation.adminInvoicePdfPath || quotation.adminDoPdfPath || quotation.taxInvoiceUrl) && (
                     <div className="mt-6 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                        <div className="px-6 py-6 border-b border-gray-50 flex flex-col items-start gap-4">
-                            <FileText className="w-6 h-6 text-slate-600" />
-                            <h2 className="text-xl font-bold text-slate-900 tracking-tight">Dokumen Pesanan</h2>
+                        <div className="px-6 py-4 border-b border-gray-50 flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-xl bg-gray-100 flex items-center justify-center">
+                                <FileText className="w-4 h-4 text-gray-500" />
+                            </div>
+                            <h2 className="text-sm font-bold text-gray-800">Dokumen Pesanan</h2>
                         </div>
-                        <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                        <div className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
                             {quotation.adminQuotePdfPath && (
                                 <a href={quotation.adminQuotePdfPath} target="_blank" rel="noreferrer"
-                                    className="flex items-center justify-between p-4 rounded-2xl border border-gray-100 hover:border-blue-100 hover:bg-blue-50/50 transition-all group">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
-                                            <FileText className="w-5 h-5 text-blue-600" />
-                                        </div>
-                                        <div className="text-left">
-                                            <p className="text-sm font-bold text-slate-900 leading-none">Penawaran Resmi</p>
-                                            <p className="text-[11px] text-slate-500 mt-1.5 font-medium">Official Quotation (SQ)</p>
-                                        </div>
+                                    className="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 hover:border-violet-200 hover:bg-violet-50/50 transition-all group">
+                                    <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center shrink-0">
+                                        <FileText className="w-4.5 h-4.5 text-violet-600" />
                                     </div>
-                                    <Download className="w-5 h-5 text-slate-300 group-hover:text-blue-600 transition-colors" />
+                                    <div className="text-left flex-1 min-w-0">
+                                        <p className="text-xs font-bold text-gray-900 leading-none">Penawaran</p>
+                                        <p className="text-[10px] text-gray-400 mt-1">Official SQ / HSQ</p>
+                                    </div>
+                                    <Download className="w-4 h-4 text-gray-300 group-hover:text-violet-600 transition-colors shrink-0" />
                                 </a>
                             )}
                             {quotation.userPoPath && (
                                 <a href={quotation.userPoPath} target="_blank" rel="noreferrer"
-                                    className="flex items-center justify-between p-4 rounded-2xl border border-gray-100 hover:border-emerald-100 hover:bg-emerald-50/50 transition-all group">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
-                                            <Send className="w-5 h-5 text-emerald-600" />
-                                        </div>
-                                        <div className="text-left">
-                                            <p className="text-sm font-bold text-slate-900 leading-none">Purchase Order</p>
-                                            <p className="text-[11px] text-slate-500 mt-1.5 font-medium">Pesanan User (PO)</p>
-                                        </div>
+                                    className="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 hover:border-emerald-200 hover:bg-emerald-50/50 transition-all group">
+                                    <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
+                                        <Send className="w-4.5 h-4.5 text-emerald-600" />
                                     </div>
-                                    <Download className="w-5 h-5 text-slate-300 group-hover:text-emerald-600 transition-colors" />
+                                    <div className="text-left flex-1 min-w-0">
+                                        <p className="text-xs font-bold text-gray-900 leading-none">Purchase Order</p>
+                                        <p className="text-[10px] text-gray-400 mt-1">PO User</p>
+                                    </div>
+                                    <Download className="w-4 h-4 text-gray-300 group-hover:text-emerald-600 transition-colors shrink-0" />
                                 </a>
                             )}
                             {quotation.adminSoPdfPath && (
                                 <a href={quotation.adminSoPdfPath} target="_blank" rel="noreferrer"
-                                    className="flex items-center justify-between p-4 rounded-2xl border border-gray-100 hover:border-indigo-100 hover:bg-indigo-50/50 transition-all group">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
-                                            <Package className="w-5 h-5 text-indigo-600" />
-                                        </div>
-                                        <div className="text-left">
-                                            <p className="text-sm font-bold text-slate-900 leading-none">Konfirmasi Pesanan</p>
-                                            <p className="text-[11px] text-slate-500 mt-1.5 font-medium">Sales Order (SO)</p>
-                                        </div>
+                                    className="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 hover:border-indigo-200 hover:bg-indigo-50/50 transition-all group">
+                                    <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center shrink-0">
+                                        <PackageCheck className="w-4.5 h-4.5 text-indigo-600" />
                                     </div>
-                                    <Download className="w-5 h-5 text-slate-300 group-hover:text-indigo-600 transition-colors" />
+                                    <div className="text-left flex-1 min-w-0">
+                                        <p className="text-xs font-bold text-gray-900 leading-none">Sales Order</p>
+                                        <p className="text-[10px] text-gray-400 mt-1">Konfirmasi Pesanan</p>
+                                    </div>
+                                    <Download className="w-4 h-4 text-gray-300 group-hover:text-indigo-600 transition-colors shrink-0" />
                                 </a>
                             )}
                             {quotation.adminDoPdfPath && (
                                 <a href={quotation.adminDoPdfPath} target="_blank" rel="noreferrer"
-                                    className="flex items-center justify-between p-4 rounded-2xl border border-gray-100 hover:border-sky-100 hover:bg-sky-50/50 transition-all group">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-xl bg-sky-50 flex items-center justify-center shrink-0">
-                                            <Truck className="w-5 h-5 text-sky-600" />
-                                        </div>
-                                        <div className="text-left">
-                                            <p className="text-sm font-bold text-slate-900 leading-none">Surat Jalan</p>
-                                            <p className="text-[11px] text-slate-500 mt-1.5 font-medium">Delivery Order (DO)</p>
-                                        </div>
+                                    className="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 hover:border-sky-200 hover:bg-sky-50/50 transition-all group">
+                                    <div className="w-10 h-10 rounded-xl bg-sky-100 flex items-center justify-center shrink-0">
+                                        <Truck className="w-4.5 h-4.5 text-sky-600" />
                                     </div>
-                                    <Download className="w-5 h-5 text-slate-300 group-hover:text-sky-600 transition-colors" />
+                                    <div className="text-left flex-1 min-w-0">
+                                        <p className="text-xs font-bold text-gray-900 leading-none">Surat Jalan</p>
+                                        <p className="text-[10px] text-gray-400 mt-1">Delivery Order</p>
+                                    </div>
+                                    <Download className="w-4 h-4 text-gray-300 group-hover:text-sky-600 transition-colors shrink-0" />
                                 </a>
                             )}
                             {quotation.adminInvoicePdfPath && (
                                 <a href={quotation.adminInvoicePdfPath} target="_blank" rel="noreferrer"
-                                    className="flex items-center justify-between p-4 rounded-2xl border border-gray-100 hover:border-violet-100 hover:bg-violet-50/50 transition-all group">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
-                                            <ShieldCheck className="w-5 h-5 text-violet-600" />
-                                        </div>
-                                        <div className="text-left">
-                                            <p className="text-sm font-bold text-slate-900 leading-none">Faktur Penjualan</p>
-                                            <p className="text-[11px] text-slate-500 mt-1.5 font-medium">Invoice / Faktur</p>
-                                        </div>
+                                    className="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 hover:border-amber-200 hover:bg-amber-50/50 transition-all group">
+                                    <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+                                        <FileText className="w-4.5 h-4.5 text-amber-600" />
                                     </div>
-                                    <Download className="w-5 h-5 text-slate-300 group-hover:text-violet-600 transition-colors" />
+                                    <div className="text-left flex-1 min-w-0">
+                                        <p className="text-xs font-bold text-gray-900 leading-none">Faktur Penjualan</p>
+                                        <p className="text-[10px] text-gray-400 mt-1">Invoice / Faktur</p>
+                                    </div>
+                                    <Download className="w-4 h-4 text-gray-300 group-hover:text-amber-600 transition-colors shrink-0" />
                                 </a>
                             )}
-                            {quotation.taxInvoiceUrl && (
+                            {quotation.taxInvoiceUrl && isGeneralCustomer && (
                                 <a href={quotation.taxInvoiceUrl} target="_blank" rel="noreferrer"
-                                    className="flex items-center justify-between p-4 rounded-2xl border border-gray-100 hover:border-emerald-100 hover:bg-emerald-50/50 transition-all group">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
-                                            <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                                        </div>
-                                        <div className="text-left">
-                                            <p className="text-sm font-bold text-slate-900 leading-none">Faktur Pajak</p>
-                                            <p className="text-[11px] text-slate-500 mt-1.5 font-medium">e-Faktur Resmi</p>
-                                        </div>
+                                    className="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 hover:border-rose-200 hover:bg-rose-50/50 transition-all group">
+                                    <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center shrink-0">
+                                        <ShieldCheck className="w-4.5 h-4.5 text-rose-600" />
                                     </div>
-                                    <Download className="w-5 h-5 text-slate-300 group-hover:text-emerald-600 transition-colors" />
+                                    <div className="text-left flex-1 min-w-0">
+                                        <p className="text-xs font-bold text-gray-900 leading-none">Faktur Pajak</p>
+                                        <p className="text-[10px] text-gray-400 mt-1">e-Faktur Resmi</p>
+                                    </div>
+                                    <Download className="w-4 h-4 text-gray-300 group-hover:text-rose-600 transition-colors shrink-0" />
                                 </a>
                             )}
                         </div>
@@ -1807,72 +1925,104 @@ export default function UserTransactionDetailPage() {
             {/* Cancellation Dialog */}
             <Dialog open={isCancelOpen} onOpenChange={setIsCancelOpen}>
                 <DialogContent className="sm:max-w-[425px] rounded-2xl overflow-hidden p-0 border-none shadow-2xl">
-                    <DialogHeader className="p-6 pb-2">
-                        <DialogTitle className="text-xl font-bold flex items-center gap-2 text-gray-900">
-                            Batalkan SQ
-                        </DialogTitle>
-                        <DialogDescription className="text-sm text-gray-500 mt-1">
-                            Pilih alasan pembatalan untuk memproses pembatalan penawaran ini.
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <div className="p-6 pt-2 space-y-6">
-                        <RadioGroup value={cancelReason} onValueChange={setCancelReason} className="space-y-4">
-                            {CANCEL_REASONS.map((reason) => (
-                                <div key={reason} className="flex items-center space-x-3 group">
-                                    <RadioGroupItem value={reason} id={reason} className="border-gray-300 text-red-600 focus:ring-red-500" />
-                                    <Label
-                                        htmlFor={reason}
-                                        className="text-sm font-medium text-gray-700 cursor-pointer group-hover:text-gray-900 transition-colors"
-                                    >
-                                        {reason}
-                                    </Label>
+                    {['CONFIRMED', 'PROCESSING'].includes(quotation.status) ? (
+                        <>
+                            <DialogHeader className="p-6 pb-2">
+                                <DialogTitle className="text-xl font-bold flex items-center gap-2 text-gray-900">
+                                    <AlertCircle className="w-5 h-5 text-amber-500" />
+                                    Pesanan Tidak Dapat Dibatalkan
+                                </DialogTitle>
+                                <DialogDescription className="text-sm text-gray-500 mt-1">
+                                    Informasi status pembatalan pesanan ini.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="p-6 pt-3">
+                                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                                    <p className="text-sm font-semibold text-amber-800 mb-1">Pesanan sudah dalam Sales Order (HSO)</p>
+                                    <p className="text-sm text-amber-700 leading-relaxed">
+                                        Pesanan ini tidak dapat dibatalkan karena sudah diproses menjadi Sales Order resmi. Hubungi admin untuk informasi lebih lanjut.
+                                    </p>
                                 </div>
-                            ))}
-                        </RadioGroup>
-
-                        {cancelReason === "Lainnya" && (
-                            <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                                <Label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">
-                                    Alasan Detail
-                                </Label>
-                                <Textarea
-                                    placeholder="Tuliskan alasan lainnya..."
-                                    value={otherReason}
-                                    onChange={(e) => setOtherReason(e.target.value)}
-                                    className="min-h-[100px] resize-none border-gray-200 focus:border-red-500 focus:ring-red-500/20 rounded-xl"
-                                />
                             </div>
-                        )}
-                    </div>
+                            <DialogFooter className="p-6 pt-0">
+                                <Button
+                                    onClick={() => setIsCancelOpen(false)}
+                                    className="w-full bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-xl"
+                                >
+                                    Mengerti
+                                </Button>
+                            </DialogFooter>
+                        </>
+                    ) : (
+                        <>
+                            <DialogHeader className="p-6 pb-2">
+                                <DialogTitle className="text-xl font-bold flex items-center gap-2 text-gray-900">
+                                    Batalkan Pesanan
+                                </DialogTitle>
+                                <DialogDescription className="text-sm text-gray-500 mt-1">
+                                    Pilih alasan pembatalan untuk memproses pembatalan penawaran ini.
+                                </DialogDescription>
+                            </DialogHeader>
 
-                    <DialogFooter className="p-6 bg-gray-50 flex flex-col sm:flex-row gap-2">
-                        <Button
-                            variant="ghost"
-                            onClick={() => {
-                                setIsCancelOpen(false);
-                                setCancelReason("");
-                                setOtherReason("");
-                            }}
-                            className="flex-1 font-bold text-gray-500 hover:bg-gray-100 rounded-xl"
-                        >
-                            Tutup
-                        </Button>
-                        <Button
-                            onClick={handleCancel}
-                            disabled={isCancelling || !cancelReason || (cancelReason === "Lainnya" && !otherReason)}
-                            className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-lg shadow-red-200 transition-all active:scale-95"
-                        >
-                            {isCancelling ? (
-                                <>
-                                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                                    Membatalkan...
-                                </>
-                            ) : (
-                                "Batalkan SQ"
-                            )}
-                        </Button>
-                    </DialogFooter>
+                            <div className="p-6 pt-2 space-y-6">
+                                <RadioGroup value={cancelReason} onValueChange={setCancelReason} className="space-y-4">
+                                    {CANCEL_REASONS.map((reason) => (
+                                        <div key={reason} className="flex items-center space-x-3 group">
+                                            <RadioGroupItem value={reason} id={reason} className="border-gray-300 text-red-600 focus:ring-red-500" />
+                                            <Label
+                                                htmlFor={reason}
+                                                className="text-sm font-medium text-gray-700 cursor-pointer group-hover:text-gray-900 transition-colors"
+                                            >
+                                                {reason}
+                                            </Label>
+                                        </div>
+                                    ))}
+                                </RadioGroup>
+
+                                {cancelReason === "Lainnya" && (
+                                    <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                                        <Label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">
+                                            Alasan Detail
+                                        </Label>
+                                        <Textarea
+                                            placeholder="Tuliskan alasan lainnya..."
+                                            value={otherReason}
+                                            onChange={(e) => setOtherReason(e.target.value)}
+                                            className="min-h-[100px] resize-none border-gray-200 focus:border-red-500 focus:ring-red-500/20 rounded-xl"
+                                        />
+                                    </div>
+                                )}
+                            </div>
+
+                            <DialogFooter className="p-6 bg-gray-50 flex flex-col sm:flex-row gap-2">
+                                <Button
+                                    variant="ghost"
+                                    onClick={() => {
+                                        setIsCancelOpen(false);
+                                        setCancelReason("");
+                                        setOtherReason("");
+                                    }}
+                                    className="flex-1 font-bold text-gray-500 hover:bg-gray-100 rounded-xl"
+                                >
+                                    Tutup
+                                </Button>
+                                <Button
+                                    onClick={handleCancel}
+                                    disabled={isCancelling || !cancelReason || (cancelReason === "Lainnya" && !otherReason)}
+                                    className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-lg shadow-red-200 transition-all active:scale-95"
+                                >
+                                    {isCancelling ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                            Membatalkan...
+                                        </>
+                                    ) : (
+                                        "Batalkan Pesanan"
+                                    )}
+                                </Button>
+                            </DialogFooter>
+                        </>
+                    )}
                 </DialogContent>
             </Dialog>
         </div>

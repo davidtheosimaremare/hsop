@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import {
     FileText,
+    Package,
     Loader2,
     Clock,
     Send,
@@ -12,7 +13,8 @@ import {
     ChevronRight,
     MoreHorizontal,
     Eye,
-    ImageIcon
+    ImageIcon,
+    Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,11 +34,21 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { getUserQuotations, sendDraftQuotation } from "@/app/actions/quotation";
+import { getUserQuotations, sendDraftQuotation, deleteQuotationUser } from "@/app/actions/quotation";
 import { exportQuotationPDF, type QuotationExportData, type ExportTemplate } from "@/lib/export-quotation";
 import { getSiteSetting } from "@/app/actions/settings";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 function EmptyState() {
     return (
@@ -65,6 +77,15 @@ export default function EstimasiPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const [template, setTemplate] = useState<ExportTemplate>({});
     const [isSending, setIsSending] = useState<string | null>(null);
+    const [isDeleting, setIsDeleting] = useState<string | null>(null);
+
+    // Delete Dialog State
+    const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+    const [quoteToDelete, setQuoteToDelete] = useState<string | null>(null);
+
+    // Send Modal State
+    const [showSendConfirmDialog, setShowSendConfirmDialog] = useState(false);
+    const [quoteToSend, setQuoteToSend] = useState<any>(null);
 
     const itemsPerPage = 10;
 
@@ -77,7 +98,7 @@ export default function EstimasiPage() {
         setIsLoading(true);
         const result = await getUserQuotations();
         if (result.success) {
-            setQuotations(result.quotations.filter((q: any) => q.status === "DRAFT"));
+            setQuotations(result.quotations.filter((q: any) => q.isEstimation === true));
         }
         setIsLoading(false);
     };
@@ -94,18 +115,46 @@ export default function EstimasiPage() {
         } catch (e) { }
     };
 
-    const handleSendDraft = async (id: string) => {
-        if (!confirm("Lanjutkan estimasi ini ke permintaan penawaran harga?")) return;
+    const handleSendDraft = async (quote: any) => {
+        if (quote.lastSentAt) {
+            setQuoteToSend(quote);
+            setShowSendConfirmDialog(true);
+        } else {
+            // First time sending, standard confirmation
+            if (!confirm("Lanjutkan estimasi ini ke permintaan penawaran harga?")) return;
+            await confirmSendDraft(quote.id);
+        }
+    };
 
+    const confirmSendDraft = async (id: string) => {
         setIsSending(id);
         const result = await sendDraftQuotation(id);
         if (result.success) {
             toast.success("Permintaan penawaran telah terkirim!");
             loadQuotations();
+            router.push("/dashboard/transaksi");
         } else {
             toast.error(result.error || "Gagal mengirim penawaran");
         }
         setIsSending(null);
+        setShowSendConfirmDialog(false);
+        setQuoteToSend(null);
+    };
+
+    const handleDelete = async () => {
+        if (!quoteToDelete) return;
+        
+        setIsDeleting(quoteToDelete);
+        const result = await deleteQuotationUser(quoteToDelete);
+        if (result.success) {
+            toast.success("Estimasi berhasil dihapus");
+            setQuotations(prev => prev.filter(q => q.id !== quoteToDelete));
+        } else {
+            toast.error(result.error || "Gagal menghapus estimasi");
+        }
+        setIsDeleting(null);
+        setQuoteToDelete(null);
+        setShowDeleteDialog(false);
     };
 
     const filteredQuotations = quotations.filter(q =>
@@ -174,17 +223,28 @@ export default function EstimasiPage() {
                                 </TableRow>
                             ) : (
                                 paginatedQuotations.map((q) => (
-                                    <TableRow key={q.id} className="hover:bg-gray-50/50 transition-colors group">
+                                    <TableRow 
+                                        key={q.id} 
+                                        className="hover:bg-gray-50/50 transition-colors group cursor-pointer"
+                                        onClick={() => router.push(`/dashboard/estimasi/${q.quotationNo.replace(/\//g, "-").toLowerCase()}`)}
+                                    >
                                         <TableCell>
                                             <div className="flex flex-col">
                                                 <span className="font-mono text-sm font-bold text-gray-900 leading-none">
                                                     {q.quotationNo.replace('SQ-', 'EST-')}
                                                 </span>
-                                                {q.clientName && (
-                                                    <span className="text-[10px] font-medium text-red-600 mt-1 uppercase tracking-wider">
-                                                        {q.clientName}
-                                                    </span>
-                                                )}
+                                                <div className="flex flex-wrap items-center gap-2 mt-1">
+                                                    {q.clientName && (
+                                                        <span className="text-[10px] font-medium text-red-600 uppercase tracking-wider">
+                                                            {q.clientName}
+                                                        </span>
+                                                    )}
+                                                    {q.lastSentAt && (
+                                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-100 uppercase tracking-tighter">
+                                                            <Send className="w-2 h-2" /> Sudah Dikirim {q.sentQuotationNo || ""}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-xs text-gray-500">
@@ -260,22 +320,47 @@ export default function EstimasiPage() {
                                                         </Button>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end" className="w-48">
-                                                        <DropdownMenuItem onClick={() => router.push(`/dashboard/estimasi/${q.id}`)} className="gap-2 cursor-pointer">
+                                                        <DropdownMenuItem onClick={() => router.push(`/dashboard/estimasi/${q.quotationNo.replace(/\//g, "-").toLowerCase()}`)} className="gap-2 cursor-pointer">
                                                             <Eye className="w-4 h-4 text-gray-500" /> Lihat Produk
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => exportQuotationPDF(q as QuotationExportData, template)} className="gap-2 cursor-pointer">
+                                                        <DropdownMenuItem 
+                                                            onClick={() => {
+                                                                const exportData = {
+                                                                    ...q,
+                                                                    items: q.items.map((item: any) => ({
+                                                                        ...item,
+                                                                        stockStatus: item.stockStatus === 'READY' ? 'Ready Stock' : item.stockStatus === 'INDENT' ? 'Indent' : item.stockStatus
+                                                                    }))
+                                                                };
+                                                                exportQuotationPDF(exportData as QuotationExportData, template);
+                                                            }} 
+                                                            className="gap-2 cursor-pointer"
+                                                        >
                                                             <Download className="w-4 h-4 text-gray-500" /> Unduh PDF
                                                         </DropdownMenuItem>
                                                         <DropdownMenuItem
-                                                            onClick={() => handleSendDraft(q.id)}
-                                                            className="gap-2 cursor-pointer text-red-600 focus:text-red-600"
+                                                            onClick={() => !q.lastSentAt && handleSendDraft(q)}
+                                                            className={`gap-2 cursor-pointer ${q.lastSentAt ? "text-gray-400 cursor-not-allowed" : "text-red-600 focus:text-red-600"}`}
+                                                            disabled={!!isSending || !!q.lastSentAt}
                                                         >
                                                             {isSending === q.id ? (
                                                                 <Loader2 className="w-4 h-4 animate-spin" />
+                                                            ) : q.lastSentAt ? (
+                                                                <Package className="w-4 h-4" />
                                                             ) : (
                                                                 <Send className="w-4 h-4" />
                                                             )}
-                                                            Kirim Penawaran
+                                                            {q.lastSentAt ? `Penawaran Sudah Dikirim ${q.sentQuotationNo || ""}` : "Kirim Penawaran"}
+                                                        </DropdownMenuItem>
+
+                                                        <DropdownMenuItem
+                                                            onClick={() => {
+                                                                setQuoteToDelete(q.id);
+                                                                setShowDeleteDialog(true);
+                                                            }}
+                                                            className="gap-2 cursor-pointer text-gray-500 hover:text-red-600 focus:text-red-600"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" /> Hapus Estimasi
                                                         </DropdownMenuItem>
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
@@ -326,6 +411,92 @@ export default function EstimasiPage() {
                     </div>
                 )}
             </div>
+
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+                <AlertDialogContent className="max-w-md">
+                    <AlertDialogHeader>
+                        <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                            <Trash2 className="w-6 h-6 text-red-600" />
+                        </div>
+                        <AlertDialogTitle className="text-center text-lg font-bold text-gray-900">
+                            Hapus Estimasi ini?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-center text-sm text-gray-500">
+                            Tindakan ini tidak dapat dibatalkan. Estimasi yang dihapus akan hilang secara permanen dari daftar Anda.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="gap-2 sm:gap-0">
+                        <AlertDialogCancel 
+                            onClick={() => {
+                                setShowDeleteDialog(false);
+                                setQuoteToDelete(null);
+                            }}
+                            className="h-10 px-4 border-gray-200 hover:bg-gray-50 hover:text-gray-900"
+                        >
+                            Batal
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDelete}
+                            className="h-10 px-4 bg-red-600 hover:bg-red-700 text-white font-medium"
+                            disabled={!!isDeleting}
+                        >
+                            {isDeleting ? (
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            ) : (
+                                <Trash2 className="w-4 h-4 mr-2" />
+                            )}
+                            Ya, Hapus
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Re-send Confirmation Dialog */}
+            <AlertDialog open={showSendConfirmDialog} onOpenChange={setShowSendConfirmDialog}>
+                <AlertDialogContent className="max-w-md">
+                    <AlertDialogHeader>
+                        <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                            <Send className="w-6 h-6 text-blue-600" />
+                        </div>
+                        <AlertDialogTitle className="text-center text-lg font-bold text-gray-900">
+                            Kirim Penawaran Lagi?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-center text-sm text-gray-500">
+                            Estimasi ini sudah pernah dikirimkan sebelumnya. Ingin membuat permintaan penawaran baru dengan daftar produk yang sama?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="bg-gray-50 rounded-xl p-4 my-2 border border-gray-100">
+                        <div className="flex flex-col gap-1">
+                            <span className="text-[10px] uppercase font-bold text-gray-400">Nomor Estimasi</span>
+                            <span className="text-sm font-bold text-gray-700">{quoteToSend?.quotationNo.replace('SQ-', 'EST-')}</span>
+                        </div>
+                    </div>
+                    <AlertDialogFooter className="gap-2 sm:gap-0">
+                        <AlertDialogCancel 
+                            onClick={() => {
+                                setShowSendConfirmDialog(false);
+                                setQuoteToSend(null);
+                            }}
+                            className="h-10 px-4 border-gray-200 hover:bg-gray-50 hover:text-gray-900"
+                        >
+                            Batal
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => confirmSendDraft(quoteToSend.id)}
+                            className="h-10 px-4 bg-red-600 hover:bg-red-700 text-white font-medium"
+                            disabled={!!isSending}
+                        >
+                            {isSending ? (
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            ) : (
+                                <Send className="w-4 h-4 mr-2" />
+                            )}
+                            Ya, Kirim Baru
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

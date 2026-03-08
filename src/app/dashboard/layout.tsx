@@ -20,19 +20,23 @@ export default async function DashboardLayout({
     // Fetch customer data for user type display (only if customerId exists)
     let customerType: string = "RETAIL";
     let customerImage: string | null = null;
+    let companyName: string | null = null;
     if (session.user.customerId) {
         const customer = await db.customer.findUnique({
             where: { id: session.user.customerId },
-            select: { type: true, image: true }
+            select: { type: true, image: true, name: true, company: true }
         });
         customerType = customer?.type || "RETAIL";
         customerImage = customer?.image || null;
+        // Company name: prefer 'company' field, fallback to customer 'name' if it looks like company
+        companyName = customer?.company || customer?.name || null;
     }
 
     const userWithCustomer = {
         ...session.user,
         customerType,
-        customerImage
+        customerImage,
+        companyName
     };
 
     return (
