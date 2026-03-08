@@ -150,7 +150,7 @@ export default async function SalesOrderDetailPage({ params }: PageProps) {
                         <CardContent className="space-y-3">
                             <div className="flex justify-between">
                                 <span className="text-gray-500">Subtotal</span>
-                                <span>Rp {order.total.toLocaleString("id-ID")}</span>
+                                <span>Rp {(order.totalAmount ?? 0).toLocaleString("id-ID")}</span>
                             </div>
                             {order.discount > 0 && (
                                 <div className="flex justify-between text-green-600">
@@ -161,7 +161,7 @@ export default async function SalesOrderDetailPage({ params }: PageProps) {
                             <hr />
                             <div className="flex justify-between font-bold text-lg">
                                 <span>Total</span>
-                                <span>Rp {(order.total - order.discount).toLocaleString("id-ID")}</span>
+                                <span>Rp {((order.totalAmount ?? 0) - order.discount).toLocaleString("id-ID")}</span>
                             </div>
                         </CardContent>
                     </Card>

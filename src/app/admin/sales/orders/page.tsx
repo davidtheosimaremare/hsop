@@ -128,13 +128,13 @@ export default async function SalesOrdersPage() {
                                             <td className="py-3">{order.customer?.name || "-"}</td>
                                             <td className="py-3">{order.items.length} item</td>
                                             <td className="py-3 font-medium">
-                                                Rp {order.total.toLocaleString("id-ID")}
+                                                Rp {(order.totalAmount ?? 0).toLocaleString("id-ID")}
                                             </td>
                                             <td className="py-3">
                                                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${order.status === "COMPLETED" ? "bg-green-100 text-green-700" :
-                                                        order.status === "PROCESSING" ? "bg-orange-100 text-orange-700" :
-                                                            order.status === "CANCELLED" ? "bg-red-100 text-red-700" :
-                                                                "bg-yellow-100 text-yellow-700"
+                                                    order.status === "PROCESSING" ? "bg-orange-100 text-orange-700" :
+                                                        order.status === "CANCELLED" ? "bg-red-100 text-red-700" :
+                                                            "bg-yellow-100 text-yellow-700"
                                                     }`}>
                                                     {order.status === "COMPLETED" ? "Selesai" :
                                                         order.status === "PROCESSING" ? "Diproses" :

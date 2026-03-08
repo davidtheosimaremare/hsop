@@ -159,7 +159,7 @@ export default async function AdminCustomerDetailPage({ params }: { params: { id
                                             <div className="flex items-center justify-between pt-3 border-t border-gray-50">
                                                 <div className="flex items-center gap-1.5 text-xs font-bold text-gray-500">
                                                     <Package className="h-3 w-3 text-gray-400" />
-                                                    {order.items.length} item &bull; <span className="text-red-600 font-black">Rp {order.total.toLocaleString("id-ID")}</span>
+                                                    {order.items.length} item &bull; <span className="text-red-600 font-black">Rp {(order.totalAmount ?? 0).toLocaleString("id-ID")}</span>
                                                 </div>
                                                 <Button variant="ghost" size="sm" asChild className="h-7 px-3 rounded-lg font-black text-[9px] uppercase tracking-widest text-gray-400 hover:text-red-600">
                                                     <Link href={`/admin/orders/${order.id}`}>

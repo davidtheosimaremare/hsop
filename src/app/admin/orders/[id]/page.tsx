@@ -92,7 +92,7 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
                                     <TableRow>
                                         <TableCell colSpan={3} className="text-right font-medium">Total Harga Barang</TableCell>
                                         <TableCell className="text-right font-bold">
-                                            Rp {order.total.toLocaleString("id-ID")}
+                                            Rp {(order.totalAmount ?? 0).toLocaleString("id-ID")}
                                         </TableCell>
                                     </TableRow>
                                     {/* Discount Row will be handled dynamically in client component if possible, 
@@ -108,7 +108,7 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
                                     <TableRow className="bg-gray-50">
                                         <TableCell colSpan={3} className="text-right font-bold text-lg">Grand Total</TableCell>
                                         <TableCell className="text-right font-bold text-lg">
-                                            Rp {(order.total - order.discount).toLocaleString("id-ID")}
+                                            Rp {((order.totalAmount ?? 0) - order.discount).toLocaleString("id-ID")}
                                         </TableCell>
                                     </TableRow>
                                 </TableBody>
