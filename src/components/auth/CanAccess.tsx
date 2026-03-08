@@ -42,13 +42,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                 // Load permissions for this user's role
                 if (permRes?.ok) {
-                    const permData = await permRes.json();
-                    const rolePerms = permData.permissions[userData.user.role] || [];
+                    const permData = await permRes.json() as { permissions: Record<string, string[]> };
+                    const { rolePermissions } = await import("@/lib/rbac");
+                    const userRole = userData.user.role as UserRole;
+                    const rolePerms = (permData.permissions[userRole] || rolePermissions[userRole] || []) as string[];
                     setPermissions(rolePerms);
                 } else {
-                    // Fallback to hardcoded defaults if API fails or is unauthorized
-                    // (The server-side check in sidebar will still use defaults as well)
-                    setPermissions([]);
+                    // Fallback to hardcoded defaults if API fails
+                    const { rolePermissions } = await import("@/lib/rbac");
+                    const userRole = userData.user.role as UserRole;
+                    const rolePerms = (rolePermissions[userRole] || []) as string[];
+                    setPermissions(rolePerms);
                 }
             } else {
                 setUser(null);

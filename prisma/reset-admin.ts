@@ -15,7 +15,7 @@ async function resetAdmin() {
             where: { email },
             update: {
                 password: hashedPassword,
-                role: 'ADMIN',
+                role: 'SUPER_ADMIN',
                 isVerified: true,
                 isActive: true
             },
@@ -24,7 +24,7 @@ async function resetAdmin() {
                 name: 'Admin Hokiindo',
                 username: 'admin',
                 password: hashedPassword,
-                role: 'ADMIN',
+                role: 'SUPER_ADMIN',
                 isVerified: true,
                 isActive: true
             },
