@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 export async function GET() {
     try {
         const session = await getSession();
-        if (!session?.user || session.user.role !== "SUPER_ADMIN") {
+        if (!session?.user) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 

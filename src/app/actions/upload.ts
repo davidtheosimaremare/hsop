@@ -1,13 +1,9 @@
 "use server";
 
-import path, { join } from "path";
 import { writeFile, mkdir } from "fs/promises";
+import { join } from "path";
 import { v4 as uuidv4 } from "uuid";
-
-// Helper to avoid Turbopack static analysis of the public folder
-const getSafePath = (...parts: string[]) => {
-    return path.join(process.cwd(), ...parts);
-};
+import path from "path";
 
 export async function uploadFile(formData: FormData, skipUuid: boolean = false) {
     console.log("Starting uploadFile action...");
@@ -32,17 +28,21 @@ export async function uploadFile(formData: FormData, skipUuid: boolean = false) 
     const year = date.getFullYear().toString();
     const month = (date.getMonth() + 1).toString().padStart(2, "0");
 
-    const uploadDir = getSafePath("public", "uploads", year, month);
+    const relativeDir = `/uploads/${year}/${month}`;
+
+    // Use an array joined at runtime to hide the path from static analyzer
+    const pathParts = [process.cwd(), "public", "uploads", year, month];
+    const uploadDir = path.join(...pathParts);
 
     console.log(`Target directory: ${uploadDir}`);
 
     try {
         await mkdir(uploadDir, { recursive: true });
-        const filePath = getSafePath("public", "uploads", year, month, uniqueName);
+        const filePath = join(uploadDir, uniqueName);
         console.log(`Writing file to: ${filePath}`);
         await writeFile(filePath, buffer);
 
-        const publicUrl = `/uploads/${year}/${month}/${uniqueName}`;
+        const publicUrl = `${relativeDir}/${uniqueName}`;
         console.log(`[Upload] Success! Accessible at: ${publicUrl}`);
         console.log(`[Upload] Local System Path: ${filePath}`);
         return { success: true, url: publicUrl, filename: file.name };
@@ -88,36 +88,81 @@ export async function saveImageFromUrl(url: string, prefix: string = "import") {
         const year = date.getFullYear().toString();
         const month = (date.getMonth() + 1).toString().padStart(2, "0");
 
-        const uploadDir = getSafePath("public", "uploads", year, month);
+        const relativeDir = `/uploads/${year}/${month}`;
+
+        // Use an array joined at runtime to hide the path from static analyzer
+        const pathParts = [process.cwd(), "public", "uploads", year, month];
+        const uploadDir = path.join(...pathParts);
 
         // 4. Save File
         await mkdir(uploadDir, { recursive: true });
-        const filePath = getSafePath("public", "uploads", year, month, uniqueName);
+        const filePath = join(uploadDir, uniqueName);
         await writeFile(filePath, buffer);
 
-        const publicUrl = `/uploads/${year}/${month}/${uniqueName}`;
+        const publicUrl = `${relativeDir}/${uniqueName}`;
         console.log(`[Import] Success! Accessible at: ${publicUrl}`);
         console.log(`[Import] Local System Path: ${filePath}`);
         return { success: true, url: publicUrl };
-    } catch (error) {
-        console.error("saveImageFromUrl error:", error);
-        return { success: false, error: (error as Error).message };
+    } catch (error: any) {
+        console.error(`Error saving image from URL (${url}):`, error);
+        return { success: false, error: `Failed to download image: ${error.message}` };
     }
 }
 
-export async function deleteFile(relativeUrl: string) {
-    // Basic security: don't allow deleting outside of uploads
-    if (!relativeUrl.startsWith("/uploads/")) {
-        return { success: false, error: "Invalid file path" };
+export async function uploadNewsImage(formData: FormData) {
+    const file = formData.get("file") as File;
+    if (!file) {
+        return { success: false, error: "No file uploaded" };
     }
 
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    // Create unique filename with timestamp
+    const timestamp = Date.now();
+    const cleanName = file.name.replace(/\s+/g, "-").toLowerCase();
+    const uniqueName = `${timestamp}-${cleanName}`;
+
+    // Save to /uploads/news folder
+    const relativeDir = `/uploads/news`;
+    const uploadDir = join(process.cwd(), "public", relativeDir);
+
     try {
-        const { unlink } = require("fs/promises");
-        const filePath = getSafePath("public", ...relativeUrl.split("/").filter(Boolean));
-        await unlink(filePath);
-        return { success: true };
+        await mkdir(uploadDir, { recursive: true });
+        const filePath = join(uploadDir, uniqueName);
+        await writeFile(filePath, buffer);
+
+        const publicUrl = `${relativeDir}/${uniqueName}`;
+        return { success: true, url: publicUrl };
     } catch (error) {
-        console.error("Error deleting file:", error);
-        return { success: false, error: (error as Error).message };
+        console.error("News image upload error:", error);
+        return { success: false, error: "Failed to save file" };
+    }
+}
+
+export async function uploadCroppedNewsImage(base64Data: string, filename: string = "news-image.jpg") {
+    try {
+        // Remove base64 prefix if present
+        const base64Content = base64Data.replace(/^data:image\/\w+;base64,/, "");
+        const buffer = Buffer.from(base64Content, "base64");
+
+        // Create unique filename with timestamp
+        const timestamp = Date.now();
+        const ext = filename.split(".").pop() || "jpg";
+        const uniqueName = `${timestamp}-cropped.${ext}`;
+
+        // Save to /uploads/news folder
+        const relativeDir = `/uploads/news`;
+        const uploadDir = join(process.cwd(), "public", relativeDir);
+
+        await mkdir(uploadDir, { recursive: true });
+        const filePath = join(uploadDir, uniqueName);
+        await writeFile(filePath, buffer);
+
+        const publicUrl = `${relativeDir}/${uniqueName}`;
+        return { success: true, url: publicUrl };
+    } catch (error) {
+        console.error("Cropped image upload error:", error);
+        return { success: false, error: "Failed to save cropped image" };
     }
 }

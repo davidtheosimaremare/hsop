@@ -44,12 +44,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 if (permRes?.ok) {
                     const permData = await permRes.json();
                     const rolePerms = permData.permissions[userData.user.role] || [];
-                    // SUPER_ADMIN gets all permissions
-                    if (userData.user.role === "SUPER_ADMIN") {
-                        setPermissions(allPermissions);
-                    } else {
-                        setPermissions(rolePerms);
-                    }
+                    setPermissions(rolePerms);
+                } else {
+                    // Fallback to hardcoded defaults if API fails or is unauthorized
+                    // (The server-side check in sidebar will still use defaults as well)
+                    setPermissions([]);
                 }
             } else {
                 setUser(null);

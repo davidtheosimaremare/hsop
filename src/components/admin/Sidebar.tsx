@@ -118,12 +118,12 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
 
     // Helper to check if menu item should be shown
     const shouldShowMenuItem = (requiredPermission?: string) => {
-        // If still loading, show all items (or we can hide them)
-        if (isLoading) return true;
         // If no user (not logged in), hide all
-        if (!user) return false;
+        if (!user && !isLoading) return false;
+        // If still loading, let's show a few skeletons or hide - here we hide to be safe
+        if (isLoading) return false;
         // If SUPER_ADMIN, show all
-        if (user.role === "SUPER_ADMIN") return true;
+        if (user?.role === "SUPER_ADMIN") return true;
         // Otherwise check permission
         if (!requiredPermission) return true;
         return hasPermission(requiredPermission as Permission);
