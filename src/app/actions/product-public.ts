@@ -210,7 +210,7 @@ export async function getRelatedProducts(category: string, excludeId: string, na
     // Clean name for better matching
     // We take the first 2 words of the name which usually contain the series/model info
     const nameWords = name.split(/[\s-]+/).filter(w => w.length >= 3).slice(0, 2);
-    
+
     // We'll try to find products that match name words first
     const relatedProducts = await db.product.findMany({
         where: {
@@ -231,8 +231,10 @@ export async function getRelatedProducts(category: string, excludeId: string, na
         const anyWordProducts = await db.product.findMany({
             where: {
                 category: category ? { contains: category, mode: "insensitive" } : (hiddenCategoryNames.length > 0 ? { notIn: hiddenCategoryNames } : undefined),
-                id: { not: excludeId },
-                id: { notIn: finalProducts.map(p => p.id) },
+                id: {
+                    not: excludeId,
+                    notIn: finalProducts.map(p => p.id)
+                },
                 isVisible: true,
                 OR: nameWords.map(word => ({
                     name: { contains: word, mode: "insensitive" }
