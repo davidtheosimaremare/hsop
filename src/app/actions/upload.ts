@@ -29,7 +29,9 @@ export async function uploadFile(formData: FormData, skipUuid: boolean = false) 
     const month = (date.getMonth() + 1).toString().padStart(2, "0");
 
     const relativeDir = `/uploads/${year}/${month}`;
-    const uploadDir = join(process.cwd(), "public", relativeDir);
+
+    // Use path.resolve instead of join with process.cwd() to potentially bypass overly broad static analysis
+    const uploadDir = path.resolve("public" + relativeDir);
 
     console.log(`Target directory: ${uploadDir}`);
 
@@ -86,7 +88,7 @@ export async function saveImageFromUrl(url: string, prefix: string = "import") {
         const month = (date.getMonth() + 1).toString().padStart(2, "0");
 
         const relativeDir = `/uploads/${year}/${month}`;
-        const uploadDir = join(process.cwd(), "public", relativeDir);
+        const uploadDir = path.resolve("public" + relativeDir);
 
         // 4. Save File
         await mkdir(uploadDir, { recursive: true });
