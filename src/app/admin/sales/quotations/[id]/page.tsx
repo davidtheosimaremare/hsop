@@ -233,7 +233,7 @@ export default function QuotationDetailPage() {
 
             const renamedFile = new File([pdfFile], newFileName, { type: pdfFile.type });
             formData.append("file", renamedFile);
-            const uploadRes = await uploadFile(formData, true);
+            const uploadRes = await uploadFile(formData, true, "files");
             if (uploadRes.success) {
                 pdfPath = uploadRes.url;
             } else {
@@ -311,7 +311,7 @@ export default function QuotationDetailPage() {
                 const newFileName = `${sanitizedNo}-${timestamp}.${fileExt}`;
                 const renamedFile = new File([updatePdfFile], newFileName, { type: updatePdfFile.type });
                 formData.append("file", renamedFile);
-                const uploadRes = await uploadFile(formData, true);
+                const uploadRes = await uploadFile(formData, true, "files");
                 if (uploadRes.success) {
                     pdfPath = uploadRes.url;
                 } else {
@@ -2335,7 +2335,7 @@ export default function QuotationDetailPage() {
                                                     const now = new Date();
                                                     const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}-${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}${String(now.getSeconds()).padStart(2, "0")}`;
                                                     fd.append("filename", `${sanitized}-SO-${stamp}.pdf`);
-                                                    const res = await uploadFile(fd, true);
+                                                    const res = await uploadFile(fd, true, "files");
                                                     if (res.success && res.url) {
                                                         await fetch("/api/quotation/update-field", {
                                                             method: "POST",
@@ -2420,7 +2420,7 @@ export default function QuotationDetailPage() {
                                                             const now = new Date();
                                                             const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
                                                             fd.append("filename", `${sanitized}-${tag}-${stamp}.pdf`);
-                                                            const res = await uploadFile(fd, true);
+                                                            const res = await uploadFile(fd, true, "files");
                                                             if (res.success && res.url) {
                                                                 await fetch("/api/quotation/update-field", {
                                                                     method: "POST",

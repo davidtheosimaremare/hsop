@@ -38,7 +38,7 @@ export default function FormatFilePage() {
         try {
             const formData = new FormData();
             formData.append("file", file);
-            const result = await uploadFile(formData);
+            const result = await uploadFile(formData, false, "assets");
             if (result.success && result.url) {
                 setImage(result.url);
                 const current = await getSiteSetting("export_template") as Record<string, string> | null;

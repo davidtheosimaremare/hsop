@@ -35,7 +35,7 @@ export function EditableDatasheetSection({ productId, sku, initialDatasheet }: E
 
         startTransition(async () => {
             // Reusing the general uploadFile action which handles PDF/Images
-            const result = await uploadFile(formData);
+            const result = await uploadFile(formData, false, "files");
             if (result.success && result.url) {
                 setDatasheet(result.url);
             } else {

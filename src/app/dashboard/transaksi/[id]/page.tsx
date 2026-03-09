@@ -225,7 +225,7 @@ export default function UserTransactionDetailPage() {
         formData.append("file", file);
 
         try {
-            const result = await uploadFile(formData);
+            const result = await uploadFile(formData, false, "files");
             if (result.success && result.url) {
                 setters(result.url);
                 toast.success("Upload berhasil");
@@ -291,7 +291,7 @@ export default function UserTransactionDetailPage() {
             try {
                 const formData = new FormData();
                 formData.append("file", hpoFile);
-                const uploadResult = await uploadFile(formData);
+                const uploadResult = await uploadFile(formData, false, "files");
                 if (uploadResult.success && uploadResult.url) {
                     finalPoPath = uploadResult.url;
                 } else {
@@ -355,7 +355,7 @@ export default function UserTransactionDetailPage() {
             const formData = new FormData();
             formData.append("file", file);
             try {
-                const result = await uploadFile(formData);
+                const result = await uploadFile(formData, false, "files");
                 if (result.success && result.url) {
                     urls.push(result.url);
                 } else {
@@ -941,7 +941,7 @@ export default function UserTransactionDetailPage() {
                                                                     const formData = new FormData();
                                                                     formData.append("file", files[i]);
                                                                     try {
-                                                                        const res = await uploadFile(formData);
+                                                                        const res = await uploadFile(formData, false, "files");
                                                                         if (res.success && res.url) {
                                                                             setReceiptEvidences(prev => [...prev, res.url]);
                                                                         }
@@ -1525,7 +1525,7 @@ export default function UserTransactionDetailPage() {
                                                     try {
                                                         const formData = new FormData();
                                                         formData.append('file', paymentFileOpen);
-                                                        const res = await uploadFile(formData);
+                                                        const res = await uploadFile(formData, false, "files");
                                                         if (res.success && res.url) {
                                                             const result = await userUploadPaymentProof(quotation.id, res.url);
                                                             if (result.success) {

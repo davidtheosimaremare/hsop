@@ -80,7 +80,7 @@ export function BannerManager({ initialBanners }: BannerManagerProps) {
                 // 1. Upload the file
                 const formData = new FormData();
                 formData.append("file", selectedFile);
-                const uploadRes = await uploadFile(formData);
+                const uploadRes = await uploadFile(formData, false, "assets");
 
                 if (!uploadRes.success || !uploadRes.url) {
                     toast.error(uploadRes.error || "Gagal mengupload gambar.");

@@ -4,16 +4,16 @@ import { useState, useTransition, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { updateSiteSetting } from "@/app/actions/settings";
 import { uploadFile } from "@/app/actions/upload";
-import { 
-    Loader2, 
-    Save, 
-    Building2, 
-    Mail, 
-    Phone, 
-    MapPin, 
-    Globe, 
-    Instagram, 
-    Facebook, 
+import {
+    Loader2,
+    Save,
+    Building2,
+    Mail,
+    Phone,
+    MapPin,
+    Globe,
+    Instagram,
+    Facebook,
     Linkedin,
     Upload,
     X,
@@ -67,7 +67,7 @@ export function CompanySettingsForm({ initialData }: CompanySettingsFormProps) {
     const [isPending, startTransition] = useTransition();
     const [isUploadingLogo, setIsUploadingLogo] = useState(false);
     const [isUploadingFavicon, setIsUploadingFavicon] = useState(false);
-    
+
     const logoInputRef = useRef<HTMLInputElement>(null);
     const faviconInputRef = useRef<HTMLInputElement>(null);
 
@@ -87,7 +87,7 @@ export function CompanySettingsForm({ initialData }: CompanySettingsFormProps) {
         try {
             const uploadData = new FormData();
             uploadData.append("file", file);
-            const res = await uploadFile(uploadData);
+            const res = await uploadFile(uploadData, false, "assets");
 
             if (res.success && res.url) {
                 setFormData(prev => ({ ...prev, [type]: res.url }));
@@ -141,7 +141,7 @@ export function CompanySettingsForm({ initialData }: CompanySettingsFormProps) {
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                     <Globe className="w-3 h-3 text-red-500" /> Title Situs Utama
                                 </label>
-                                <Input 
+                                <Input
                                     name="siteTitle"
                                     value={formData.siteTitle}
                                     onChange={handleInputChange}
@@ -153,7 +153,7 @@ export function CompanySettingsForm({ initialData }: CompanySettingsFormProps) {
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                     <Info className="w-3 h-3 text-red-500" /> Tagline / Slogan
                                 </label>
-                                <Input 
+                                <Input
                                     name="siteTagline"
                                     value={formData.siteTagline}
                                     onChange={handleInputChange}
@@ -167,7 +167,7 @@ export function CompanySettingsForm({ initialData }: CompanySettingsFormProps) {
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                 <Building2 className="w-3 h-3 text-red-500" /> Nama Resmi Perusahaan
                             </label>
-                            <Input 
+                            <Input
                                 name="name"
                                 value={formData.name}
                                 onChange={handleInputChange}
@@ -181,7 +181,7 @@ export function CompanySettingsForm({ initialData }: CompanySettingsFormProps) {
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                     <Mail className="w-3 h-3 text-red-500" /> Email Utama
                                 </label>
-                                <Input 
+                                <Input
                                     name="email"
                                     type="email"
                                     value={formData.email}
@@ -194,7 +194,7 @@ export function CompanySettingsForm({ initialData }: CompanySettingsFormProps) {
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                     <Phone className="w-3 h-3 text-red-500" /> Nomor Telepon
                                 </label>
-                                <Input 
+                                <Input
                                     name="phone"
                                     value={formData.phone}
                                     onChange={handleInputChange}
@@ -208,7 +208,7 @@ export function CompanySettingsForm({ initialData }: CompanySettingsFormProps) {
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                 <MapPin className="w-3 h-3 text-red-500" /> Alamat Kantor
                             </label>
-                            <Textarea 
+                            <Textarea
                                 name="address"
                                 value={formData.address}
                                 onChange={handleInputChange}
@@ -221,7 +221,7 @@ export function CompanySettingsForm({ initialData }: CompanySettingsFormProps) {
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                 <Info className="w-3 h-3 text-red-500" /> Deskripsi Singkat
                             </label>
-                            <Textarea 
+                            <Textarea
                                 name="description"
                                 value={formData.description}
                                 onChange={handleInputChange}
@@ -250,7 +250,7 @@ export function CompanySettingsForm({ initialData }: CompanySettingsFormProps) {
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                 <Globe className="w-3 h-3 text-blue-500" /> Website URL
                             </label>
-                            <Input 
+                            <Input
                                 name="website"
                                 value={formData.website}
                                 onChange={handleInputChange}
@@ -262,7 +262,7 @@ export function CompanySettingsForm({ initialData }: CompanySettingsFormProps) {
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                 <Instagram className="w-3 h-3 text-pink-500" /> Instagram
                             </label>
-                            <Input 
+                            <Input
                                 name="instagram"
                                 value={formData.instagram}
                                 onChange={handleInputChange}
@@ -274,7 +274,7 @@ export function CompanySettingsForm({ initialData }: CompanySettingsFormProps) {
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                 <Facebook className="w-3 h-3 text-blue-700" /> Facebook
                             </label>
-                            <Input 
+                            <Input
                                 name="facebook"
                                 value={formData.facebook}
                                 onChange={handleInputChange}
@@ -286,7 +286,7 @@ export function CompanySettingsForm({ initialData }: CompanySettingsFormProps) {
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                 <Linkedin className="w-3 h-3 text-blue-600" /> LinkedIn
                             </label>
-                            <Input 
+                            <Input
                                 name="linkedin"
                                 value={formData.linkedin}
                                 onChange={handleInputChange}
@@ -331,8 +331,8 @@ export function CompanySettingsForm({ initialData }: CompanySettingsFormProps) {
                             )}
                         </div>
                         <input type="file" ref={logoInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'logo')} />
-                        <Button 
-                            variant="outline" 
+                        <Button
+                            variant="outline"
                             className="w-full h-11 rounded-xl border-slate-200 font-bold text-xs uppercase tracking-widest hover:bg-slate-50"
                             onClick={() => logoInputRef.current?.click()}
                             disabled={isUploadingLogo}
@@ -365,8 +365,8 @@ export function CompanySettingsForm({ initialData }: CompanySettingsFormProps) {
                             </div>
                             <div className="flex-1 space-y-2">
                                 <input type="file" ref={faviconInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'favicon')} />
-                                <Button 
-                                    variant="outline" 
+                                <Button
+                                    variant="outline"
                                     className="w-full h-10 rounded-xl border-slate-200 font-bold text-[10px] uppercase tracking-widest"
                                     onClick={() => faviconInputRef.current?.click()}
                                     disabled={isUploadingFavicon}
@@ -392,7 +392,7 @@ export function CompanySettingsForm({ initialData }: CompanySettingsFormProps) {
                             Semua data yang disimpan akan langsung diterapkan pada seluruh halaman publik dan layout dashboard.
                         </p>
                     </div>
-                    <Button 
+                    <Button
                         onClick={handleSave}
                         disabled={isPending}
                         className="w-full h-14 bg-red-600 hover:bg-red-700 text-white font-black rounded-2xl shadow-xl shadow-red-500/20 text-sm tracking-widest flex items-center justify-center gap-2 group transition-all"
@@ -401,7 +401,7 @@ export function CompanySettingsForm({ initialData }: CompanySettingsFormProps) {
                             <Loader2 className="w-5 h-5 animate-spin" />
                         ) : (
                             <>
-                                <Save className="w-5 h-5 group-hover:scale-110 transition-transform" /> 
+                                <Save className="w-5 h-5 group-hover:scale-110 transition-transform" />
                                 SIMPAN PERUBAHAN
                             </>
                         )}

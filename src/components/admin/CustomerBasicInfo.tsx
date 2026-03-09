@@ -60,7 +60,7 @@ export function CustomerBasicInfo({ customer }: CustomerBasicInfoProps) {
         formData.append("file", file);
 
         try {
-            const uploadRes = await uploadFile(formData);
+            const uploadRes = await uploadFile(formData, false, "assets");
             if (!uploadRes.success || !uploadRes.url) throw new Error(uploadRes.error || "Upload failed");
             const updateRes = await updateCustomerAvatarAction(customer.id, uploadRes.url);
             if (updateRes.error) throw new Error(updateRes.error);

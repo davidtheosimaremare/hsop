@@ -55,7 +55,7 @@ export function PortfolioManager({ initialClients }: PortfolioManagerProps) {
                 const formData = new FormData();
                 formData.append("file", imageFile);
 
-                const uploadRes = await uploadFile(formData);
+                const uploadRes = await uploadFile(formData, false, "assets");
                 if (!uploadRes.success || !uploadRes.url) {
                     alert("Gagal mengupload gambar: " + uploadRes.error);
                     return;

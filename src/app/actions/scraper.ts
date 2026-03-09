@@ -7,6 +7,7 @@ import path from "path";
 import crypto from "crypto";
 import { revalidatePath } from 'next/cache';
 import puppeteer from 'puppeteer';
+import { uploadBufferToMinio } from "@/lib/s3";
 
 interface ScrapedData {
     success: boolean;
@@ -371,15 +372,10 @@ export async function scrapeSieportalImage(productId: string, sku: string) {
         // Generate random filename
         const ext = path.extname(fullImgUrl.split('?')[0]) || '.jpg';
         const fileName = `sieportal-${sku}-${crypto.randomBytes(4).toString("hex")}${ext}`;
-        const uploadDir = path.join(process.cwd(), "public/uploads/products");
+        const contentType = imgResponse.headers.get("content-type") || "image/jpeg";
 
-        // Ensure directory exists
-        await fs.mkdir(uploadDir, { recursive: true });
-
-        const filePath = path.join(uploadDir, fileName);
-        await fs.writeFile(filePath, buffer);
-
-        const fileUrl = `/uploads/products/${fileName}`;
+        // Upload to MinIO
+        const fileUrl = await uploadBufferToMinio(buffer, fileName, contentType, "products");
 
         // Save to Database
         await db.product.update({

@@ -109,7 +109,7 @@ export function GridCategoryManager({ allCategories, initialGridItems }: GridCat
         formData.append("file", file);
 
         try {
-            const uploadRes = await uploadFile(formData);
+            const uploadRes = await uploadFile(formData, false, "assets");
             if (uploadRes.success && uploadRes.url) {
                 const updateRes = await updateCategory(activeUploadId, { image: uploadRes.url });
                 if (updateRes.success) {

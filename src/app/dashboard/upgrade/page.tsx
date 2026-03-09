@@ -48,7 +48,7 @@ export default function UpgradeAccountPage() {
 
             const ktpFormData = new FormData();
             ktpFormData.append("file", ktpFile);
-            const ktpUpload = await uploadFile(ktpFormData);
+            const ktpUpload = await uploadFile(ktpFormData, false, "files");
 
             if (!ktpUpload.success || !ktpUpload.url) {
                 throw new Error("Gagal upload KTP");
@@ -58,7 +58,7 @@ export default function UpgradeAccountPage() {
             if (npwpFile) {
                 const npwpFormData = new FormData();
                 npwpFormData.append("file", npwpFile);
-                const npwpUpload = await uploadFile(npwpFormData);
+                const npwpUpload = await uploadFile(npwpFormData, false, "files");
                 if (npwpUpload.success && npwpUpload.url) {
                     npwpUrl = npwpUpload.url;
                 }

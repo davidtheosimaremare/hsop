@@ -1,12 +1,16 @@
 "use server";
 
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
 import { v4 as uuidv4 } from "uuid";
-import path from "path";
+import { uploadBufferToMinio } from "@/lib/s3";
 
-export async function uploadFile(formData: FormData, skipUuid: boolean = false) {
-    console.log("Starting uploadFile action...");
+export type UploadFolder = "products" | "assets" | "files";
+
+export async function uploadFile(
+    formData: FormData,
+    skipUuid: boolean = false,
+    folder: UploadFolder = "files"
+) {
+    console.log("Starting uploadFile action (MinIO)...");
     const file = formData.get("file") as File;
     if (!file) {
         console.error("No file found in formData");
@@ -23,36 +27,17 @@ export async function uploadFile(formData: FormData, skipUuid: boolean = false) 
         ? file.name.replace(/\s+/g, "_")
         : `${uuidv4()}-${file.name.replace(/\s+/g, "_")}`;
 
-    // Organize by Year/Month to avoid massive folders
-    const date = new Date();
-    const year = date.getFullYear().toString();
-    const month = (date.getMonth() + 1).toString().padStart(2, "0");
-
-    const relativeDir = `/uploads/${year}/${month}`;
-
-    // Use an array joined at runtime to hide the path from static analyzer
-    const pathParts = [process.cwd(), "public", "uploads", year, month];
-    const uploadDir = path.join(...pathParts);
-
-    console.log(`Target directory: ${uploadDir}`);
-
     try {
-        await mkdir(uploadDir, { recursive: true });
-        const filePath = join(uploadDir, uniqueName);
-        console.log(`Writing file to: ${filePath}`);
-        await writeFile(filePath, buffer);
-
-        const publicUrl = `${relativeDir}/${uniqueName}`;
+        const publicUrl = await uploadBufferToMinio(buffer, uniqueName, file.type, folder);
         console.log(`[Upload] Success! Accessible at: ${publicUrl}`);
-        console.log(`[Upload] Local System Path: ${filePath}`);
         return { success: true, url: publicUrl, filename: file.name };
     } catch (error) {
-        console.error("Upload error (fs/promises):", error);
+        console.error("Upload error (MinIO):", error);
         return { success: false, error: "Failed to save file: " + (error as Error).message };
     }
 }
 
-export async function saveImageFromUrl(url: string, prefix: string = "import") {
+export async function saveImageFromUrl(url: string, prefix: string = "import", folder: UploadFolder = "products") {
     try {
         // 1. Fetch the image
         const response = await fetch(url, {
@@ -70,10 +55,15 @@ export async function saveImageFromUrl(url: string, prefix: string = "import") {
         const buffer = Buffer.from(arrayBuffer);
 
         // 2. Determine filename
-        // Try to get extension from URL or content-type
-        let extension = path.extname(url).split('?')[0]; // remove query params
+        // Try to extract extension, or fallback to general image extension based on content-type
+        const urlObj = new URL(url);
+        const pathParts = urlObj.pathname.split('/');
+        const lastPart = pathParts[pathParts.length - 1];
+        let extension = lastPart.includes('.') ? `.${lastPart.split('.').pop()}` : '';
+
+        let contentType = response.headers.get("content-type") || "application/octet-stream";
+
         if (!extension || extension === ".") {
-            const contentType = response.headers.get("content-type");
             if (contentType === "image/jpeg") extension = ".jpg";
             else if (contentType === "image/png") extension = ".png";
             else if (contentType === "image/webp") extension = ".webp";
@@ -83,25 +73,9 @@ export async function saveImageFromUrl(url: string, prefix: string = "import") {
 
         const uniqueName = `${prefix}-${uuidv4()}${extension}`;
 
-        // 3. Prepare Directory
-        const date = new Date();
-        const year = date.getFullYear().toString();
-        const month = (date.getMonth() + 1).toString().padStart(2, "0");
+        const publicUrl = await uploadBufferToMinio(buffer, uniqueName, contentType, folder);
 
-        const relativeDir = `/uploads/${year}/${month}`;
-
-        // Use an array joined at runtime to hide the path from static analyzer
-        const pathParts = [process.cwd(), "public", "uploads", year, month];
-        const uploadDir = path.join(...pathParts);
-
-        // 4. Save File
-        await mkdir(uploadDir, { recursive: true });
-        const filePath = join(uploadDir, uniqueName);
-        await writeFile(filePath, buffer);
-
-        const publicUrl = `${relativeDir}/${uniqueName}`;
         console.log(`[Import] Success! Accessible at: ${publicUrl}`);
-        console.log(`[Import] Local System Path: ${filePath}`);
         return { success: true, url: publicUrl };
     } catch (error: any) {
         console.error(`Error saving image from URL (${url}):`, error);
@@ -121,18 +95,10 @@ export async function uploadNewsImage(formData: FormData) {
     // Create unique filename with timestamp
     const timestamp = Date.now();
     const cleanName = file.name.replace(/\s+/g, "-").toLowerCase();
-    const uniqueName = `${timestamp}-${cleanName}`;
-
-    // Save to /uploads/news folder
-    const relativeDir = `/uploads/news`;
-    const uploadDir = join(process.cwd(), "public", relativeDir);
+    const uniqueName = `news-${timestamp}-${cleanName}`;
 
     try {
-        await mkdir(uploadDir, { recursive: true });
-        const filePath = join(uploadDir, uniqueName);
-        await writeFile(filePath, buffer);
-
-        const publicUrl = `${relativeDir}/${uniqueName}`;
+        const publicUrl = await uploadBufferToMinio(buffer, uniqueName, file.type, "assets");
         return { success: true, url: publicUrl };
     } catch (error) {
         console.error("News image upload error:", error);
@@ -143,23 +109,18 @@ export async function uploadNewsImage(formData: FormData) {
 export async function uploadCroppedNewsImage(base64Data: string, filename: string = "news-image.jpg") {
     try {
         // Remove base64 prefix if present
+        const match = base64Data.match(/^data:(image\/\w+);base64,/);
+        const mimeType = match ? match[1] : "image/jpeg";
         const base64Content = base64Data.replace(/^data:image\/\w+;base64,/, "");
         const buffer = Buffer.from(base64Content, "base64");
 
         // Create unique filename with timestamp
         const timestamp = Date.now();
         const ext = filename.split(".").pop() || "jpg";
-        const uniqueName = `${timestamp}-cropped.${ext}`;
+        const uniqueName = `news-${timestamp}-cropped.${ext}`;
 
-        // Save to /uploads/news folder
-        const relativeDir = `/uploads/news`;
-        const uploadDir = join(process.cwd(), "public", relativeDir);
+        const publicUrl = await uploadBufferToMinio(buffer, uniqueName, mimeType, "assets");
 
-        await mkdir(uploadDir, { recursive: true });
-        const filePath = join(uploadDir, uniqueName);
-        await writeFile(filePath, buffer);
-
-        const publicUrl = `${relativeDir}/${uniqueName}`;
         return { success: true, url: publicUrl };
     } catch (error) {
         console.error("Cropped image upload error:", error);

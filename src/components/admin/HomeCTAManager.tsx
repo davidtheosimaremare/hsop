@@ -116,7 +116,7 @@ export default function HomeCTAManager() {
         formData.append("file", file);
 
         try {
-            const res = await uploadFile(formData);
+            const res = await uploadFile(formData, false, "assets");
             if (res.success && res.url) {
                 if (position === "LEFT") {
                     setLeftCTA(prev => ({ ...prev, image: res.url! }));

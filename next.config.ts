@@ -7,6 +7,14 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '1024mb',
     },
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'assets.hokiindo.co.id',
+      },
+    ],
+  },
 };
 
 export default nextConfig;

@@ -55,7 +55,7 @@ export function ProductEditForm({ product, onSuccess }: ProductEditFormProps) {
         formData.append("file", file);
 
         startTransition(async () => {
-            const result = await uploadFile(formData);
+            const result = await uploadFile(formData, false, type === "image" ? "products" : "files");
             if (result.success && result.url) {
                 if (type === "image") setImage(result.url);
                 else setDatasheet(result.url);

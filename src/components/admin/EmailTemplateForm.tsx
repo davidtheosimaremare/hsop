@@ -4,12 +4,12 @@ import { useState, useTransition, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { updateSiteSetting } from "@/app/actions/settings";
 import { uploadFile } from "@/app/actions/upload";
-import { 
-    Loader2, 
-    Save, 
-    Mail, 
-    Type, 
-    Palette, 
+import {
+    Loader2,
+    Save,
+    Mail,
+    Type,
+    Palette,
     LayoutTemplate,
     Upload,
     X,
@@ -69,7 +69,7 @@ export function EmailTemplateForm({ initialData }: EmailTemplateFormProps) {
         try {
             const uploadData = new FormData();
             uploadData.append("file", file);
-            const res = await uploadFile(uploadData);
+            const res = await uploadFile(uploadData, false, "assets");
 
             if (res.success && res.url) {
                 setFormData(prev => ({ ...prev, logoUrl: res.url }));
@@ -141,8 +141,8 @@ export function EmailTemplateForm({ initialData }: EmailTemplateFormProps) {
                                 )}
                             </div>
                             <input type="file" ref={logoInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
-                            <Button 
-                                variant="outline" 
+                            <Button
+                                variant="outline"
                                 size="sm"
                                 className="w-full h-10 rounded-xl border-slate-200 font-bold text-[10px] uppercase tracking-widest"
                                 onClick={() => logoInputRef.current?.click()}
@@ -158,11 +158,11 @@ export function EmailTemplateForm({ initialData }: EmailTemplateFormProps) {
                                     <Palette className="w-3 h-3 text-red-500" /> Warna Background
                                 </label>
                                 <div className="flex gap-2">
-                                    <div 
-                                        className="w-10 h-10 rounded-xl border border-slate-200 shrink-0 shadow-sm" 
+                                    <div
+                                        className="w-10 h-10 rounded-xl border border-slate-200 shrink-0 shadow-sm"
                                         style={{ backgroundColor: formData.headerBgColor }}
                                     />
-                                    <Input 
+                                    <Input
                                         value={formData.headerBgColor}
                                         onChange={(e) => handleColorChange("headerBgColor", e.target.value)}
                                         className="h-10 rounded-xl border-slate-100 font-mono text-xs font-bold"
@@ -174,11 +174,11 @@ export function EmailTemplateForm({ initialData }: EmailTemplateFormProps) {
                                     <Type className="w-3 h-3 text-red-500" /> Warna Teks
                                 </label>
                                 <div className="flex gap-2">
-                                    <div 
-                                        className="w-10 h-10 rounded-xl border border-slate-200 shrink-0 shadow-sm" 
+                                    <div
+                                        className="w-10 h-10 rounded-xl border border-slate-200 shrink-0 shadow-sm"
                                         style={{ backgroundColor: formData.headerTextColor }}
                                     />
-                                    <Input 
+                                    <Input
                                         value={formData.headerTextColor}
                                         onChange={(e) => handleColorChange("headerTextColor", e.target.value)}
                                         className="h-10 rounded-xl border-slate-100 font-mono text-xs font-bold"
@@ -207,7 +207,7 @@ export function EmailTemplateForm({ initialData }: EmailTemplateFormProps) {
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                 <Type className="w-3 h-3 text-blue-500" /> Teks Hak Cipta
                             </label>
-                            <Textarea 
+                            <Textarea
                                 name="footerText"
                                 value={formData.footerText}
                                 onChange={handleInputChange}
@@ -222,11 +222,11 @@ export function EmailTemplateForm({ initialData }: EmailTemplateFormProps) {
                                     <Palette className="w-3 h-3 text-blue-500" /> Background
                                 </label>
                                 <div className="flex gap-2">
-                                    <div 
-                                        className="w-10 h-10 rounded-xl border border-slate-200 shrink-0 shadow-sm" 
+                                    <div
+                                        className="w-10 h-10 rounded-xl border border-slate-200 shrink-0 shadow-sm"
                                         style={{ backgroundColor: formData.footerBgColor }}
                                     />
-                                    <Input 
+                                    <Input
                                         value={formData.footerBgColor}
                                         onChange={(e) => handleColorChange("footerBgColor", e.target.value)}
                                         className="h-10 rounded-xl border-slate-100 font-mono text-xs font-bold"
@@ -238,11 +238,11 @@ export function EmailTemplateForm({ initialData }: EmailTemplateFormProps) {
                                     <Type className="w-3 h-3 text-blue-500" /> Warna Teks
                                 </label>
                                 <div className="flex gap-2">
-                                    <div 
-                                        className="w-10 h-10 rounded-xl border border-slate-200 shrink-0 shadow-sm" 
+                                    <div
+                                        className="w-10 h-10 rounded-xl border border-slate-200 shrink-0 shadow-sm"
                                         style={{ backgroundColor: formData.footerTextColor }}
                                     />
-                                    <Input 
+                                    <Input
                                         value={formData.footerTextColor}
                                         onChange={(e) => handleColorChange("footerTextColor", e.target.value)}
                                         className="h-10 rounded-xl border-slate-100 font-mono text-xs font-bold"
@@ -254,7 +254,7 @@ export function EmailTemplateForm({ initialData }: EmailTemplateFormProps) {
                 </Card>
 
                 {/* Save Button */}
-                <Button 
+                <Button
                     onClick={handleSave}
                     disabled={isPending}
                     className="w-full h-14 bg-red-600 hover:bg-red-700 text-white font-black rounded-2xl shadow-xl shadow-red-500/20 text-sm tracking-widest flex items-center justify-center gap-2 group transition-all"
@@ -263,7 +263,7 @@ export function EmailTemplateForm({ initialData }: EmailTemplateFormProps) {
                         <Loader2 className="w-5 h-5 animate-spin" />
                     ) : (
                         <>
-                            <Save className="w-5 h-5 group-hover:scale-110 transition-transform" /> 
+                            <Save className="w-5 h-5 group-hover:scale-110 transition-transform" />
                             SIMPAN TAMPILAN EMAIL
                         </>
                     )}
@@ -284,15 +284,15 @@ export function EmailTemplateForm({ initialData }: EmailTemplateFormProps) {
                     {/* Simulated Email Container */}
                     <div className="w-full max-w-[500px] bg-white rounded-2xl shadow-2xl overflow-hidden border border-white/20 animate-in fade-in zoom-in-95 duration-500">
                         {/* Header */}
-                        <div 
-                            style={{ backgroundColor: formData.headerBgColor }} 
+                        <div
+                            style={{ backgroundColor: formData.headerBgColor }}
                             className="p-8 text-center transition-colors duration-300"
                         >
                             {formData.logoUrl && (
                                 <img src={formData.logoUrl} alt="Logo" className="max-h-10 mx-auto mb-3" />
                             )}
-                            <h1 
-                                style={{ color: formData.headerTextColor }} 
+                            <h1
+                                style={{ color: formData.headerTextColor }}
                                 className="text-xl font-black tracking-tight m-0"
                             >
                                 Hokiindo Shop
@@ -322,12 +322,12 @@ export function EmailTemplateForm({ initialData }: EmailTemplateFormProps) {
                         </div>
 
                         {/* Footer */}
-                        <div 
-                            style={{ backgroundColor: formData.footerBgColor }} 
+                        <div
+                            style={{ backgroundColor: formData.footerBgColor }}
                             className="p-6 text-center border-top border-slate-100 transition-colors duration-300"
                         >
-                            <p 
-                                style={{ color: formData.footerTextColor }} 
+                            <p
+                                style={{ color: formData.footerTextColor }}
                                 className="text-[10px] font-bold m-0"
                             >
                                 {formData.footerText}

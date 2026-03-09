@@ -36,8 +36,13 @@ export async function importProductImageBatchAction(items: ImportItem[]) {
                     continue;
                 }
 
-                // 2. Download and Save Image
-                const saveResult = await saveImageFromUrl(imageUrl, `import-${sku}`);
+                // Format filename: (katapertama-{sku}) 
+                // Getting first word from title
+                const firstWord = product.name.split(" ")[0].replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "product";
+                const customPrefix = `${firstWord}-${sku}`;
+
+                // 2. Download and Save Image to MinIO
+                const saveResult = await saveImageFromUrl(imageUrl, customPrefix, "products");
 
                 if (saveResult.success && saveResult.url) {
                     // 3. Update Product

@@ -43,7 +43,7 @@ export function EditableImageSection({ productId, sku, brand, initialImage, prod
         formData.append("file", file);
 
         startTransition(async () => {
-            const result = await uploadFile(formData);
+            const result = await uploadFile(formData, false, "products");
             if (result.success && result.url) {
                 setImage(result.url);
             } else {

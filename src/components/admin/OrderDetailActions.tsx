@@ -8,17 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { updateOrder } from "@/app/actions/order";
-import { Loader2, Save, Upload } from "lucide-react";
+import { uploadFile } from "@/app/actions/upload";
+import { Loader2, Save, Upload, FileText, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-// Mock Upload Function (Will implement real upload later if needed)
-// For now, it just accepts a URL string
-async function uploadFile(file: File) {
-    // In a real app, upload to S3/Blob storage and return URL
-    // Here we just return a fake URL for demonstration
-    return `https://example.com/uploads/${file.name}`;
-}
 
 interface OrderDetailActionsProps {
     order: any; // Type accurately if possible, using 'any' for speed now
@@ -99,21 +93,89 @@ export function OrderDetailActions({ order }: OrderDetailActionsProps) {
                     />
                 </div>
 
-                {/* Attachments (Text Input for URL for now) */}
+                {/* Attachments (File Upload) */}
                 <div className="space-y-4 border-t pt-4">
-                    <Label className="font-semibold">Lampiran (URL)</Label>
-                    <div className="grid grid-cols-1 gap-4">
+                    <Label className="font-semibold text-blue-900 border-l-4 border-blue-500 pl-2">Lampiran Dokumen</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {/* Quote */}
                         <div className="space-y-2">
-                            <Label className="text-xs text-gray-500">Link Penawaran (Quote)</Label>
-                            <Input value={attachmentQuote} onChange={(e) => setQuote(e.target.value)} placeholder="https://..." />
+                            <Label className="text-xs text-gray-500 uppercase font-black">Penawaran (Quote)</Label>
+                            <div className="flex flex-col gap-2">
+                                <Input
+                                    type="file"
+                                    accept=".pdf,image/*"
+                                    onChange={async (e) => {
+                                        const file = e.target.files?.[0];
+                                        if (!file) return;
+                                        const formData = new FormData();
+                                        formData.append("file", file);
+                                        const res = await uploadFile(formData, false, "files");
+                                        if (res.success && res.url) setQuote(res.url);
+                                    }}
+                                    className="text-xs h-9"
+                                />
+                                {attachmentQuote && (
+                                    <div className="flex items-center gap-2 p-2 bg-blue-50 border border-blue-100 rounded-lg group">
+                                        <FileText className="w-4 h-4 text-blue-600" />
+                                        <span className="text-[10px] font-bold truncate flex-1 text-blue-800">{attachmentQuote.split('/').pop()}</span>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-red-50 hover:text-red-600" onClick={() => setQuote("")}><X className="w-3 h-3" /></Button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
+
+                        {/* PO */}
                         <div className="space-y-2">
-                            <Label className="text-xs text-gray-500">Link PO Customer</Label>
-                            <Input value={attachmentPO} onChange={(e) => setPO(e.target.value)} placeholder="https://..." />
+                            <Label className="text-xs text-gray-500 uppercase font-black">PO Customer</Label>
+                            <div className="flex flex-col gap-2">
+                                <Input
+                                    type="file"
+                                    accept=".pdf,image/*"
+                                    onChange={async (e) => {
+                                        const file = e.target.files?.[0];
+                                        if (!file) return;
+                                        const formData = new FormData();
+                                        formData.append("file", file);
+                                        const res = await uploadFile(formData, false, "files");
+                                        if (res.success && res.url) setPO(res.url);
+                                    }}
+                                    className="text-xs h-9"
+                                />
+                                {attachmentPO && (
+                                    <div className="flex items-center gap-2 p-2 bg-emerald-50 border border-emerald-100 rounded-lg group">
+                                        <FileText className="w-4 h-4 text-emerald-600" />
+                                        <span className="text-[10px] font-bold truncate flex-1 text-emerald-800">{attachmentPO.split('/').pop()}</span>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-red-50 hover:text-red-600" onClick={() => setPO("")}><X className="w-3 h-3" /></Button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
+
+                        {/* Invoice */}
                         <div className="space-y-2">
-                            <Label className="text-xs text-gray-500">Link Invoice</Label>
-                            <Input value={attachmentInvoice} onChange={(e) => setInvoice(e.target.value)} placeholder="https://..." />
+                            <Label className="text-xs text-gray-500 uppercase font-black">Invoice</Label>
+                            <div className="flex flex-col gap-2">
+                                <Input
+                                    type="file"
+                                    accept=".pdf,image/*"
+                                    onChange={async (e) => {
+                                        const file = e.target.files?.[0];
+                                        if (!file) return;
+                                        const formData = new FormData();
+                                        formData.append("file", file);
+                                        const res = await uploadFile(formData, false, "files");
+                                        if (res.success && res.url) setInvoice(res.url);
+                                    }}
+                                    className="text-xs h-9"
+                                />
+                                {attachmentInvoice && (
+                                    <div className="flex items-center gap-2 p-2 bg-red-50 border border-red-100 rounded-lg group">
+                                        <FileText className="w-4 h-4 text-red-600" />
+                                        <span className="text-[10px] font-bold truncate flex-1 text-red-800">{attachmentInvoice.split('/').pop()}</span>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-red-50 hover:text-red-600" onClick={() => setInvoice("")}><X className="w-3 h-3" /></Button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
