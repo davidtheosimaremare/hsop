@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Search,
@@ -108,6 +108,9 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
     const notificationRef = useRef<HTMLDivElement>(null);
     const { totalItems } = useCart();
     const router = useRouter();
+    const pathname = usePathname();
+
+    const isHomePage = pathname === "/";
 
     const categoriesToDisplay = (menuConfig && menuConfig.length > 0) ? menuConfig : defaultMegaMenuCategories;
 
@@ -351,28 +354,30 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                         {/* Categories */}
                         <div className="flex items-center gap-1">
                             {/* Category Dropdown */}
-                            <motion.button
-                                whileHover={{ y: -1 }}
-                                onClick={() => {
-                                    setIsMegaMenuOpen(!isMegaMenuOpen);
-                                    setActiveCategory(0);
-                                }}
-                                className={`
-                                    flex items-center gap-1 px-3 py-1.5 rounded-lg font-medium transition-all duration-200
-                                    text-sm text-gray-700 hover:text-red-600 hover:bg-red-50
-                                    ${isMegaMenuOpen ? "text-red-600 bg-red-50" : ""}
-                                `}
-                            >
-                                <LayoutGrid className="h-4 w-4" />
-                                <span>Kategori Produk</span>
-                                <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${isMegaMenuOpen ? "rotate-180" : ""}`} />
-                            </motion.button>
+                            {!isHomePage && (
+                                <motion.button
+                                    whileHover={{ y: -1 }}
+                                    onClick={() => {
+                                        setIsMegaMenuOpen(!isMegaMenuOpen);
+                                        setActiveCategory(0);
+                                    }}
+                                    className={`
+                                        flex items-center gap-1 px-3 py-1.5 rounded-lg font-medium transition-all duration-200
+                                        text-sm text-gray-700 hover:text-red-600 hover:bg-red-50
+                                        ${isMegaMenuOpen ? "text-red-600 bg-red-50" : ""}
+                                    `}
+                                >
+                                    <LayoutGrid className="h-4 w-4" />
+                                    <span>Kategori Produk</span>
+                                    <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${isMegaMenuOpen ? "rotate-180" : ""}`} />
+                                </motion.button>
+                            )}
 
                             {/* Search Suggestions */}
                             {searchSuggestions.length > 0 && (
                                 <>
                                     <div className="flex items-center gap-2 ml-2 mr-1">
-                                        <div className="h-4 w-px bg-gray-200" />
+                                        {!isHomePage && <div className="h-4 w-px bg-gray-200" />}
                                         <span className="text-[11px] text-gray-400 font-medium whitespace-nowrap">Saran Cepat :</span>
                                     </div>
                                     {searchSuggestions.map((term) => (

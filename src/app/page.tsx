@@ -11,9 +11,8 @@ import { getLatestNews } from "@/app/actions/news";
 import { db } from "@/lib/db";
 
 export default async function Home() {
-  const [savedGridSettings, menuConfig, clientProjects, latestNews, activeBanners] = await Promise.all([
+  const [savedGridSettings, clientProjects, latestNews, activeBanners] = await Promise.all([
     getSiteSetting("homepage_grid_categories"),
-    getSiteSetting("category_menu_config"),
     db.clientProject.findMany({
       orderBy: [
         { order: "asc" },
@@ -61,17 +60,9 @@ export default async function Home() {
     }
   }
 
-  // Priority 2: Fallback to Menu Configuration
-  if (gridCategories.length === 0 && menuConfig && Array.isArray(menuConfig)) {
-    // Map menu config items to grid format
-    // Menu item structure: { id, name, alias, icon, link, categoryId, ... }
-    gridCategories = menuConfig.map((item: any) => ({
-      id: item.categoryId || item.id,
-      name: item.alias || item.name, // Display name: Alias preferred for brevity
-      originalName: item.name,      // Search keyword: Original name preferred
-      image: item.icon,
-      link: item.link
-    }));
+  // Fallback to empty if no grid settings
+  if (gridCategories.length === 0) {
+    gridCategories = [];
   }
 
   return (
