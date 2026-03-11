@@ -135,8 +135,8 @@ export async function getPublicProducts({
             break;
     }
 
-    // Default: Filter for "Siemens" in any field if no query is provided
-    if (!query && (!brand || brand === "all")) {
+    // Default: Filter for "Siemens" in any field if no query, no category, and no brand is provided
+    if (!query && (!category || category === "all") && (!brand || brand === "all")) {
         where.OR = [
             { name: { contains: "Siemens", mode: "insensitive" } },
             { brand: { contains: "Siemens", mode: "insensitive" } },

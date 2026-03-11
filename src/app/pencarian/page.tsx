@@ -21,7 +21,7 @@ export default async function SearchPage({
     const page = Number(resolvedParams.page) || 1;
     const pageSize = 20;
     const originalQuery = resolvedParams.q as string; // For display purposes
-    const query = originalQuery || "Siemens"; // Default to Siemens for search
+    const query = originalQuery; // Removed "Siemens" default here to allow empty searching for categories
     const category = resolvedParams.category as string;
     const stockStatus = resolvedParams.stockStatus as string;
     const brand = resolvedParams.brand as string;
@@ -69,7 +69,7 @@ export default async function SearchPage({
                     {/* Page Title */}
                     <div className="flex items-center justify-between mb-6">
                         <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-                            {originalQuery ? `Hasil Pencarian: "${originalQuery}"` : "Seluruh Produk Kami"}
+                            {originalQuery ? `Hasil Pencarian: "${originalQuery}"` : category ? `Kategori: ${category}` : "Seluruh Produk Kami"}
                         </h1>
                         <ShareButton className="flex items-center gap-2 text-sm text-teal-600 hover:text-teal-700 outline-none" text="Bagikan Halaman" />
                     </div>
