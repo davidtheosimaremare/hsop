@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
 import * as XLSX from "xlsx";
-import { getProductExportData } from "@/app/actions/product";
+import { getProductExportData, bulkToggleProductVisibility } from "@/app/actions/product";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -76,6 +76,7 @@ export default function ProductTable({
     const [visibleColumns, setVisibleColumns] = useState<string[]>(["image", "sku", "name", "category", "availableToSell", "price"]);
     const [selectedRows, setSelectedRows] = useState<string[]>([]);
     const [isExporting, startExportTransition] = useTransition();
+    const [isBulkToggling, startBulkToggleTransition] = useTransition();
 
     const toggleColumn = (columnId: string) => {
         setVisibleColumns((prev) =>
@@ -140,6 +141,20 @@ export default function ProductTable({
         });
     };
 
+    const handleBulkVisibility = (isVisible: boolean) => {
+        if (selectedRows.length === 0) return;
+
+        startBulkToggleTransition(async () => {
+            const result = await bulkToggleProductVisibility(selectedRows, isVisible);
+            if (result.success) {
+                setSelectedRows([]);
+                toast.success(isVisible ? "Produk terpilih telah ditampilkan" : "Produk terpilih telah disembunyikan");
+            } else {
+                toast.error(result.error || "Gagal mengubah status produk");
+            }
+        });
+    };
+
     const getSortLink = (field: string) => {
         const newOrder = sortField === field && sortOrder === "asc" ? "desc" : "asc";
         return `?${queryParams}&sort=${field}&order=${newOrder}`;
@@ -156,55 +171,87 @@ export default function ProductTable({
             <div className="flex items-center justify-between gap-2 px-5 pb-3 bg-white">
                 <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Daftar Produk</h3>
                 <div className="flex items-center gap-2">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-10 px-4 gap-2 border-slate-200 bg-white hover:bg-slate-50 transition-all rounded-xl font-bold"
-                                disabled={isExporting}
-                            >
-                                {isExporting ? <Loader2 className="h-4 w-4 animate-spin text-red-600" /> : <FileDown className="h-4 w-4 text-slate-500" />}
-                                Export Excel
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="rounded-xl border-slate-200 p-2 shadow-xl">
-                            <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 tracking-wider px-2 py-1">Pilih Opsi Export</DropdownMenuLabel>
-                            <DropdownMenuSeparator className="bg-slate-100" />
-                            <DropdownMenuItem className="rounded-lg font-medium py-2.5" onClick={() => handleExport("all")}>
-                                Semua Sesuai Filter
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                                className="rounded-lg font-medium py-2.5 text-red-600 focus:text-red-700"
-                                onClick={() => handleExport("selected")}
-                                disabled={selectedRows.length === 0}
-                            >
-                                Item Terpilih ({selectedRows.length})
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="icon" className="h-10 w-10 border-slate-200 bg-white hover:bg-slate-50 rounded-xl">
-                                <Settings className="h-4 w-4 text-slate-500" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-[180px] rounded-xl border-slate-200 p-2 shadow-xl">
-                            <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 tracking-wider px-2 py-1">Tampilkan Kolom</DropdownMenuLabel>
-                            <DropdownMenuSeparator className="bg-slate-100" />
-                            {ALL_COLUMNS.map((column) => (
-                                <DropdownMenuCheckboxItem
-                                    key={column.id}
-                                    className="rounded-lg capitalize py-2 font-medium"
-                                    checked={visibleColumns.includes(column.id)}
-                                    onCheckedChange={() => toggleColumn(column.id)}
+                    {!selectedRows.length && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-10 px-4 gap-2 border-slate-200 bg-white hover:bg-slate-50 transition-all rounded-xl font-bold"
+                                    disabled={isExporting}
                                 >
-                                    {column.label}
-                                </DropdownMenuCheckboxItem>
-                            ))}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                                    {isExporting ? <Loader2 className="h-4 w-4 animate-spin text-red-600" /> : <FileDown className="h-4 w-4 text-slate-500" />}
+                                    Export Excel
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="rounded-xl border-slate-200 p-2 shadow-xl">
+                                <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 tracking-wider px-2 py-1">Pilih Opsi Export</DropdownMenuLabel>
+                                <DropdownMenuSeparator className="bg-slate-100" />
+                                <DropdownMenuItem className="rounded-lg font-medium py-2.5" onClick={() => handleExport("all")}>
+                                    Semua Sesuai Filter
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    className="rounded-lg font-medium py-2.5 text-red-600 focus:text-red-700"
+                                    onClick={() => handleExport("selected")}
+                                    disabled={selectedRows.length === 0}
+                                >
+                                    Item Terpilih ({selectedRows.length})
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )}
+
+                    {selectedRows.length > 0 && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-10 px-4 gap-2 border-red-200 bg-red-50 hover:bg-red-100 text-red-600 transition-all rounded-xl font-bold"
+                                    disabled={isBulkToggling}
+                                >
+                                    {isBulkToggling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Settings className="h-4 w-4" />}
+                                    Aksi Massal ({selectedRows.length})
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="rounded-xl border-slate-200 p-2 shadow-xl">
+                                <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 tracking-wider px-2 py-1">Ubah Status</DropdownMenuLabel>
+                                <DropdownMenuSeparator className="bg-slate-100" />
+                                <DropdownMenuItem className="rounded-lg font-medium py-2.5 text-green-600 focus:text-green-700" onClick={() => handleBulkVisibility(true)}>
+                                    <Eye className="w-4 h-4 mr-2" />
+                                    Tampilkan Terpilih
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="rounded-lg font-medium py-2.5 text-red-600 focus:text-red-700" onClick={() => handleBulkVisibility(false)}>
+                                    <EyeOff className="w-4 h-4 mr-2" />
+                                    Sembunyikan Terpilih
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )}
+
+                    {!selectedRows.length && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="icon" className="h-10 w-10 border-slate-200 bg-white hover:bg-slate-50 rounded-xl">
+                                    <Settings className="h-4 w-4 text-slate-500" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-[180px] rounded-xl border-slate-200 p-2 shadow-xl">
+                                <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 tracking-wider px-2 py-1">Tampilkan Kolom</DropdownMenuLabel>
+                                <DropdownMenuSeparator className="bg-slate-100" />
+                                {ALL_COLUMNS.map((column) => (
+                                    <DropdownMenuCheckboxItem
+                                        key={column.id}
+                                        className="rounded-lg capitalize py-2 font-medium"
+                                        checked={visibleColumns.includes(column.id)}
+                                        onCheckedChange={() => toggleColumn(column.id)}
+                                    >
+                                        {column.label}
+                                    </DropdownMenuCheckboxItem>
+                                ))}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )}
                 </div>
             </div>
 

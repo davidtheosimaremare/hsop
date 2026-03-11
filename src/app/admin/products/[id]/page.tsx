@@ -64,7 +64,7 @@ export default async function AdminProductDetailPage({ params }: { params: { id:
                             Lihat Produk
                         </Link>
                     </Button>
-                    <ProductVisibilityToggle productId={id} isVisible={product.isVisible} />
+                    <ProductVisibilityToggle productId={product.id} isVisible={product.isVisible} />
                 </div>
             </div>
 

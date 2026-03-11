@@ -232,6 +232,21 @@ export async function toggleProductVisibility(id: string, isVisible: boolean) {
     }
 }
 
+export async function bulkToggleProductVisibility(ids: string[], isVisible: boolean) {
+    try {
+        await db.product.updateMany({
+            where: { id: { in: ids } },
+            data: { isVisible },
+        });
+        revalidatePath("/admin/products");
+        revalidatePath("/pencarian");
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to bulk toggle visibility:", error);
+        return { success: false, error: "Failed to update bulk visibility" };
+    }
+}
+
 export async function updateProductDetails(
     id: string,
     data: {
