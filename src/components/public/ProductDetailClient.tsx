@@ -10,6 +10,7 @@ import ShareButton from "./ShareButton";
 import { getProductSlug, cn } from "@/lib/utils";
 import { useCart } from "@/lib/useCart";
 import { usePricing } from "@/lib/PricingContext";
+import AdminProductFloatingBar from "./AdminProductFloatingBar";
 
 type TabType = "specs" | "description";
 
@@ -606,6 +607,13 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                     </div>
                 </section>
             )}
+
+            {/* Admin Floating Bar — only visible to admin/super admin */}
+            <AdminProductFloatingBar
+                productId={product.id}
+                productSku={product.sku}
+                isVisible={product.isVisible ?? true}
+            />
         </>
     );
 }
