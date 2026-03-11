@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import SiteHeader from "@/components/layout/SiteHeader";
 import Footer from "@/components/layout/Footer";
 import BulkOrderClient from "@/components/bulk-order/BulkOrderClient";

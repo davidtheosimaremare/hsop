@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { getCategoryMenuConfig } from "@/app/actions/settings";
 import KategoriClient from "./KategoriClient";
 
