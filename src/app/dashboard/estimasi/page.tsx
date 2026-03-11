@@ -143,7 +143,7 @@ export default function EstimasiPage() {
 
     const handleDelete = async () => {
         if (!quoteToDelete) return;
-        
+
         setIsDeleting(quoteToDelete);
         const result = await deleteQuotationUser(quoteToDelete);
         if (result.success) {
@@ -223,8 +223,8 @@ export default function EstimasiPage() {
                                 </TableRow>
                             ) : (
                                 paginatedQuotations.map((q) => (
-                                    <TableRow 
-                                        key={q.id} 
+                                    <TableRow
+                                        key={q.id}
                                         className="hover:bg-gray-50/50 transition-colors group cursor-pointer"
                                         onClick={() => router.push(`/dashboard/estimasi/${q.quotationNo.replace(/\//g, "-").toLowerCase()}`)}
                                     >
@@ -323,7 +323,7 @@ export default function EstimasiPage() {
                                                         <DropdownMenuItem onClick={() => router.push(`/dashboard/estimasi/${q.quotationNo.replace(/\//g, "-").toLowerCase()}`)} className="gap-2 cursor-pointer">
                                                             <Eye className="w-4 h-4 text-gray-500" /> Lihat Produk
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem 
+                                                        <DropdownMenuItem
                                                             onClick={() => {
                                                                 const exportData = {
                                                                     ...q,
@@ -333,7 +333,7 @@ export default function EstimasiPage() {
                                                                     }))
                                                                 };
                                                                 exportQuotationPDF(exportData as QuotationExportData, template);
-                                                            }} 
+                                                            }}
                                                             className="gap-2 cursor-pointer"
                                                         >
                                                             <Download className="w-4 h-4 text-gray-500" /> Unduh PDF
@@ -427,7 +427,7 @@ export default function EstimasiPage() {
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="gap-2 sm:gap-0">
-                        <AlertDialogCancel 
+                        <AlertDialogCancel
                             onClick={() => {
                                 setShowDeleteDialog(false);
                                 setQuoteToDelete(null);
@@ -473,7 +473,7 @@ export default function EstimasiPage() {
                         </div>
                     </div>
                     <AlertDialogFooter className="gap-2 sm:gap-0">
-                        <AlertDialogCancel 
+                        <AlertDialogCancel
                             onClick={() => {
                                 setShowSendConfirmDialog(false);
                                 setQuoteToSend(null);

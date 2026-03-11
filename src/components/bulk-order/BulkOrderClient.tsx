@@ -45,7 +45,7 @@ export default function BulkOrderClient() {
     const [filterCategory, setFilterCategory] = useState("all");
     const [filterStock, setFilterStock] = useState<'all' | 'ready' | 'indent'>("all");
     const [categories, setCategories] = useState<string[]>([]);
-    
+
     // Custom Product Modal State
     const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
     const [customProduct, setCustomProduct] = useState({
@@ -187,10 +187,10 @@ export default function BulkOrderClient() {
         console.log(`Adding product ${product.sku}: Qty ${qty}, Stock ${stock}`);
 
         // Ready Price (Stock > 0)
-        const readyPriceInfo = getPriceInfo(product.price, product.category, 100); 
+        const readyPriceInfo = getPriceInfo(product.price, product.category, 100);
         // Indent Price (Stock = 0)
         const indentPriceInfo = getPriceInfo(product.price, product.category, 0);
-        
+
         setItems(prev => {
             let newItems = [...prev];
             const itemsToAdd: BulkItem[] = [];
@@ -235,7 +235,7 @@ export default function BulkOrderClient() {
                     const existingReadyIdx = newItems.findIndex(p => p.customId === `${product.id}-READY`);
                     const currentListReadyQty = existingReadyIdx > -1 ? newItems[existingReadyIdx].qty : 0;
                     const availableForReady = Math.max(0, stock - currentListReadyQty);
-                    
+
                     if (availableForReady > 0) {
                         const toAddReady = Math.min(remainingQty, availableForReady);
                         if (existingReadyIdx > -1) {
@@ -408,7 +408,7 @@ export default function BulkOrderClient() {
         setItems(prev => {
             const item = prev.find(i => i.customId === id);
             if (!item) return prev;
-            
+
             if (item.isCustom) {
                 return prev.map(i => i.customId === id ? { ...i, qty: Math.max(1, i.qty + delta) } : i);
             }
@@ -571,15 +571,14 @@ export default function BulkOrderClient() {
             </div>
 
             {/* Actions Bar */}
-            <div 
+            <div
                 onDragOver={onDragOver}
                 onDragLeave={onDragLeave}
                 onDrop={onDrop}
-                className={`bg-white rounded-xl border-2 transition-all p-4 ${
-                    isDragging 
-                    ? "border-red-500 border-dashed bg-red-50/50 scale-[1.01] shadow-lg" 
+                className={`bg-white rounded-xl border-2 transition-all p-4 ${isDragging
+                    ? "border-red-500 border-dashed bg-red-50/50 scale-[1.01] shadow-lg"
                     : "border-gray-200 border-solid"
-                }`}
+                    }`}
             >
                 <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between pointer-events-auto">
                     {/* File Actions */}

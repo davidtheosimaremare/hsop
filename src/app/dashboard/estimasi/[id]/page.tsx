@@ -61,13 +61,13 @@ export default function EstimasiDetailPage() {
         if (result.success && result.quotation) {
             const quote = result.quotation;
             const targetSlug = quote.quotationNo.replace(/\//g, "-").toLowerCase();
-            
+
             // If accessed via ID or different case/format, redirect to pretty URL
             if (id === quote.id || (id !== targetSlug && id.toLowerCase() !== targetSlug)) {
                 router.replace(`/dashboard/estimasi/${targetSlug}`);
                 return;
             }
-            
+
             setQuotation(quote);
         } else {
             toast.error("Data estimasi tidak ditemukan");
@@ -302,7 +302,7 @@ export default function EstimasiDetailPage() {
                                                 // Priority 1: Use saved status from DB
                                                 // Priority 2: Fallback to current real-time stock
                                                 const status = item.stockStatus || (item.currentStock > 0 ? 'READY' : 'INDENT');
-                                                
+
                                                 if (status === 'READY') {
                                                     return (
                                                         <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-50 text-green-600 border border-green-100 whitespace-nowrap">
@@ -370,7 +370,7 @@ export default function EstimasiDetailPage() {
                         <p className={`text-xs leading-relaxed ${quotation.lastSentAt ? "text-green-700" : "text-red-700"}`}>
                             {quotation.lastSentAt ? (
                                 <>
-                                    Estimasi ini telah dikirim ke tim kami untuk diproses menjadi penawaran resmi dengan nomor <strong>{quotation.sentQuotationNo || ""}</strong>. 
+                                    Estimasi ini telah dikirim ke tim kami untuk diproses menjadi penawaran resmi dengan nomor <strong>{quotation.sentQuotationNo || ""}</strong>.
                                     Anda dapat melihat status permintaan penawaran ini di menu <strong>"Transaksi"</strong>.
                                 </>
                             ) : (
@@ -399,7 +399,7 @@ export default function EstimasiDetailPage() {
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="gap-2 sm:gap-0">
-                        <AlertDialogCancel 
+                        <AlertDialogCancel
                             onClick={() => setShowSendDialog(false)}
                             className="h-10 px-4 border-gray-200 hover:bg-gray-50 hover:text-gray-900"
                         >
@@ -436,7 +436,7 @@ export default function EstimasiDetailPage() {
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="gap-2 sm:gap-0">
-                        <AlertDialogCancel 
+                        <AlertDialogCancel
                             onClick={() => {
                                 setShowSendConfirmDialog(false);
                                 setQuoteToSend(null);
@@ -476,7 +476,7 @@ export default function EstimasiDetailPage() {
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="gap-2 sm:gap-0">
-                        <AlertDialogCancel 
+                        <AlertDialogCancel
                             onClick={() => setShowDeleteDialog(false)}
                             className="h-10 px-4 border-gray-200 hover:bg-gray-50 hover:text-gray-900"
                         >

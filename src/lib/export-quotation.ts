@@ -395,7 +395,7 @@ export async function exportQuotationExcel(q: QuotationExportData, _template?: E
                     base64: logoData.data,
                     extension: 'png',
                 });
-                
+
                 // Set proportional width based on a fixed height of 40px
                 const targetHeight = 40;
                 const targetWidth = (logoData.width / logoData.height) * targetHeight;
@@ -413,7 +413,7 @@ export async function exportQuotationExcel(q: QuotationExportData, _template?: E
 
     // Header Info
     const startRow = logoOffset + 1;
-    
+
     worksheet.mergeCells(startRow, 1, startRow, 8);
     const companyNameCell = worksheet.getCell(startRow, 1);
     companyNameCell.value = company.name;
@@ -442,10 +442,10 @@ export async function exportQuotationExcel(q: QuotationExportData, _template?: E
     const detailsStart = titleRowIdx + 2;
     worksheet.getCell(detailsStart, 1).value = q.typeLabel || "Nomor Estimasi";
     worksheet.getCell(detailsStart, 2).value = q.quotationNo;
-    
+
     worksheet.getCell(detailsStart + 1, 1).value = "Tanggal";
     worksheet.getCell(detailsStart + 1, 2).value = formatDate(q.createdAt);
-    
+
     worksheet.getCell(detailsStart + 2, 1).value = "Status";
     worksheet.getCell(detailsStart + 2, 2).value = q.status || "ESTIMASI";
 
@@ -491,7 +491,7 @@ export async function exportQuotationExcel(q: QuotationExportData, _template?: E
         // Rp Formatting
         row.getCell(6).numFmt = '"Rp" #,##0';
         row.getCell(7).numFmt = '"Rp" #,##0';
-        
+
         row.eachCell((cell) => {
             cell.border = {
                 top: { style: 'thin' },

@@ -99,11 +99,10 @@ export default function ProductListItem({ product }: ProductListItemProps) {
                     </p>
                     <button
                         onClick={handleAddToCart}
-                        className={`w-7 h-7 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${
-                            isAdded
-                                ? 'bg-green-500 text-white'
-                                : 'bg-red-100 text-red-600 hover:bg-red-600 hover:text-white'
-                        }`}
+                        className={`w-7 h-7 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${isAdded
+                            ? 'bg-green-500 text-white'
+                            : 'bg-red-100 text-red-600 hover:bg-red-600 hover:text-white'
+                            }`}
                         title="Tambah ke Keranjang"
                     >
                         {isAdded ? <Check className="w-4 h-4" /> : <ShoppingCart className="w-3.5 h-3.5" />}

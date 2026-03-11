@@ -338,6 +338,7 @@ export default function QuotationDetailPage() {
                     basePrice: item.basePrice,
                     isAvailable: item.isAvailable,
                     availableQty: item.availableQty,
+                    stockStatus: item.currentStock >= item.quantity ? "READY" : "INDENT",
                     adminNote: item.adminNote,
                     alternatives: item.alternatives,
                 })),
@@ -388,6 +389,7 @@ export default function QuotationDetailPage() {
                     basePrice: item.basePrice,
                     isAvailable: item.isAvailable,
                     availableQty: item.availableQty,
+                    stockStatus: item.currentStock >= item.quantity ? "READY" : "INDENT",
                     adminNote: item.adminNote || null,
                     alternatives: item.alternatives.map(alt => ({
                         productSku: alt.productSku,
@@ -480,6 +482,7 @@ export default function QuotationDetailPage() {
                 basePrice: item.basePrice,
                 isAvailable: item.isAvailable,
                 availableQty: item.availableQty,
+                stockStatus: item.currentStock >= item.quantity ? "READY" : "INDENT",
                 adminNote: item.adminNote || null,
                 alternatives: item.alternatives.map(alt => ({
                     productSku: alt.productSku,
@@ -738,7 +741,9 @@ export default function QuotationDetailPage() {
 
     const effectiveTotalPercent = calcEffectivePercent(specialDiscount);
     const discountAmount = originalTotal * (effectiveTotalPercent / 100);
-    const finalTotal = originalTotal - discountAmount;
+    const nettTotal = originalTotal - discountAmount;
+    const ppnAmount = nettTotal * 0.11;
+    const finalTotal = nettTotal + ppnAmount;
 
     if (isLoading) {
         return (
@@ -1000,7 +1005,15 @@ export default function QuotationDetailPage() {
                             </div>
                         )}
                         <div className="text-right">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Total</span>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Nett</span>
+                            <span className="text-sm font-bold text-slate-700 font-mono">{fmtPrice(nettTotal)}</span>
+                        </div>
+                        <div className="text-right">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">PPN 11%</span>
+                            <span className="text-sm font-bold text-slate-500 font-mono">+{fmtPrice(ppnAmount)}</span>
+                        </div>
+                        <div className="text-right">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Total (Inc. PPN)</span>
                             <span className="text-xl font-black text-red-600 font-mono">{fmtPrice(finalTotal)}</span>
                         </div>
                     </div>
@@ -1674,7 +1687,7 @@ export default function QuotationDetailPage() {
                                                                 <SelectContent className="rounded-2xl border-slate-200 shadow-xl">
                                                                     <SelectItem value="all" className="font-bold">Semua Status</SelectItem>
                                                                     <SelectItem value="ready" className="font-bold text-green-600">Stock Ready</SelectItem>
-                                                                    <SelectItem value="indent" className="font-bold text-orange-600">Indent / Pre-order</SelectItem>
+                                                                    <SelectItem value="indent" className="font-bold text-orange-600">Indent</SelectItem>
                                                                 </SelectContent>
                                                             </Select>
                                                         </div>
@@ -2023,7 +2036,30 @@ export default function QuotationDetailPage() {
                                                                                                                 : <span className="text-[9px] font-black text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded-md">Indent</span>
                                                                                                             }
                                                                                                         </div>
-                                                                                                        <div className="text-sm font-black text-red-600 mt-1">Rp {fmtPrice(res.price)}</div>
+                                                                                                        {(() => {
+                                                                                                            const pInfo = pricingData ? calculatePriceInfo(
+                                                                                                                res.price,
+                                                                                                                res.category,
+                                                                                                                pricingData.customer,
+                                                                                                                pricingData.categoryMappings,
+                                                                                                                res.availableToSell || 0,
+                                                                                                                pricingData.discountRules
+                                                                                                            ) : null;
+                                                                                                            if (pInfo?.hasDiscount) {
+                                                                                                                return (
+                                                                                                                    <div className="mt-1 space-y-0.5">
+                                                                                                                        <div className="flex items-center gap-1.5 opacity-60">
+                                                                                                                            <span className="text-[8px] font-bold text-slate-400 line-through">Rp {fmtPrice(res.price)}</span>
+                                                                                                                            <span className="text-[8px] font-black text-red-600 bg-red-50 px-1 rounded uppercase">-{pInfo.discountStr}%</span>
+                                                                                                                        </div>
+                                                                                                                        <div className="text-sm font-black text-red-600">
+                                                                                                                            <span className="text-[10px] font-bold mr-0.5">Rp</span>{fmtPrice(pInfo.discountedPrice)}
+                                                                                                                        </div>
+                                                                                                                    </div>
+                                                                                                                );
+                                                                                                            }
+                                                                                                            return <div className="text-sm font-black text-red-600 mt-1">Rp {fmtPrice(res.price)}</div>;
+                                                                                                        })()}
                                                                                                     </div>
                                                                                                     {/* Action */}
                                                                                                     {alreadyAdded ? (
@@ -2193,11 +2229,25 @@ export default function QuotationDetailPage() {
                                         </div>
                                     )}
 
-                                    <div className="flex flex-col items-end justify-end pt-4 border-t-2 border-slate-900/5">
-                                        <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Net Penawaran (Inc. PPN)</div>
-                                        <div className="text-xl md:text-2xl font-black text-slate-900 tracking-tight flex items-baseline gap-1.5 animate-in fade-in slide-in-from-right-1">
-                                            <span className="text-sm text-red-600">Rp</span>
-                                            <span>{fmtPrice(finalTotal)}</span>
+                                    <div className="pt-4 border-t-2 border-slate-900/5 space-y-1.5">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Nett</span>
+                                            <span className="text-sm font-bold text-slate-700">
+                                                <span className="text-xs mr-0.5">Rp</span>{fmtPrice(nettTotal)}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">PPN 11%</span>
+                                            <span className="text-sm font-bold text-slate-500">
+                                                <span className="text-xs mr-0.5">+ Rp</span>{fmtPrice(ppnAmount)}
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-col items-end justify-end pt-2 border-t border-slate-100">
+                                            <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Total (Inc. PPN)</div>
+                                            <div className="text-xl md:text-2xl font-black text-slate-900 tracking-tight flex items-baseline gap-1.5 animate-in fade-in slide-in-from-right-1">
+                                                <span className="text-sm text-red-600">Rp</span>
+                                                <span>{fmtPrice(finalTotal)}</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

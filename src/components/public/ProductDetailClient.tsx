@@ -32,7 +32,7 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
         const waMessage = whatsappConfig?.message || "Halo Admin, saya ingin bertanya tentang produk:";
         const productUrl = window.location.href;
         const fullMessage = `${waMessage}\n\n*${product.name}*\nSKU: ${product.sku}\nLink: ${productUrl}`;
-        
+
         window.open(`https://wa.me/${waNumber.replace(/\+/g, '')}?text=${encodeURIComponent(fullMessage)}`, "_blank");
     };
 
@@ -121,7 +121,7 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                 id: `${product.id}-INDENT`,
                 originalId: product.id,
                 sku: product.sku,
-                name: `${product.name} (Indent)`,
+                name: `${product.name} (Indent (12-16 Minggu))`,
                 brand: product.brand || '',
                 price: indentPriceInfo.discountedPriceWithPPN,
                 originalPrice: indentPriceInfo.originalPriceWithPPN,
@@ -156,7 +156,7 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                 id: `${product.id}-INDENT`,
                 originalId: product.id,
                 sku: product.sku,
-                name: `${product.name} (Indent)`,
+                name: `${product.name} (Indent (12-16 Minggu))`,
                 brand: product.brand || '',
                 price: indentPriceInfo.discountedPriceWithPPN,
                 originalPrice: indentPriceInfo.originalPriceWithPPN,
@@ -314,7 +314,7 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                             </span>
                         ) : (
                             <span className="text-xs px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                                Indent
+                                Indent (12-16 Minggu)
                             </span>
                         )}
                         <span className="text-xs px-3 py-1 rounded-full bg-teal-50 text-teal-600 border border-teal-200">
@@ -471,14 +471,14 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                                                 </div>
                                                 <div className="flex items-center gap-2 text-[10px] text-amber-600">
                                                     <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                                                    <span>{quantity - product.availableToSell} unit (Indent) {showPrice && `@ ${formatPrice(indentPriceInfo.discountedPriceWithPPN)}`}</span>
+                                                    <span>{quantity - product.availableToSell} unit (Indent (12-16 Minggu)) {showPrice && `@ ${formatPrice(indentPriceInfo.discountedPriceWithPPN)}`}</span>
                                                 </div>
                                             </div>
                                         )
                                     ) : (
                                         <div className="flex items-center gap-2 text-[10px] text-amber-600">
                                             <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                                            <span>Indent estimasi 2-3 minggu {showPrice && `@ ${formatPrice(indentPriceInfo.discountedPriceWithPPN)}`}</span>
+                                            <span>Indent (12-16 Minggu) {showPrice && `@ ${formatPrice(indentPriceInfo.discountedPriceWithPPN)}`}</span>
                                         </div>
                                     );
                                 })()}
@@ -502,8 +502,8 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                                     </>
                                 )}
                             </Button>
-                            <Button 
-                                variant="outline" 
+                            <Button
+                                variant="outline"
                                 className="w-full text-green-600 border-green-600 hover:bg-green-50"
                                 onClick={handleChatSales}
                             >
@@ -596,7 +596,7 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                                                 ? "bg-green-50 text-green-600 border border-green-200"
                                                 : "bg-orange-50 text-orange-600 border border-orange-200"
                                                 }`}>
-                                                {relProduct.availableToSell > 0 ? "Ready Stock" : "Indent"}
+                                                {relProduct.availableToSell > 0 ? "Ready Stock" : "Indent (12-16 Minggu)"}
                                             </span>
                                         </div>
                                     </div>

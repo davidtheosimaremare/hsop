@@ -357,7 +357,10 @@ export async function getQuotationDetail(idOrNo: string) {
                                 id: alt.id,
                                 productSku: alt.productSku,
                                 productName: alt.productName,
+                                brand: alt.brand || "",
+                                quantity: alt.quantity,
                                 price: alt.price,
+                                note: alt.note || "",
                                 image: altProd?.image,
                                 category: altProd?.category,
                                 availableToSell: altProd?.availableToSell ?? 0
@@ -745,6 +748,7 @@ export async function saveQuotationDraft(idOrNo: string, data: any) {
                             basePrice: item.basePrice || item.price,
                             isAvailable: item.isAvailable,
                             availableQty: item.availableQty,
+                            stockStatus: item.stockStatus || null,
                             adminNote: item.adminNote,
                         }
                     });
@@ -760,6 +764,7 @@ export async function saveQuotationDraft(idOrNo: string, data: any) {
                             basePrice: item.basePrice || item.price,
                             isAvailable: item.isAvailable,
                             availableQty: item.availableQty,
+                            stockStatus: item.stockStatus || null,
                             adminNote: item.adminNote,
                         }
                     });
@@ -861,6 +866,7 @@ export async function submitQuotationOffer(idOrNo: string, data: any) {
                             basePrice: item.basePrice || item.price,
                             isAvailable: item.isAvailable,
                             availableQty: item.availableQty,
+                            stockStatus: item.stockStatus || null,
                             adminNote: item.adminNote,
                         }
                     });
@@ -876,6 +882,7 @@ export async function submitQuotationOffer(idOrNo: string, data: any) {
                             basePrice: item.basePrice || item.price,
                             isAvailable: item.isAvailable,
                             availableQty: item.availableQty,
+                            stockStatus: item.stockStatus || null,
                             adminNote: item.adminNote,
                         }
                     });
