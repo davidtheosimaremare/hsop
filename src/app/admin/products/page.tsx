@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Search, Package, Tag, AlertTriangle, X, Filter, LayoutGrid } from "lucide-react";
+import { Search, Package, Tag, AlertTriangle, X, Filter, LayoutGrid, CircleDollarSign } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import ProductActionDropdown from "@/components/admin/ProductActionDropdown";
 import ProductTable from "@/components/admin/ProductTable";
@@ -21,6 +21,7 @@ export default async function AdminProductsPage({
     const brandFilter = params?.brand?.toString() || "all";
     const categoryFilter = params?.category?.toString() || "all";
     const stockStatus = params?.stockStatus?.toString() || "all";
+    const priceFilter = params?.priceFilter?.toString() || "all";
     const sortField = params?.sort?.toString() || "name";
     const sortOrder = params?.order?.toString() === "desc" ? "desc" : "asc";
 
@@ -57,8 +58,9 @@ export default async function AdminProductsPage({
     let brandsData: any[] = [];
     let categoriesData: any[] = [];
     let lowStockCount = 0;
+    let zeroPriceCount = 0;
 
-    const [brandsRes, categoriesRes, lowStockRes] = await Promise.all([
+    const [brandsRes, categoriesRes, lowStockRes, zeroPriceRes] = await Promise.all([
         db.product.findMany({
             where: { brand: { not: null } },
             distinct: ['brand'],
@@ -73,17 +75,25 @@ export default async function AdminProductsPage({
         }),
         db.product.count({
             where: { availableToSell: { lte: 5 } }
+        }),
+        db.product.count({
+            where: { price: { lte: 0 } }
         })
     ]);
 
     brandsData = brandsRes;
     categoriesData = categoriesRes;
     lowStockCount = lowStockRes;
+    zeroPriceCount = zeroPriceRes;
 
     if (stockStatus === 'available') {
         where.availableToSell = { gt: 0 };
     } else if (stockStatus === 'out_of_stock') {
         where.availableToSell = { lte: 0 };
+    }
+
+    if (priceFilter === 'zero_price') {
+        where.price = { lte: 0 };
     }
 
     if (query) {
@@ -132,11 +142,12 @@ export default async function AdminProductsPage({
     if (brandFilter !== 'all') urlParams.set('brand', brandFilter);
     if (categoryFilter !== 'all') urlParams.set('category', categoryFilter);
     if (stockStatus !== 'all') urlParams.set('stockStatus', stockStatus);
+    if (priceFilter !== 'all') urlParams.set('priceFilter', priceFilter);
     urlParams.set('page', '1');
     urlParams.set('pageSize', pageSize.toString());
     const queryParamsString = urlParams.toString();
 
-    const isFiltered = query || brandFilter !== 'all' || categoryFilter !== 'all' || stockStatus !== 'all';
+    const isFiltered = query || brandFilter !== 'all' || categoryFilter !== 'all' || stockStatus !== 'all' || priceFilter !== 'all';
 
     return (
         <div className="space-y-5 pb-10">
@@ -154,7 +165,7 @@ export default async function AdminProductsPage({
             </div>
 
             {/* Clean Horizontal Stats Grid */}
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-4">
                 <div className="flex items-center gap-4 bg-white rounded-2xl p-4 border border-slate-100 hover:shadow-sm transition-all group">
                     <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100 group-hover:bg-red-50 group-hover:border-red-100 transition-all">
                         <Package className="h-5 w-5 text-slate-400 group-hover:text-red-600 transition-colors" />
@@ -192,6 +203,27 @@ export default async function AdminProductsPage({
                             <span className="text-[11px] font-bold text-red-500">Item</span>
                         </div>
                     </div>
+                </div>
+
+                <div className="flex items-center gap-4 bg-gradient-to-br from-amber-50 to-white rounded-2xl p-4 border border-amber-100 hover:shadow-sm transition-all group">
+                    <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center border border-amber-200">
+                        <CircleDollarSign className="h-5 w-5 text-amber-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest mb-0.5 truncate">Harga Rp 0</p>
+                        <div className="flex items-baseline gap-1.5 truncate">
+                            <span className="text-2xl font-black text-amber-700 leading-none">{zeroPriceCount}</span>
+                            <span className="text-[11px] font-bold text-amber-500">Item</span>
+                        </div>
+                    </div>
+                    {zeroPriceCount > 0 && (
+                        <Link
+                            href="/admin/products?priceFilter=zero_price"
+                            className="flex-shrink-0 text-[10px] font-bold text-amber-600 hover:text-amber-700 hover:underline"
+                        >
+                            Lihat →
+                        </Link>
+                    )}
                 </div>
             </div>
 
@@ -259,6 +291,18 @@ export default async function AdminProductsPage({
                         </div>
 
                         <div className="lg:col-span-2 space-y-1.5">
+                            <label className="text-[9px] font-bold uppercase tracking-wider text-slate-400 ml-1">Harga</label>
+                            <select
+                                name="priceFilter"
+                                defaultValue={priceFilter}
+                                className="w-full h-10 bg-slate-50 border-transparent focus:bg-white border focus:border-red-600 focus:ring-0 rounded-xl px-3 text-sm font-bold text-slate-700 transition-all appearance-none cursor-pointer"
+                            >
+                                <option value="all">Semua Harga</option>
+                                <option value="zero_price">Harga Rp 0</option>
+                            </select>
+                        </div>
+
+                        <div className="lg:col-span-2 space-y-1.5">
                             <label className="text-[9px] font-bold uppercase tracking-wider text-slate-400 ml-1">Tampilan</label>
                             <select
                                 name="pageSize"
@@ -306,7 +350,7 @@ export default async function AdminProductsPage({
                             asChild={page > 1}
                         >
                             {page > 1 ? (
-                                <Link href={`?page=${page - 1}&q=${query}&brand=${brandFilter}&category=${categoryFilter}&stockStatus=${stockStatus}&sort=${sortField}&order=${sortOrder}&pageSize=${pageSize}`}>Sebelumnya</Link>
+                                <Link href={`?page=${page - 1}&q=${query}&brand=${brandFilter}&category=${categoryFilter}&stockStatus=${stockStatus}&priceFilter=${priceFilter}&sort=${sortField}&order=${sortOrder}&pageSize=${pageSize}`}>Sebelumnya</Link>
                             ) : (
                                 <span>Sebelumnya</span>
                             )}
@@ -326,7 +370,7 @@ export default async function AdminProductsPage({
                             asChild={page < totalPages}
                         >
                             {page < totalPages ? (
-                                <Link href={`?page=${page + 1}&q=${query}&brand=${brandFilter}&category=${categoryFilter}&stockStatus=${stockStatus}&sort=${sortField}&order=${sortOrder}&pageSize=${pageSize}`}>Selanjutnya</Link>
+                                <Link href={`?page=${page + 1}&q=${query}&brand=${brandFilter}&category=${categoryFilter}&stockStatus=${stockStatus}&priceFilter=${priceFilter}&sort=${sortField}&order=${sortOrder}&pageSize=${pageSize}`}>Selanjutnya</Link>
                             ) : (
                                 <span>Selanjutnya</span>
                             )}
