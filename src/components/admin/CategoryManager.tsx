@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 interface Category {
     id: string;
     name: string;
+    alias: string | null;
     parentId: string | null;
     isVisible: boolean;
     order: number;
@@ -85,6 +86,7 @@ function CategoryItem({ category, allCategories, depth = 0 }: { category: Catego
     const [isExpanded, setIsExpanded] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [name, setName] = useState(category.name);
+    const [alias, setAlias] = useState(category.alias || "");
     const [parentId, setParentId] = useState<string | null>(category.parentId);
     const [isVisible, setIsVisible] = useState(category.isVisible);
     const [order, setOrder] = useState(category.order);
@@ -98,6 +100,7 @@ function CategoryItem({ category, allCategories, depth = 0 }: { category: Catego
         startTransition(async () => {
             const res = await updateCategory(category.id, {
                 name,
+                alias: alias.trim() === "" ? null : alias.trim(),
                 parentId: parentId === "root" ? null : parentId,
                 isVisible,
                 order: Number(order)
@@ -126,9 +129,14 @@ function CategoryItem({ category, allCategories, depth = 0 }: { category: Catego
                     <Folder className={`h-4 w-4 ${category.isVisible ? "text-blue-500" : "text-gray-300"}`} />
 
                     {isEditing ? (
-                        <Input className="h-8 max-w-[200px]" value={name} onChange={(e) => setName(e.target.value)} />
+                        <div className="flex gap-2">
+                            <Input className="h-8 w-[150px]" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nama Asli" />
+                            <Input className="h-8 w-[150px]" value={alias} onChange={(e) => setAlias(e.target.value)} placeholder="Alias (Opsional)" />
+                        </div>
                     ) : (
-                        <span className={`font-medium ${!category.isVisible && "text-gray-400"}`}>{category.name}</span>
+                        <span className={`font-medium ${!category.isVisible && "text-gray-400"}`}>
+                            {category.name} {category.alias && <span className="text-xs text-blue-600 font-normal ml-1">(Alias: {category.alias})</span>}
+                        </span>
                     )}
 
                     {!isEditing && (

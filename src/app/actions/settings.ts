@@ -134,7 +134,11 @@ export async function syncCategoriesFromProducts() {
 export async function updateCategory(id: string, data: any) {
     try {
         const updateData: any = {};
+        if (data.name !== undefined) updateData.name = data.name;
+        if (data.alias !== undefined) updateData.alias = data.alias === "" ? null : data.alias;
+        if (data.parentId !== undefined) updateData.parentId = data.parentId;
         if (data.isVisible !== undefined) updateData.isVisible = data.isVisible;
+        if (data.order !== undefined) updateData.order = data.order;
         if (data.image !== undefined) updateData.image = data.image; // Allow null for image removal if needed
 
         await db.category.update({

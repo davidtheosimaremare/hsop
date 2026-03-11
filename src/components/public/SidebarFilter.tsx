@@ -8,6 +8,7 @@ import { startProgress } from "@/components/layout/NavigationProgress";
 interface Category {
     id: string;
     name: string;
+    alias: string | null;
     children: Category[];
 }
 
@@ -90,7 +91,7 @@ export default function SidebarFilter({ categories, brands }: SidebarFilterProps
                                             : "text-gray-700 hover:bg-gray-50"
                                             }`}
                                     >
-                                        {category.name}
+                                        {category.alias || category.name}
                                     </button>
                                     {category.children && category.children.length > 0 && (
                                         <button
@@ -123,7 +124,7 @@ export default function SidebarFilter({ categories, brands }: SidebarFilterProps
                                                     : "text-gray-600 hover:text-red-600"
                                                     }`}
                                             >
-                                                {sub.name}
+                                                {sub.alias || sub.name}
                                             </button>
                                         ))}
                                     </div>

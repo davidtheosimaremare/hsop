@@ -152,6 +152,7 @@ model SearchSuggestion {
 model Category {
   id         String     @id @default(cuid())
   name       String
+  alias      String?
   parentId   String?
   isVisible  Boolean    @default(true)
   order      Int        @default(0)

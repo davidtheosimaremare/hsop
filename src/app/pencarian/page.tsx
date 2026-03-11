@@ -42,6 +42,20 @@ export default async function SearchPage({
         getCustomerPricingData(),
     ]);
 
+    let categoryDisplayName = category;
+    if (category) {
+        // Flatten the tree to search easily
+        const allCats = categories.reduce((acc, current) => {
+            acc.push(current as any);
+            if ((current as any).children) acc.push(...(current as any).children);
+            return acc;
+        }, [] as any[]);
+
+        const matchingCat = allCats.find(c => c.name === category);
+        if (matchingCat && matchingCat.alias) {
+            categoryDisplayName = matchingCat.alias;
+        }
+    }
 
     const createPageUrl = (newPage: number) => {
         const params = new URLSearchParams();
@@ -69,7 +83,7 @@ export default async function SearchPage({
                     {/* Page Title */}
                     <div className="flex items-center justify-between mb-6">
                         <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-                            {originalQuery ? `Hasil Pencarian: "${originalQuery}"` : category ? `Kategori: ${category}` : "Seluruh Produk Kami"}
+                            {originalQuery ? `Hasil Pencarian: "${originalQuery}"` : category ? `Kategori: ${categoryDisplayName}` : "Seluruh Produk Kami"}
                         </h1>
                         <ShareButton className="flex items-center gap-2 text-sm text-teal-600 hover:text-teal-700 outline-none" text="Bagikan Halaman" />
                     </div>
