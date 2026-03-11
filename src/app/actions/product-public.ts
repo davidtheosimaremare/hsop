@@ -93,13 +93,24 @@ export async function getPublicProducts({
     }
 
     if (category && category !== "all") {
-        // If category is a name, we might need to find its ID and children
-        // For simplicity, let's assume we match exact string on Product.category field 
-        // OR we find the category by name and use its ID if Product.category stores ID/Name
+        const catNode = await db.category.findFirst({
+            where: { name: { equals: category, mode: "insensitive" } },
+            include: { children: true }
+        });
 
-        // CHECK: Schema says `category String?`. It might be storing Name or ID. 
-        // Most legacy/simple apps store Name. Let's assume Name for now, or match both.
-        where.category = { contains: category, mode: "insensitive" };
+        if (catNode && catNode.children.length > 0) {
+            const categoryNames = [catNode.name, ...catNode.children.map(c => c.name)];
+            const categoryConditions = categoryNames.map(name => ({
+                category: { contains: name, mode: "insensitive" as const }
+            }));
+
+            where.AND = [
+                ...(Array.isArray(where.AND) ? where.AND : (where.AND ? [where.AND as any] : [])),
+                { OR: categoryConditions }
+            ];
+        } else {
+            where.category = { contains: category, mode: "insensitive" };
+        }
     }
 
     if (brand && brand !== "all") {
