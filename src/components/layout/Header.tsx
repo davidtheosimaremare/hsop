@@ -363,24 +363,22 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                         {/* Categories */}
                         <div className="flex items-center gap-1">
                             {/* Category Dropdown */}
-                            {!isHomePage && (
-                                <motion.button
-                                    whileHover={{ y: -1 }}
-                                    onClick={() => {
-                                        setIsMegaMenuOpen(!isMegaMenuOpen);
-                                        setActiveCategory(0);
-                                    }}
-                                    className={`
-                                        flex items-center gap-1 px-3 py-1.5 rounded-lg font-medium transition-all duration-200
-                                        text-sm text-gray-700 hover:text-red-600 hover:bg-red-50
-                                        ${isMegaMenuOpen ? "text-red-600 bg-red-50" : ""}
-                                    `}
-                                >
-                                    <LayoutGrid className="h-4 w-4" />
-                                    <span>Kategori Produk</span>
-                                    <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${isMegaMenuOpen ? "rotate-180" : ""}`} />
-                                </motion.button>
-                            )}
+                            <motion.button
+                                whileHover={{ y: -1 }}
+                                onClick={() => {
+                                    setIsMegaMenuOpen(!isMegaMenuOpen);
+                                    setActiveCategory(0);
+                                }}
+                                className={`
+                                    flex items-center gap-1 px-3 py-1.5 rounded-lg font-medium transition-all duration-200
+                                    text-sm text-gray-700 hover:text-red-600 hover:bg-red-50
+                                    ${isMegaMenuOpen ? "text-red-600 bg-red-50" : ""}
+                                `}
+                            >
+                                <LayoutGrid className="h-4 w-4" />
+                                <span>Kategori Produk</span>
+                                <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${isMegaMenuOpen ? "rotate-180" : ""}`} />
+                            </motion.button>
 
                             {/* Search Suggestions */}
                             {searchSuggestions.length > 0 && (
