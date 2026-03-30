@@ -17,9 +17,10 @@ const MAX_HISTORY_ITEMS = 5;
 
 interface SearchBoxProps {
     isMobile?: boolean;
+    onFocusChange?: (focused: boolean) => void;
 }
 
-export default function SearchBox({ isMobile = false }: SearchBoxProps) {
+export default function SearchBox({ isMobile = false, onFocusChange }: SearchBoxProps) {
     const router = useRouter();
     const [query, setQuery] = useState("");
     const [isOpen, setIsOpen] = useState(false);
@@ -149,9 +150,34 @@ export default function SearchBox({ isMobile = false }: SearchBoxProps) {
                         placeholder="Cari produk..."
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
-                        onFocus={() => setIsOpen(true)}
-                        className="w-full h-10 pl-9 pr-3 rounded-full border border-gray-200 focus:border-red-500 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-none bg-white text-sm"
+                        onFocus={() => {
+                            setIsOpen(true);
+                            onFocusChange?.(true);
+                        }}
+                        onBlur={() => {
+                            // delay blur agar klik dropdown masih bisa dihandle
+                            setTimeout(() => {
+                                if (!containerRef.current?.contains(document.activeElement)) {
+                                    onFocusChange?.(false);
+                                }
+                            }, 150);
+                        }}
+                        className="w-full h-10 pl-9 pr-8 rounded-full border border-gray-200 focus:border-red-500 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-none bg-white text-sm"
                     />
+                    {isOpen && (
+                        <button
+                            type="button"
+                            onMouseDown={(e) => {
+                                e.preventDefault();
+                                setQuery("");
+                                setIsOpen(false);
+                                onFocusChange?.(false);
+                            }}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+                    )}
                 </form>
 
                 <AnimatePresence>

@@ -109,6 +109,7 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
     const { totalItems } = useCart();
     const router = useRouter();
     const pathname = usePathname();
+    const [isSearchFocused, setIsSearchFocused] = useState(false);
 
     const isHomePage = pathname === "/";
 
@@ -168,9 +169,12 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
 
                     {/* Logo */}
                     <motion.div
-                        className="flex-shrink-0"
-                        whileHover={{ scale: 1.02 }}
-                        transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                        className={`flex-shrink-0 transition-all duration-300 ${
+                            isSearchFocused
+                                ? "w-0 opacity-0 overflow-hidden md:w-auto md:opacity-100 md:overflow-visible"
+                                : "w-auto opacity-100"
+                        }`}
+                        whileHover={!isSearchFocused ? { scale: 1.02 } : {}}
                     >
                         <Link href="/" className="flex items-center">
                             {/* Desktop Logo */}
@@ -202,8 +206,9 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                         </Link>
                     </motion.div>
 
+                    {/* Mobile: Search Box - expands on focus */}
                     <div className="md:hidden flex-1 mx-1">
-                        <SearchBox isMobile />
+                        <SearchBox isMobile onFocusChange={setIsSearchFocused} />
                     </div>
 
                     <div className="hidden md:flex flex-1 max-w-3xl mx-8">
@@ -211,7 +216,11 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                     </div>
 
                     {/* Right Actions */}
-                    <div className="flex items-center text-sm">
+                    <div className={`flex items-center text-sm transition-all duration-300 ${
+                        isSearchFocused
+                            ? "w-0 opacity-0 overflow-hidden pointer-events-none md:w-auto md:opacity-100 md:overflow-visible md:pointer-events-auto"
+                            : "w-auto opacity-100"
+                    }`}>
                         {/* Notifications & Cart Container */}
                         <div className="flex items-center gap-1 md:gap-4 mr-1 md:mr-4">
                             {/* Notifications - Only if logged in */}
