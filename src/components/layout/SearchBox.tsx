@@ -162,9 +162,9 @@ export default function SearchBox({ isMobile = false, onFocusChange }: SearchBox
                                 }
                             }, 150);
                         }}
-                        className="w-full h-10 pl-9 pr-8 rounded-full border border-gray-200 focus:border-red-500 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-none bg-white text-sm"
+                        className="w-full h-10 pl-9 pr-20 rounded-full border border-gray-200 focus:border-red-500 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-none bg-white text-sm"
                     />
-                    {isOpen && (
+                    {isOpen && query.length > 0 && (
                         <button
                             type="button"
                             onMouseDown={(e) => {
@@ -173,11 +173,18 @@ export default function SearchBox({ isMobile = false, onFocusChange }: SearchBox
                                 setIsOpen(false);
                                 onFocusChange?.(false);
                             }}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            className="absolute right-12 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
                         >
                             <X className="h-4 w-4" />
                         </button>
                     )}
+                    <Button
+                        type="submit"
+                        variant="red"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-10 p-0 rounded-full"
+                    >
+                        <Search className="h-4 w-4 text-white" />
+                    </Button>
                 </form>
 
                 <AnimatePresence>
