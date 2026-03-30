@@ -120,7 +120,7 @@ export default function HeroSlider({ banners }: HeroSliderProps) {
                         </AnimatePresence>
 
                         {/* Navigation Overlay */}
-                        <div className="absolute inset-0 flex items-center justify-between px-2 md:px-6 opacity-100 transition-opacity duration-300 pointer-events-none z-10">
+                        <div className="absolute inset-0 flex items-center justify-between px-1 md:px-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10">
                             <button
                                 onClick={(e) => {
                                     e.preventDefault();
@@ -128,10 +128,10 @@ export default function HeroSlider({ banners }: HeroSliderProps) {
                                     setIsAutoPlaying(false);
                                     setTimeout(() => setIsAutoPlaying(true), 10000);
                                 }}
-                                className="w-10 h-10 md:w-14 md:h-14 bg-white/90 backdrop-blur-md hover:bg-white rounded-full flex items-center justify-center shadow-xl transition-all hover:scale-110 active:scale-95 pointer-events-auto border border-white/50"
+                                className="w-8 h-8 md:w-10 md:h-10 bg-black/20 backdrop-blur-sm hover:bg-black/40 rounded-full flex items-center justify-center transition-all pointer-events-auto border border-white/10"
                                 aria-label="Previous"
                             >
-                                <ChevronLeft className="w-5 h-5 md:w-8 md:h-8 text-gray-900" />
+                                <ChevronLeft className="w-4 h-4 md:w-6 md:h-6 text-white" />
                             </button>
                             <button
                                 onClick={(e) => {
@@ -140,10 +140,10 @@ export default function HeroSlider({ banners }: HeroSliderProps) {
                                     setIsAutoPlaying(false);
                                     setTimeout(() => setIsAutoPlaying(true), 10000);
                                 }}
-                                className="w-10 h-10 md:w-14 md:h-14 bg-white/90 backdrop-blur-md hover:bg-white rounded-full flex items-center justify-center shadow-xl transition-all hover:scale-110 active:scale-95 pointer-events-auto border border-white/50"
+                                className="w-8 h-8 md:w-10 md:h-10 bg-black/20 backdrop-blur-sm hover:bg-black/40 rounded-full flex items-center justify-center transition-all pointer-events-auto border border-white/10"
                                 aria-label="Next"
                             >
-                                <ChevronRight className="w-5 h-5 md:w-8 md:h-8 text-gray-900" />
+                                <ChevronRight className="w-4 h-4 md:w-6 md:h-6 text-white" />
                             </button>
                         </div>
                     </div>
