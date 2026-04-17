@@ -1,30 +1,11 @@
-"use server";
-
 import { db } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Eye, EyeOff, Edit, Trash2, FileText, ExternalLink } from "lucide-react";
+import { Plus, Edit, Trash2, FileText, ExternalLink } from "lucide-react";
 import Link from "next/link";
-import { deletePage, updatePage } from "@/app/actions/pages";
+import { deletePage } from "@/app/actions/pages";
 
 export const dynamic = "force-dynamic";
-
-export async function togglePagePublish(id: string, currentStatus: boolean) {
-    "use server";
-    await updatePage(id, {
-        isPublished: !currentStatus,
-        title: "", // Dummy, not used in partial update logic if I fix updatePage
-        slug: "",
-        content: ""
-    } as any);
-    // Wait, my updatePage action expects all fields. I should fix it or create a specific toggle action.
-    // Let's look at updatePage again. It takes PageData.
-    // I should probably update updatePage to accept partial data or create a toggle action.
-    // simpler to just creation a partial update action or modify updatePage. 
-    // actually, let's just make a toggle action here for convenience or modify the server action. 
-    // I'll modify the server action in a separate step if needed, but for now I can just fetch and update? No that's slow.
-    // Best to add togglePageStatus to actions/pages.ts.
-}
 
 export default async function AdminPagesPage() {
     const pages = await db.page.findMany({
