@@ -193,8 +193,7 @@ export function GridCategoryManager({ allCategories, initialGridItems }: GridCat
 
             {/* Grid Visualization */}
             <div>
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-sm font-semibold text-gray-700">Preview Layout Grid ({selectedItems.length} item)</h3>
+                <div className="flex justify-end items-center mb-4">
                     <Button onClick={handleSave} disabled={isSaving || selectedItems.length === 0} className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm">
                         {isSaving ? (
                             <>
