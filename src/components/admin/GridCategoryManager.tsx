@@ -6,8 +6,27 @@ import { updateSiteSetting, updateCategory } from "@/app/actions/settings";
 import { uploadFile } from "@/app/actions/upload";
 import {
     Loader2, Plus, ArrowLeft, ArrowRight, Save,
-    Image as ImageIcon, Upload, X, Pencil
+    Image as ImageIcon, Upload, X, Pencil,
+    Zap, Gauge, Lightbulb, Plug, Box, Wrench, ShieldCheck, Settings, Cog, Factory, Cpu, Server, Battery
 } from "lucide-react";
+
+// Icon mapping same as CategorySection
+const ICON_MAP: Record<string, any> = {
+    "Zap": Zap,
+    "Gauge": Gauge,
+    "Lightbulb": Lightbulb,
+    "Plug": Plug,
+    "Box": Box,
+    "Wrench": Wrench,
+    "ShieldCheck": ShieldCheck,
+    "Settings": Settings,
+    "Cog": Cog,
+    "Factory": Factory,
+    "Cpu": Cpu,
+    "Server": Server,
+    "Battery": Battery,
+};
+
 import { useRouter } from "next/navigation";
 import {
     Select,
@@ -201,7 +220,10 @@ export function GridCategoryManager({ allCategories, initialGridItems }: GridCat
                             const cat = getCategory(item.id);
                             if (!cat) return null;
                             const isUploading = uploadingId === item.id;
-                            const hasImage = cat.image && (cat.image.startsWith("/") || cat.image.startsWith("http"));
+                            const isImageUrl = cat.image && (cat.image.startsWith("/") || cat.image.startsWith("http"));
+                            const IconComponent = (!isImageUrl && cat.image && ICON_MAP[cat.image])
+                                ? ICON_MAP[cat.image]
+                                : null;
 
                             return (
                                 <Card key={item.id} className="relative group overflow-hidden border hover:border-blue-300 transition-colors">
@@ -223,13 +245,15 @@ export function GridCategoryManager({ allCategories, initialGridItems }: GridCat
                                         >
                                             {isUploading ? (
                                                 <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
-                                            ) : hasImage ? (
+                                            ) : isImageUrl ? (
                                                 <Image
                                                     src={cat.image!}
                                                     alt={cat.name}
                                                     fill
                                                     className="object-contain"
                                                 />
+                                            ) : IconComponent ? (
+                                                <IconComponent className="w-10 h-10 text-gray-400 group-hover/img:text-blue-500 transition-colors" />
                                             ) : (
                                                 <ImageIcon className="w-10 h-10 text-gray-300" />
                                             )}

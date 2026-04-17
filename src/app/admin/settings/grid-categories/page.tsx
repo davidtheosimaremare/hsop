@@ -15,12 +15,15 @@ export default async function GridCategoriesSettingsPage() {
     // Stored as JSON array of IDs: ["cat_1", "cat_2"] OR objects [{id: "...", customName: "..."}]
     const savedGridSettings = await getSiteSetting("homepage_grid_categories");
 
-    // Ensure it's an array of items
+    // Ensure it's an array of items and only include existing categories
     const initialItems = Array.isArray(savedGridSettings)
-        ? savedGridSettings.map((item: any) => {
-            if (typeof item === 'string') return { id: item, customName: "" };
-            return { id: item.id, customName: item.customName || "" };
-        })
+        ? savedGridSettings
+            .map((item: any) => {
+                const id = typeof item === 'string' ? item : item.id;
+                const customName = typeof item === 'string' ? "" : (item.customName || "");
+                return { id, customName };
+            })
+            .filter(item => categories.some(c => c.id === item.id))
         : [];
 
     return (
