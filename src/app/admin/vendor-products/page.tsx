@@ -18,9 +18,9 @@ import {
     adminApproveProductAction, 
     adminRejectProductAction 
 } from "@/app/actions/vendor-product";
-import { db } from "@/lib/db"; // Wait, can't use db in client component directly
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 
 // I need an action to fetch all vendor products for admin
 // I'll add it to vendor-product.ts
