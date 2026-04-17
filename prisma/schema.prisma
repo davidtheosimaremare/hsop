@@ -14,7 +14,7 @@ model User {
   name                 String?
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
-  customerId           String?
+  customerId           String?               @unique
   isActive             Boolean               @default(true)
   phone                String?
   username             String?               @unique
@@ -31,6 +31,11 @@ model User {
   customer             Customer?             @relation(fields: [customerId], references: [id])
   UserClient           UserClient[]
   ProfileUpdateRequest ProfileUpdateRequest?
+  vendorProducts       Product[]             @relation("VendorProducts")
+  stockLogs            ProductStockLog[]
+
+  @@index([email])
+  @@index([role])
 }
 
 model Customer {
@@ -65,6 +70,9 @@ model Customer {
   orders                 Order[]
   SalesQuotation         SalesQuotation[]
   users                  User[]
+
+  @@index([email])
+  @@index([accurateId])
 }
 
 model CustomerAddress {
@@ -83,6 +91,8 @@ model CustomerAddress {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
 }
 
 model Product {
@@ -105,6 +115,41 @@ model Product {
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
   orderItems      OrderItem[]
+  vendorId        String?
+  vendor          User?       @relation("VendorProducts", fields: [vendorId], references: [id])
+  status          String      @default("APPROVED")
+  isVendorProduct Boolean     @default(false)
+  stockLogs       ProductStockLog[]
+
+  @@index([sku])
+  @@index([category])
+  @@index([brand])
+  @@index([status])
+  @@index([vendorId])
+}
+
+model ProductStockLog {
+  id          String   @id @default(cuid())
+  productId   String
+  vendorId    String
+  oldStock    Int
+  newStock    Int
+  changeValue Int
+  source      String   @default("MANUAL") // "EXCEL" atau "MANUAL"
+  createdAt   DateTime @default(now())
+  
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  vendor      User     @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([vendorId])
+}
+
+model VendorCategory {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model CategoryMapping {
@@ -129,6 +174,9 @@ model Order {
   notes             String?
   customer          Customer    @relation(fields: [customerId], references: [id])
   items             OrderItem[]
+
+  @@index([customerId])
+  @@index([status])
 }
 
 model OrderItem {
@@ -139,6 +187,9 @@ model OrderItem {
   price     Float
   order     Order   @relation(fields: [orderId], references: [id])
   product   Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
 }
 
 model SearchSuggestion {
@@ -147,6 +198,8 @@ model SearchSuggestion {
   count     Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([term])
 }
 
 model Category {
@@ -162,6 +215,8 @@ model Category {
   updatedAt  DateTime   @updatedAt
   parent     Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
   children   Category[] @relation("CategoryHierarchy")
+
+  @@index([parentId])
 }
 
 model CategorySection {
@@ -214,6 +269,8 @@ model News {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   relatedProductIds String[]
+
+  @@index([slug])
 }
 
 model DiscountRule {
@@ -230,6 +287,8 @@ model SiteSetting {
   key       String   @unique
   value     Json
   updatedAt DateTime @updatedAt
+
+  @@index([key])
 }
 
 model SalesQuotation {
@@ -295,6 +354,12 @@ model SalesQuotation {
   user                   User?                    @relation(fields: [userId], references: [id])
   activities             SalesQuotationActivity[]
   items                  SalesQuotationItem[]
+
+  @@index([userId])
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([quotationNo])
 }
 
 model SalesQuotationItem {
@@ -315,6 +380,9 @@ model SalesQuotationItem {
   stockStatus                   String?
   quotation                     SalesQuotation                  @relation(fields: [quotationId], references: [id], onDelete: Cascade)
   SalesQuotationItemAlternative SalesQuotationItemAlternative[]
+
+  @@index([quotationId])
+  @@index([productSku])
 }
 
 model HomeCTA {
@@ -342,6 +410,9 @@ model WebhookLog {
   retryCount  Int       @default(0)
   lastRetryAt DateTime?
   processedAt DateTime  @default(now())
+
+  @@index([status])
+  @@index([source])
 }
 
 model Page {
@@ -354,6 +425,8 @@ model Page {
   isPublished     Boolean  @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+
+  @@index([slug])
 }
 
 model UpgradeRequest {
@@ -372,6 +445,9 @@ model UpgradeRequest {
   updatedAt    DateTime @updatedAt
   ktpName      String?
   user         User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
 }
 
 model Notification {
@@ -385,6 +461,9 @@ model Notification {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([read])
 }
 
 model RolePermission {
@@ -410,6 +489,8 @@ model SalesInvoice {
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
   quotation         SalesQuotation @relation(fields: [quotationId], references: [id])
+
+  @@index([status])
 }
 
 model SalesQuotationActivity {
@@ -421,6 +502,8 @@ model SalesQuotationActivity {
   performedBy String?
   createdAt   DateTime       @default(now())
   quotation   SalesQuotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  @@index([quotationId])
 }
 
 model SalesReturn {
@@ -433,6 +516,8 @@ model SalesReturn {
   accurateReturnId Int?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+
+  @@index([quotationId])
 }
 
 model UserClient {
@@ -446,6 +531,8 @@ model UserClient {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model ProfileUpdateRequest {
@@ -473,6 +560,8 @@ model SalesQuotationItemAlternative {
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
   quotationItem   SalesQuotationItem @relation(fields: [quotationItemId], references: [id], onDelete: Cascade)
+
+  @@index([quotationItemId])
 }
 
 model Province {
@@ -487,6 +576,8 @@ model Regency {
   name       String
   province   Province   @relation(fields: [provinceId], references: [id])
   districts  District[]
+
+  @@index([provinceId])
 }
 
 model District {
@@ -494,4 +585,6 @@ model District {
   regencyId String
   name      String
   regency   Regency @relation(fields: [regencyId], references: [id])
+
+  @@index([regencyId])
 }

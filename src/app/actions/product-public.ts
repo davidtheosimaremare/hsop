@@ -25,25 +25,42 @@ export async function getCategoriesTree() {
 }
 
 export async function getBrands() {
-    // Get all unique brands from products that are visible
-    const brands = await db.product.groupBy({
-        by: ['brand'],
+    // Since brand is not coming from accurate, extract the first word from product name
+    const products = await db.product.findMany({
         where: {
             isVisible: true,
-            brand: { not: null }
+            name: { not: "" }
         },
-        _count: {
-            brand: true
-        },
-        orderBy: {
-            brand: 'asc'
+        select: {
+            name: true
         }
     });
 
-    return brands.map(b => ({
-        name: b.brand as string,
-        count: b._count.brand
-    })).filter(b => b.name && b.name.trim() !== "");
+    const brandCounts: Record<string, number> = {};
+
+    products.forEach(p => {
+        if (p.name) {
+            const firstWord = p.name.trim().split(/\s+/)[0];
+            if (firstWord) {
+                // Hilangkan koma dari brand agar tidak ada duplikat
+                const cleanWord = firstWord.replace(/,/g, '');
+                if (cleanWord) {
+                    const groupName = cleanWord.toUpperCase();
+                    // Filter out purely numeric or single character brands if you want,
+                    // but to strictly follow the "first word is the brand" rule:
+                    brandCounts[groupName] = (brandCounts[groupName] || 0) + 1;
+                }
+            }
+        }
+    });
+
+    const brands = Object.entries(brandCounts).map(([name, count]) => ({
+        name,
+        count
+    })).filter(b => b.name && b.name.trim() !== "")
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    return brands;
 }
 
 export interface ProductFilterParams {
@@ -114,7 +131,10 @@ export async function getPublicProducts({
     }
 
     if (brand && brand !== "all") {
-        where.brand = { contains: brand, mode: "insensitive" };
+        where.AND = [
+            ...(Array.isArray(where.AND) ? where.AND : (where.AND ? [(where.AND as any)] : [])),
+            { name: { startsWith: brand, mode: "insensitive" } }
+        ];
     }
 
     // Stock filter - use database value (synced from Accurate)

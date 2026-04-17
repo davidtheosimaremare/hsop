@@ -4,7 +4,7 @@
  * Defines roles, permissions, and which routes each role can access.
  */
 
-export type UserRole = "SUPER_ADMIN" | "ADMIN" | "MANAGER" | "STAFF" | "VIEWER" | "CUSTOMER";
+export type UserRole = "SUPER_ADMIN" | "ADMIN" | "MANAGER" | "STAFF" | "VIEWER" | "CUSTOMER" | "VENDOR";
 
 export type Permission =
   | "dashboard:view"
@@ -12,6 +12,8 @@ export type Permission =
   | "products:create"
   | "products:edit"
   | "products:delete"
+  | "vendor_products:view"
+  | "vendor_products:manage"
   | "categories:view"
   | "categories:manage"
   | "orders:view"
@@ -174,6 +176,11 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
   CUSTOMER: [
     // Customer role - no admin access
   ],
+  VENDOR: [
+    "dashboard:view",
+    "vendor_products:view",
+    "vendor_products:manage",
+  ],
 };
 
 // Map routes to required permissions
@@ -182,6 +189,7 @@ export const routePermissions: Record<string, Permission[]> = {
   "/admin/products": ["products:view"],
   "/admin/products/new": ["products:create"],
   "/admin/products/[id]/edit": ["products:edit"],
+  "/admin/vendor-products": ["vendor_products:view"],
   "/admin/products/categories": ["categories:manage"],
   "/admin/products/default-discounts": ["discounts:manage"],
   "/admin/orders": ["orders:view"],
@@ -232,6 +240,11 @@ export const routePermissions: Record<string, Permission[]> = {
   "/admin/users": ["users:view"],
   "/admin/developer/webhooks": ["webhooks:view"],
   "/admin/upgrades": ["upgrades:view"],
+  // Vendor routes
+  "/vendor": ["dashboard:view"],
+  "/vendor/products": ["vendor_products:view"],
+  "/vendor/products/new": ["vendor_products:manage"],
+  "/vendor/products/[id]/edit": ["vendor_products:manage"],
 };
 
 /**
@@ -386,6 +399,7 @@ export const sidebarMenuItems = [
     requiredPermission: "products:view",
     children: [
       { title: "Daftar Produk", href: "/admin/products", icon: "ShoppingBag", requiredPermission: "products:view" },
+      { title: "Produk Vendor", href: "/admin/vendor-products", icon: "Package", requiredPermission: "vendor_products:view" },
       { title: "Sembunyikan Kategori", href: "/admin/products/hidden-categories", icon: "ListTree", requiredPermission: "categories:manage" },
       { title: "Pemetaan Kategori", href: "/admin/products/categories", icon: "ListTree", requiredPermission: "categories:manage" },
       { title: "Diskon Default", href: "/admin/products/default-discounts", icon: "BadgePercent", requiredPermission: "discounts:manage" },
@@ -481,12 +495,34 @@ export const sidebarMenuItems = [
       { title: "Backup Data", href: "/admin/developer/backup", icon: "Activity", requiredPermission: "developer:view" },
     ],
   },
-];
+  ];
 
+  /**
+  * Sidebar menu items for Vendor Dashboard
+  */
+  export const vendorSidebarMenuItems = [
+  {
+    title: "Dashboard",
+    href: "/vendor",
+    icon: "LayoutDashboard",
+    requiredPermission: "dashboard:view",
+  },
+  {
+    title: "Produk Saya",
+    href: "/vendor/products",
+    icon: "Package",
+    requiredPermission: "vendor_products:view",
+    children: [
+      { title: "Daftar Produk", href: "/vendor/products", icon: "ShoppingBag", requiredPermission: "vendor_products:view" },
+      { title: "Tambah Produk", href: "/vendor/products/new", icon: "Package", requiredPermission: "vendor_products:manage" },
+      { title: "Update Stok", href: "/vendor/stock-update", icon: "RefreshCw", requiredPermission: "vendor_products:manage" },
+    ],
+  },
+  ];
 
-/**
- * Get filtered sidebar menu items based on role
- */
+  /**
+  * Get filtered sidebar menu items based on role
+  ...
 export function getSidebarMenuForRole(role: UserRole) {
   return sidebarMenuItems.filter(item =>
     hasPermission(role, item.requiredPermission as Permission)
@@ -537,6 +573,11 @@ export const roleInfo: Record<UserRole, { label: string; description: string; co
     description: "User customer yang daftar di frontend",
     color: "bg-orange-100 text-orange-700",
   },
+  VENDOR: {
+    label: "Vendor",
+    description: "Vendor yang dapat mengelola produk mereka sendiri",
+    color: "bg-teal-100 text-teal-700",
+  },
 };
 
 /**
@@ -545,6 +586,7 @@ export const roleInfo: Record<UserRole, { label: string; description: string; co
 export const allPermissions: Permission[] = [
   "dashboard:view",
   "products:view", "products:create", "products:edit", "products:delete",
+  "vendor_products:view", "vendor_products:manage",
   "categories:view", "categories:manage",
   "orders:view", "orders:edit", "orders:delete",
   "customers:view", "customers:create", "customers:edit", "customers:delete",
@@ -587,6 +629,12 @@ export const permissionCategories = [
     label: "Produk",
     description: "Manajemen produk dan kategori",
     icon: "📦",
+  },
+  {
+    id: "vendor_products",
+    label: "Vendor",
+    description: "Manajemen produk vendor",
+    icon: "🏪",
   },
   {
     id: "categories",

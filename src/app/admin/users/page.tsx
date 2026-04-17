@@ -213,11 +213,9 @@ export default function AdminUsersPage() {
                                                 <SelectValue placeholder="Pilih role" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
-                                                <SelectItem value="ADMIN">Admin</SelectItem>
-                                                <SelectItem value="MANAGER">Manager</SelectItem>
-                                                <SelectItem value="STAFF">Staff</SelectItem>
-                                                <SelectItem value="VIEWER">Viewer</SelectItem>
+                                                {Object.entries(roleInfo).map(([key, info]) => (
+                                                    <SelectItem key={key} value={key}>{info.label}</SelectItem>
+                                                ))}
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -453,11 +451,9 @@ export default function AdminUsersPage() {
                                             <SelectValue placeholder="Pilih role" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
-                                            <SelectItem value="ADMIN">Admin</SelectItem>
-                                            <SelectItem value="MANAGER">Manager</SelectItem>
-                                            <SelectItem value="STAFF">Staff</SelectItem>
-                                            <SelectItem value="VIEWER">Viewer</SelectItem>
+                                            {Object.entries(roleInfo).map(([key, info]) => (
+                                                <SelectItem key={key} value={key}>{info.label}</SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                 </div>

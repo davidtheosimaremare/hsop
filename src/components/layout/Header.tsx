@@ -76,6 +76,7 @@ const getIconComponent = (iconName: string) => {
 const defaultMegaMenuCategories = [
     {
         name: "Low Voltage Product",
+        alias: "Low Voltage Product",
         icon: <Zap className="w-5 h-5" />,
         subcategories: [
             { name: "Circuit Breaker", count: 120 },
@@ -84,19 +85,42 @@ const defaultMegaMenuCategories = [
             { name: "Busbar System", count: 32 },
         ]
     },
-    // ... (rest of default items can be kept or just fallback to empty if config is present but empty? No, better fallback to default if db is empty for now?)
-    // Actually user wants to manage it. If they save empty list, it should be empty.
-    // But for initial migration, if DB is empty, maybe show defaults? 
-    // The `getCategoryMenuConfig` returns [] if not found.
-    // Let's decide: If menuConfig is passed and has items, use it. Else use default?
-    // User said "Kita ambil dari data category kemudian kita bisa atur sesuai gambar".
-    // I will use default if menuConfig is empty/null, so the site doesn't look broken immediately.
+    {
+        name: "Control Product",
+        alias: "Control Product",
+        icon: <Zap className="w-5 h-5" />,
+        subcategories: [
+            { name: "Relays", count: 85 },
+            { name: "Contactors", count: 64 },
+            { name: "Motor Starters", count: 42 }
+        ]
+    },
+    {
+        name: "Industrial Lighting",
+        alias: "Industrial Lighting",
+        icon: <Zap className="w-5 h-5" />,
+        subcategories: [
+            { name: "High Bay Lights", count: 15 },
+            { name: "Floodlights", count: 28 },
+            { name: "Emergency Lighting", count: 12 }
+        ]
+    },
+    {
+        name: "Others",
+        alias: "Others",
+        icon: <Zap className="w-5 h-5" />,
+        subcategories: [
+            { name: "Cables & Wires", count: 250 },
+            { name: "Tools & Accessories", count: 140 }
+        ]
+    }
 ];
 
 export default function Header({ user, menuConfig, searchSuggestions = [], customerImage, userId, companyDetails }: HeaderProps) {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isMegaMenuOpen, setIsMegaMenuOpen] = useState(false);
     const [activeCategory, setActiveCategory] = useState(0);
+    const [mobileExpandedCat, setMobileExpandedCat] = useState<number | null>(null);
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const [isNotificationOpen, setIsNotificationOpen] = useState(false);
     const [notifications, setNotifications] = useState<any[]>([]);
@@ -501,29 +525,63 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: "auto" }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="md:hidden border-t border-gray-100 bg-white overflow-hidden"
+                        className="md:hidden border-t border-gray-100 bg-white overflow-y-auto overflow-x-hidden max-h-[calc(100vh-4rem)] overscroll-contain"
                     >
                         <div className="px-4 py-4">
                             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 px-2">Kategori Produk</h3>
                             <div className="grid grid-cols-1 gap-1">
-                                {categoriesToDisplay.map((category) => (
-                                    <Link
-                                        key={category.name}
-                                        href={`/pencarian?q=&category=${encodeURIComponent(category.alias || category.name)}&page=1`}
-                                        className="flex items-center justify-between px-4 py-3.5 rounded-xl text-gray-700 hover:bg-red-50 hover:text-red-600 transition-all duration-200 group"
-                                        onClick={() => setIsMobileMenuOpen(false)}
-                                    >
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center group-hover:bg-red-100 transition-colors">
-                                                <span className="text-xl">
-                                                    {typeof category.icon === 'string' ? getIconComponent(category.icon) : category.icon}
-                                                </span>
-                                            </div>
-                                            <span className="font-semibold text-sm">{category.alias || category.name}</span>
+                                {categoriesToDisplay.map((category, catIndex) => {
+                                    const hasSubcats = category.subcategories && category.subcategories.length > 0;
+                                    const isExpanded = mobileExpandedCat === catIndex;
+                                    return (
+                                    <div key={category.name} className="flex flex-col">
+                                        <div className="flex items-center justify-between px-2 py-1.5 rounded-xl group hover:bg-red-50 transition-colors">
+                                            <Link
+                                                href={`/pencarian?q=&category=${encodeURIComponent(category.name)}&page=1`}
+                                                className="flex-1 px-2 py-1.5 text-gray-700 group-hover:text-red-600 transition-colors font-semibold text-sm"
+                                                onClick={() => setIsMobileMenuOpen(false)}
+                                            >
+                                                {category.alias || category.name}
+                                            </Link>
+                                            {hasSubcats ? (
+                                                <button 
+                                                    onClick={() => setMobileExpandedCat(isExpanded ? null : catIndex)}
+                                                    className="p-2 text-gray-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-100"
+                                                >
+                                                    <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                                                </button>
+                                            ) : (
+                                                <div className="p-2">
+                                                    <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-red-400 group-hover:translate-x-1 transition-all" />
+                                                </div>
+                                            )}
                                         </div>
-                                        <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-red-400 group-hover:translate-x-1 transition-all" />
-                                    </Link>
-                                ))}
+                                        <AnimatePresence>
+                                            {isExpanded && hasSubcats && (
+                                                <motion.div
+                                                    initial={{ height: 0, opacity: 0 }}
+                                                    animate={{ height: "auto", opacity: 1 }}
+                                                    exit={{ height: 0, opacity: 0 }}
+                                                    className="overflow-hidden bg-gray-50/50 mx-2 rounded-lg"
+                                                >
+                                                    <div className="py-2 px-3 flex flex-col gap-1">
+                                                        {category.subcategories.map((subcat: any) => (
+                                                            <Link
+                                                                key={subcat.name}
+                                                                href={`/pencarian?q=&category=${encodeURIComponent(subcat.alias || subcat.name)}&page=1`}
+                                                                className="px-4 py-2 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 transition-colors rounded-lg flex items-center gap-2"
+                                                                onClick={() => setIsMobileMenuOpen(false)}
+                                                            >
+                                                                <span className="w-1 h-1 rounded-full bg-gray-400" />
+                                                                {subcat.alias || subcat.name}
+                                                            </Link>
+                                                        ))}
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </div>
+                                )})}
                                 <div className="border-t border-gray-100 my-4" />
                                 <Link
                                     href="/kategori"

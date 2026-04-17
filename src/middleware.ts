@@ -5,14 +5,16 @@ export default async function proxy(request: NextRequest) {
     // 1. Update session if it exists (extend expiry)
     await updateSession(request);
 
-    // 2. Protect /admin routes
-    if (request.nextUrl.pathname.startsWith("/admin")) {
+    // 2. Protect /admin and /vendor routes
+    if (request.nextUrl.pathname.startsWith("/admin") || request.nextUrl.pathname.startsWith("/vendor")) {
         const sessionValue = request.cookies.get("session")?.value;
-        const isLoginPage = request.nextUrl.pathname === "/admin/login";
+        const isAdminRoute = request.nextUrl.pathname.startsWith("/admin");
+        const isVendorRoute = request.nextUrl.pathname.startsWith("/vendor");
+        const loginPath = isAdminRoute ? "/admin/login" : "/masuk";
 
         if (!sessionValue) {
-            if (!isLoginPage) {
-                return NextResponse.redirect(new URL("/admin/login", request.url));
+            if (request.nextUrl.pathname !== loginPath) {
+                return NextResponse.redirect(new URL(loginPath, request.url));
             }
             return NextResponse.next();
         }
@@ -22,19 +24,28 @@ export default async function proxy(request: NextRequest) {
             const session = await decrypt(sessionValue);
             const user = session.user;
 
-            // If user is CUSTOMER, they should not be in /admin
-            if (user?.role === "CUSTOMER") {
-                return NextResponse.redirect(new URL("/", request.url));
+            if (isAdminRoute) {
+                // If user is CUSTOMER or VENDOR, they should not be in /admin (unless they have permission, but usually they don't)
+                const adminRoles = ["SUPER_ADMIN", "ADMIN", "MANAGER", "STAFF", "VIEWER"];
+                if (!adminRoles.includes(user?.role)) {
+                    return NextResponse.redirect(new URL("/", request.url));
+                }
+
+                if (request.nextUrl.pathname === "/admin/login") {
+                    return NextResponse.redirect(new URL("/admin", request.url));
+                }
             }
 
-            // If logged in and on login page, redirect to admin dashboard
-            if (isLoginPage) {
-                return NextResponse.redirect(new URL("/admin", request.url));
+            if (isVendorRoute) {
+                if (user?.role !== "VENDOR" && user?.role !== "SUPER_ADMIN") {
+                    return NextResponse.redirect(new URL("/", request.url));
+                }
             }
+
         } catch (error) {
             // Invalid session
-            if (!isLoginPage) {
-                return NextResponse.redirect(new URL("/admin/login", request.url));
+            if (request.nextUrl.pathname !== loginPath) {
+                return NextResponse.redirect(new URL(loginPath, request.url));
             }
         }
     }
@@ -45,5 +56,6 @@ export default async function proxy(request: NextRequest) {
 export const config = {
     matcher: [
         "/admin/:path*",
+        "/vendor/:path*",
     ],
 };

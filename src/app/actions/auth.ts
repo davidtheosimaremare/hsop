@@ -77,10 +77,13 @@ export async function loginAction(prevState: any, formData: FormData) {
 
         // Redirect based on role
         // Admin roles (SUPER_ADMIN, ADMIN, MANAGER) -> /admin
+        // Vendor role -> /vendor
         // Customer roles (CUSTOMER) -> / (home)
-        const adminRoles = ["SUPER_ADMIN", "ADMIN", "MANAGER"];
+        const adminRoles = ["SUPER_ADMIN", "ADMIN", "MANAGER", "STAFF", "VIEWER"];
         if (user.role && adminRoles.includes(user.role)) {
             redirect("/admin");
+        } else if (user.role === "VENDOR") {
+            redirect("/vendor");
         } else {
             redirect("/");
         }
