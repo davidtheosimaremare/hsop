@@ -2,6 +2,8 @@ import { db } from "@/lib/db";
 import { PortfolioManager } from "@/components/admin/PortfolioManager";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
+export const dynamic = "force-dynamic";
+
 export default async function PortfolioSettingsPage() {
     const clients = await db.clientProject.findMany({
         orderBy: { order: 'asc' },

@@ -34,6 +34,8 @@ import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
+export const dynamic = "force-dynamic";
+
 const REQUEST_TYPE_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
     'RETAIL': { label: 'Retail/Perorangan', color: 'bg-blue-50 text-blue-700 border-blue-100', icon: User },
     'RESELLER': { label: 'Reseller', color: 'bg-purple-50 text-purple-700 border-purple-100', icon: Store },

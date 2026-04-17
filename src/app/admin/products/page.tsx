@@ -9,6 +9,8 @@ import { Prisma } from "@prisma/client";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminProductsPage({
     searchParams,
 }: {

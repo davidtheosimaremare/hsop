@@ -1,6 +1,8 @@
 import HomeCTAManager from "@/components/admin/HomeCTAManager";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
+export const dynamic = "force-dynamic";
+
 export default function HomeCTASettingsPage() {
     return (
         <div className="space-y-6">

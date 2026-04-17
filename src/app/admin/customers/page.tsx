@@ -12,6 +12,8 @@ import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminCustomersPage({
     searchParams,
 }: {

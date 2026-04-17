@@ -2,6 +2,8 @@ import { db } from "@/lib/db";
 import { SectionManager } from "@/components/admin/SectionManager";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
+export const dynamic = "force-dynamic";
+
 export default async function SectionsSettingsPage() {
     const sections = await db.categorySection.findMany({
         orderBy: { order: 'asc' },

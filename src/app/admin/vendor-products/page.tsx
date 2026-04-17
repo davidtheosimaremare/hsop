@@ -22,6 +22,8 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 
+export const dynamic = "force-dynamic";
+
 // I need an action to fetch all vendor products for admin
 // I'll add it to vendor-product.ts
 

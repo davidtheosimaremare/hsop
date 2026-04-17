@@ -2,6 +2,8 @@ import { db } from "@/lib/db";
 import { BannerManager } from "@/components/admin/BannerManager";
 import { ImageIcon } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export default async function BannerSettingsPage() {
     const banners = await db.banner.findMany({
         orderBy: { order: 'asc' },

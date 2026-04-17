@@ -7,6 +7,8 @@ import { Plus, Eye, EyeOff, Edit, Trash2, FileText, ExternalLink } from "lucide-
 import Link from "next/link";
 import { deletePage, updatePage } from "@/app/actions/pages";
 
+export const dynamic = "force-dynamic";
+
 export async function togglePagePublish(id: string, currentStatus: boolean) {
     "use server";
     await updatePage(id, {
