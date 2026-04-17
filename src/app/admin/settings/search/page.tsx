@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
 import { SearchSettingActions } from "@/components/admin/SearchSettingActions";
 
+export const dynamic = "force-dynamic";
+
 export default async function SearchSettingsPage() {
     const suggestions = await db.searchSuggestion.findMany({
         orderBy: { count: 'desc' },

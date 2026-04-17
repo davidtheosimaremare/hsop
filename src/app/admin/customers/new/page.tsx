@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 
 import { CustomerCreateForm } from "@/components/admin/CustomerCreateForm";
 import { Button } from "@/components/ui/button";
