@@ -14,6 +14,10 @@ const nextConfig: NextConfig = {
         pathname: '/api/image',
         search: '?url=**',
       },
+      {
+        pathname: '/**',
+        search: '',
+      },
     ],
     remotePatterns: [
       {
