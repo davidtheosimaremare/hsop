@@ -201,6 +201,7 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                                     src={activeImage}
                                     alt={product.name}
                                     fill
+                                    unoptimized={activeImage.includes('/api/image')}
                                     className="object-contain transition-transform duration-300 group-hover:scale-105"
                                     sizes="(max-width: 768px) 100vw, 33vw"
                                 />
@@ -227,6 +228,7 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                                             src={img}
                                             alt={`${product.name} thumbnail ${idx + 1}`}
                                             fill
+                                            unoptimized={img.includes('/api/image')}
                                             className="object-cover"
                                             sizes="64px"
                                         />
