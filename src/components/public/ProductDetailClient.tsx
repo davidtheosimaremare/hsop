@@ -28,21 +28,6 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
     const { addItem } = useCart();
     const { getPriceInfo } = usePricing();
 
-    const getWatermarkedUrl = (url: string) => {
-        if (!url) return url;
-        // Handle both full URLs (http) and internal relative paths (/uploads, /assets)
-        if (url.startsWith('http') || url.startsWith('/')) {
-            // Avoid double wrapping
-            if (url.includes('/api/image')) return url;
-            
-            // For relative paths, we need to provide the full URL to the API if it's on S3,
-            // or handle it relative to the base URL.
-            // But usually, images are on assets.hokiindo.co.id
-            return `/api/image?url=${encodeURIComponent(url)}`;
-        }
-        return url;
-    };
-
     const handleChatSales = () => {
         const waNumber = whatsappConfig?.number || "6281262220021"; // Fallback to footer/default
         const waMessage = whatsappConfig?.message || "Halo Admin, saya ingin bertanya tentang produk:";
@@ -56,7 +41,7 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
     const galleryImages = [
         product.image,
         ...(product.sliderImages || [])
-    ].filter(Boolean).map(img => getWatermarkedUrl(img as string));
+    ].filter(Boolean) as string[];
 
     const [activeImage, setActiveImage] = useState(galleryImages[0] || null);
 
@@ -201,7 +186,6 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                                     src={activeImage}
                                     alt={product.name}
                                     fill
-                                    unoptimized={activeImage.includes('/api/image')}
                                     className="object-contain transition-transform duration-300 group-hover:scale-105"
                                     sizes="(max-width: 768px) 100vw, 33vw"
                                 />
@@ -228,7 +212,6 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                                             src={img}
                                             alt={`${product.name} thumbnail ${idx + 1}`}
                                             fill
-                                            unoptimized={img.includes('/api/image')}
                                             className="object-cover"
                                             sizes="64px"
                                         />
