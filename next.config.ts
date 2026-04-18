@@ -9,6 +9,12 @@ const nextConfig: NextConfig = {
   },
   images: {
     formats: ['image/avif', 'image/webp'],
+    localPatterns: [
+      {
+        pathname: '/api/image',
+        search: '',
+      },
+    ],
     remotePatterns: [
       {
         protocol: 'https',
