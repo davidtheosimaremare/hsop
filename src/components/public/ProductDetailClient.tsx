@@ -28,6 +28,11 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
     const { addItem } = useCart();
     const { getPriceInfo } = usePricing();
 
+    const getWatermarkedUrl = (url: string) => {
+        if (!url || !url.startsWith('http')) return url;
+        return `/api/image?url=${encodeURIComponent(url)}`;
+    };
+
     const handleChatSales = () => {
         const waNumber = whatsappConfig?.number || "6281262220021"; // Fallback to footer/default
         const waMessage = whatsappConfig?.message || "Halo Admin, saya ingin bertanya tentang produk:";
@@ -41,7 +46,7 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
     const galleryImages = [
         product.image,
         ...(product.sliderImages || [])
-    ].filter(Boolean) as string[];
+    ].filter(Boolean).map(img => getWatermarkedUrl(img as string));
 
     const [activeImage, setActiveImage] = useState(galleryImages[0] || null);
 
