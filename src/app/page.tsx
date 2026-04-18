@@ -1,14 +1,25 @@
+import dynamic from "next/dynamic";
 import SiteHeader from "@/components/layout/SiteHeader";
-import Footer from "@/components/layout/Footer";
 import HeroSlider from "@/components/home/HeroSlider";
 import CategorySection from "@/components/home/CategorySection";
-import PromoBanners from "@/components/home/PromoBanners";
-import NewsSection from "@/components/home/NewsSection";
-import ClientPortfolioSection from "@/components/home/ClientPortfolioSection";
+
+// Lazy load components that are below the fold
+const ClientPortfolioSection = dynamic(() => import("@/components/home/ClientPortfolioSection"), {
+  loading: () => <div className="h-96 animate-pulse bg-gray-100" />
+});
+const PromoBanners = dynamic(() => import("@/components/home/PromoBanners"), {
+  loading: () => <div className="h-48 animate-pulse bg-gray-100" />
+});
+const NewsSection = dynamic(() => import("@/components/home/NewsSection"), {
+  loading: () => <div className="h-96 animate-pulse bg-gray-100" />
+});
+const Footer = dynamic(() => import("@/components/layout/Footer"));
 
 import { getSiteSetting } from "@/app/actions/settings";
 import { getLatestNews } from "@/app/actions/news";
 import { db } from "@/lib/db";
+
+export const revalidate = 3600; // Cache for 1 hour, but admin can purge it instantly
 
 export default async function Home() {
   const [savedGridSettings, clientProjects, latestNews, activeBanners] = await Promise.all([
