@@ -29,8 +29,18 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
     const { getPriceInfo } = usePricing();
 
     const getWatermarkedUrl = (url: string) => {
-        if (!url || !url.startsWith('http')) return url;
-        return `/api/image?url=${encodeURIComponent(url)}`;
+        if (!url) return url;
+        // Handle both full URLs (http) and internal relative paths (/uploads, /assets)
+        if (url.startsWith('http') || url.startsWith('/')) {
+            // Avoid double wrapping
+            if (url.includes('/api/image')) return url;
+            
+            // For relative paths, we need to provide the full URL to the API if it's on S3,
+            // or handle it relative to the base URL.
+            // But usually, images are on assets.hokiindo.co.id
+            return `/api/image?url=${encodeURIComponent(url)}`;
+        }
+        return url;
     };
 
     const handleChatSales = () => {

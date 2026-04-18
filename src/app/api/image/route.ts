@@ -12,9 +12,19 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-        // 1. Fetch the source image
-        const response = await fetch(imageUrl);
-        if (!response.ok) throw new Error("Failed to fetch image");
+        // 1. Resolve URL (Internal vs External)
+        let fullUrl = imageUrl;
+        if (imageUrl.startsWith("/")) {
+            // Prepend origin if relative path
+            const origin = req.nextUrl.origin;
+            fullUrl = `${origin}${imageUrl}`;
+        }
+
+        console.log(`Processing watermark for: ${fullUrl}`);
+
+        // 2. Fetch the source image
+        const response = await fetch(fullUrl);
+        if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
         const arrayBuffer = await response.arrayBuffer();
         const inputBuffer = Buffer.from(arrayBuffer);
 
@@ -24,11 +34,22 @@ export async function GET(req: NextRequest) {
         const watermarkPath = path.join(process.cwd(), "public", "logo.png");
         const watermarkBuffer = fs.readFileSync(watermarkPath);
 
-        // Process watermark: Resize and make it white/semi-transparent
+        // Get watermark metadata to handle opacity correctly
+        const wmMetadata = await sharp(watermarkBuffer).metadata();
+        const wmWidth = 250; // Increased size
+        const wmHeight = wmMetadata.height ? Math.round((wmMetadata.height / (wmMetadata.width || 1)) * wmWidth) : 100;
+
+        // Process watermark: Invert to white and set 50% opacity
         const processedWatermark = await sharp(watermarkBuffer)
-            .resize(200) // Adjust size as needed
-            .negate() // Invert black to white (assuming it's black on transparent)
-            .ensureAlpha(0.3) // 30% opacity
+            .resize(wmWidth)
+            .negate({ alpha: false }) // Turn black to white, keep transparency
+            .composite([
+                {
+                    input: Buffer.alloc(wmWidth * wmHeight, 128), // 128 = ~50% opacity
+                    raw: { width: wmWidth, height: wmHeight, channels: 1 },
+                    blend: "dest-in"
+                }
+            ])
             .toBuffer();
 
         // 3. Composite watermark on main image
@@ -36,7 +57,7 @@ export async function GET(req: NextRequest) {
             .composite([
                 {
                     input: processedWatermark,
-                    gravity: "center", // Center watermark or "southeast" for corner
+                    gravity: "southeast", // Bottom right is more standard
                     blend: "over"
                 }
             ])
