@@ -1,4 +1,4 @@
-// DB connection (Force Reload)
+// DB connection (Force Reload - Brand table added)
 import { PrismaClient } from "@prisma/client";
 
 declare global {

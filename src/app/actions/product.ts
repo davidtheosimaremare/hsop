@@ -64,7 +64,7 @@ export async function syncProductsAction() {
                 // Determine category name
                 const category = ap.itemCategory?.name || "Uncategorized";
                 // Determine brand name
-                const brand = ap.itemBrand?.name || null;
+                const brand = ap.itemBrand?.name ? ap.itemBrand.name.toUpperCase() : null;
 
                 await db.product.upsert({
                     where: { accurateId: ap.id }, // Use accurateId as unique identifier for sync
@@ -135,7 +135,7 @@ export async function syncSingleProductAction(itemNo: string) {
 
         const stock = ap.availableToSell || 0;
         const category = ap.itemCategory?.name || "Uncategorized";
-        const brand = ap.itemBrand?.name || null;
+        const brand = ap.itemBrand?.name ? ap.itemBrand.name.toUpperCase() : null;
 
         await db.product.upsert({
             where: { accurateId: ap.id },
