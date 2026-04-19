@@ -23,15 +23,38 @@ export async function syncBrandsFromAccurate() {
         let totalSynced = 0;
         for (const [id, name] of Array.from(brandsMap.entries())) {
             const upperName = name.toUpperCase();
-            await db.brand.upsert({
-                where: { accurateId: id },
-                update: { name: upperName },
-                create: {
-                    name: upperName,
-                    accurateId: id,
-                    isVisible: true
-                }
+            
+            // 1. Try to find by accurateId first
+            let existingBrand = await db.brand.findUnique({
+                where: { accurateId: id }
             });
+
+            // 2. If not found by ID, try finding by name (to link old data)
+            if (!existingBrand) {
+                existingBrand = await db.brand.findUnique({
+                    where: { name: upperName }
+                });
+            }
+
+            if (existingBrand) {
+                // Update existing
+                await db.brand.update({
+                    where: { id: existingBrand.id },
+                    data: { 
+                        name: upperName,
+                        accurateId: id
+                    }
+                });
+            } else {
+                // Create new
+                await db.brand.create({
+                    data: {
+                        name: upperName,
+                        accurateId: id,
+                        isVisible: true
+                    }
+                });
+            }
             totalSynced++;
         }
 
