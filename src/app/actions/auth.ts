@@ -80,11 +80,16 @@ export async function loginAction(prevState: any, formData: FormData) {
         // Vendor role -> /vendor
         // Customer roles (CUSTOMER) -> / (home)
         const adminRoles = ["SUPER_ADMIN", "ADMIN", "MANAGER", "STAFF", "VIEWER"];
+        console.log(`User role: ${user.role}. Admin roles: ${adminRoles.join(', ')}`);
+        
         if (user.role && adminRoles.includes(user.role)) {
+            console.log("Redirecting to /admin");
             redirect("/admin");
         } else if (user.role === "VENDOR") {
+            console.log("Redirecting to /vendor");
             redirect("/vendor");
         } else {
+            console.log("Redirecting to /");
             redirect("/");
         }
 
