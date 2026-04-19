@@ -74,7 +74,7 @@ export default function VendorProductsPage() {
         const template = [
             { 
                 "Kategori Barang": "Contoh: PLC", 
-                "Kode Barang (MLFB/ SKU)": "6ES7214-1AG40-0XB0", 
+                "Kode Barang (MLFB/ SKU)": "CONTOH-123", 
                 "Nama Barang": "Siemens S7-1200 CPU 1214C", 
                 "Deskripsi/Detail produk (optional)": "Keterangan detail produk...", 
                 "Def. Hrg. Jual Satuan": 5500000, 
