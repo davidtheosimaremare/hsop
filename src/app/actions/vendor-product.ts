@@ -175,34 +175,14 @@ export async function bulkImportVendorProductsAction(products: any[]) {
                     }
                 }
                 
-                // Handle duplicate SKUs: update if owned by same vendor, or create new if not exists
-                // Note: We use findFirst then create/update because upsert requires a unique field like ID or a single unique constraint.
-                // Since SKU is unique, we check existence.
+                // Check if SKU already exists anywhere in the system
                 const existingProduct = await db.product.findUnique({
-                    where: { sku: p.sku }
+                    where: { sku: p.sku },
+                    select: { id: true, name: true }
                 });
 
                 if (existingProduct) {
-                    // If SKU exists but belongs to another vendor (or main catalog), we can't overwrite it
-                    if (existingProduct.vendorId !== user.id) {
-                        console.warn(`SKU ${p.sku} already exists and belongs to another vendor/main catalog. Skipping.`);
-                        return null; 
-                    }
-
-                    // If it belongs to this vendor, update it
-                    return db.product.update({
-                        where: { id: existingProduct.id },
-                        data: {
-                            name: p.name,
-                            price: parseFloat(p.price) || 0,
-                            description: p.description,
-                            category: p.category,
-                            brand: p.brand,
-                            availableToSell: parseInt(p.stock) || 0,
-                            image: finalImageUrl || existingProduct.image,
-                            status: "PENDING", // Reset to pending after update
-                        }
-                    });
+                    throw new Error(`Produk dengan SKU "${p.sku}" sudah ada di sistem (${existingProduct.name}). Harap gunakan SKU yang berbeda.`);
                 }
 
                 // If doesn't exist, create new
