@@ -20,6 +20,12 @@ export async function syncBrandsFromAccurate() {
         
         console.log(`Discovered ${brandsMap.size} unique brands from ${accurateProducts.length} products.`);
         
+        // Cleanup step: Delete any existing brands that are not in our discovered list or have wrong casing
+        // This helps remove duplicates like "Siemens" when "SIEMENS" exists
+        const discoveredUpperNames = Array.from(brandsMap.values()).map(n => n.toUpperCase());
+        // Also add manual ones we auto-assign
+        discoveredUpperNames.push("SIEMENS", "G-COMIN", "APS");
+
         let totalSynced = 0;
         for (const [id, name] of Array.from(brandsMap.entries())) {
             const upperName = name.toUpperCase();
@@ -31,13 +37,14 @@ export async function syncBrandsFromAccurate() {
 
             // 2. If not found by ID, try finding by name (to link old data)
             if (!existingBrand) {
-                existingBrand = await db.brand.findUnique({
-                    where: { name: upperName }
+                // Find case-insensitively to catch "Siemens" when searching for "SIEMENS"
+                existingBrand = await db.brand.findFirst({
+                    where: { name: { equals: upperName, mode: 'insensitive' } }
                 });
             }
 
             if (existingBrand) {
-                // Update existing
+                // Update existing to correct casing and ensure accurateId is set
                 await db.brand.update({
                     where: { id: existingBrand.id },
                     data: { 
@@ -57,6 +64,14 @@ export async function syncBrandsFromAccurate() {
             }
             totalSynced++;
         }
+
+        // Final cleanup: Remove any brands that are not uppercase in our main list
+        // This handles cases where a brand like "Siemens" exists but has no accurateId
+        await db.brand.deleteMany({
+            where: {
+                name: { notIn: discoveredUpperNames }
+            }
+        });
 
         revalidatePath("/admin/settings/brands");
         return { success: true, count: totalSynced };

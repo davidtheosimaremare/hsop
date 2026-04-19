@@ -64,7 +64,15 @@ export async function syncProductsAction() {
                 // Determine category name
                 const category = ap.itemCategory?.name || "Uncategorized";
                 // Determine brand name
-                const brand = ap.itemBrand?.name ? ap.itemBrand.name.toUpperCase() : null;
+                let brand = ap.itemBrand?.name ? ap.itemBrand.name.toUpperCase() : null;
+                
+                // Fallback: Auto-assign brand based on name if empty
+                if (!brand) {
+                    const upperName = ap.name.toUpperCase();
+                    if (upperName.includes("SIEMENS")) brand = "SIEMENS";
+                    else if (upperName.includes("G-COMIN") || upperName.includes("COMING")) brand = "G-COMIN";
+                    else if (upperName.includes("APS")) brand = "APS";
+                }
 
                 await db.product.upsert({
                     where: { accurateId: ap.id }, // Use accurateId as unique identifier for sync
