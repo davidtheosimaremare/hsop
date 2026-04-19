@@ -4,8 +4,10 @@ import { redirect } from "next/navigation";
 import { login, logout } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { compare } from "bcryptjs";
+import { unstable_noStore as noStore } from "next/cache";
 
 export async function loginAction(prevState: any, formData: FormData) {
+    noStore();
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
     const remember = formData.get("remember") === "on";
