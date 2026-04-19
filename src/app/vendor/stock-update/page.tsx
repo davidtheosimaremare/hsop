@@ -80,23 +80,29 @@ export default function VendorStockUpdatePage() {
     }, []);
 
     const handleExportTemplate = () => {
-        // Updated to match the "data excel sebelumnya" format (same headers as products import)
-        const template = [
-            { 
-                "Kategori Barang": "PLC", 
-                "Kode Barang (MLFB/ SKU)": "6ES7214-1AG40-0XB0", 
-                "Nama Barang": "Siemens S7-1200 CPU 1214C", 
-                "Deskripsi/Detail produk (optional)": "", 
-                "Def. Hrg. Jual Satuan": 0, 
-                "Merek Barang": "Siemens", 
-                "Quantity/Stock": 15,
-                "Link Gambar (optional)": ""
-            },
-        ];
-        const ws = XLSX.utils.json_to_sheet(template);
+        if (vendorProducts.length === 0) {
+            toast.error("Tidak ada produk untuk diekspor ke template");
+            return;
+        }
+
+        // Export existing products with their current stock, allowing user to just change the stock column
+        const dataForTemplate = vendorProducts.map(p => ({
+            "Kategori Barang": p.category || "—",
+            "Kode Barang (MLFB/ SKU)": p.sku,
+            "Nama Barang": p.name,
+            "Deskripsi/Detail produk (optional)": p.description || "",
+            "Def. Hrg. Jual Satuan": p.price || 0,
+            "Merek Barang": p.brand || "—",
+            "Quantity/Stock (STOK SAAT INI)": p.availableToSell,
+            "Quantity/Stock": p.availableToSell, // User will update this column
+            "Link Gambar (optional)": ""
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(dataForTemplate);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Update_Stok");
-        XLSX.writeFile(wb, "Template_Update_Stok_Vendor.xlsx");
+        XLSX.writeFile(wb, `Template_Update_Stok_${new Date().toISOString().split('T')[0]}.xlsx`);
+        toast.success("Template berhasil diunduh dengan data produk Anda");
     };
 
     const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
