@@ -175,6 +175,37 @@ export async function bulkImportVendorProductsAction(products: any[]) {
                     }
                 }
                 
+                // Handle duplicate SKUs: update if owned by same vendor, or create new if not exists
+                // Note: We use findFirst then create/update because upsert requires a unique field like ID or a single unique constraint.
+                // Since SKU is unique, we check existence.
+                const existingProduct = await db.product.findUnique({
+                    where: { sku: p.sku }
+                });
+
+                if (existingProduct) {
+                    // If SKU exists but belongs to another vendor (or main catalog), we can't overwrite it
+                    if (existingProduct.vendorId !== user.id) {
+                        console.warn(`SKU ${p.sku} already exists and belongs to another vendor/main catalog. Skipping.`);
+                        return null; 
+                    }
+
+                    // If it belongs to this vendor, update it
+                    return db.product.update({
+                        where: { id: existingProduct.id },
+                        data: {
+                            name: p.name,
+                            price: parseFloat(p.price) || 0,
+                            description: p.description,
+                            category: p.category,
+                            brand: p.brand,
+                            availableToSell: parseInt(p.stock) || 0,
+                            image: finalImageUrl || existingProduct.image,
+                            status: "PENDING", // Reset to pending after update
+                        }
+                    });
+                }
+
+                // If doesn't exist, create new
                 return db.product.create({
                     data: {
                         name: p.name,
@@ -194,8 +225,10 @@ export async function bulkImportVendorProductsAction(products: any[]) {
             })
         );
 
+        const filteredResults = createdProducts.filter(p => p !== null);
+
         revalidatePath("/vendor/products");
-        return { success: true, count: createdProducts.length };
+        return { success: true, count: filteredResults.length };
     } catch (error: any) {
         return { success: false, error: error.message };
     }
