@@ -74,8 +74,12 @@ export async function loginAction(prevState: any, formData: FormData) {
         console.log("Session created with customerId:", user.customerId);
 
         const { cookies } = await import("next/headers");
-        (await cookies()).set("session", session, { expires, httpOnly: true });
+        const cookieStore = await cookies();
+        cookieStore.set("session", session, { expires, httpOnly: true, path: "/" });
         console.log("Session cookie set.");
+
+        // Small delay to ensure cookie is committed in some environments
+        await new Promise(resolve => setTimeout(resolve, 500));
 
         // Redirect based on role
         // Admin roles (SUPER_ADMIN, ADMIN, MANAGER) -> /admin

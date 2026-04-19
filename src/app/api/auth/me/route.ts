@@ -21,17 +21,7 @@ export async function GET() {
                 role: true,
                 name: true,
                 phone: true,
-                address: true,
                 customerId: true,
-                customer: {
-                    select: {
-                        address: true,
-                        addresses: {
-                            where: { isPrimary: true },
-                            take: 1
-                        }
-                    }
-                }
             },
         });
 
@@ -43,17 +33,6 @@ export async function GET() {
             );
         }
 
-        // Determine best address to return
-        let finalAddress = user.address;
-        if (!finalAddress) {
-            if (user.customer?.addresses?.[0]) {
-                const primary = user.customer.addresses[0];
-                finalAddress = `${primary.label ? `[${primary.label}] ` : ""}${primary.address}${primary.recipient ? ` - UP: ${primary.recipient}` : ""}${primary.phone ? ` (${primary.phone})` : ""}`;
-            } else if (user.customer?.address) {
-                finalAddress = user.customer.address;
-            }
-        }
-
         return NextResponse.json({
             user: {
                 id: user.id,
@@ -61,7 +40,6 @@ export async function GET() {
                 role: user.role,
                 name: user.name,
                 phone: user.phone,
-                address: user.customer?.address || user.address,
                 customerId: user.customerId
             },
         });
