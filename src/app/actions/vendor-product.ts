@@ -237,6 +237,35 @@ export async function adminApproveProductAction(id: string) {
     }
 }
 
+export async function adminBulkApproveProductsAction(ids: string[]) {
+    try {
+        const session = await getSession();
+        if (!session || !["SUPER_ADMIN", "ADMIN", "MANAGER"].includes(session.user.role)) {
+            throw new Error("Unauthorized");
+        }
+
+        if (!ids || ids.length === 0) {
+            throw new Error("No product IDs provided");
+        }
+
+        await db.product.updateMany({
+            where: {
+                id: { in: ids },
+                isVendorProduct: true
+            },
+            data: {
+                status: "APPROVED",
+                isVisible: true,
+            },
+        });
+
+        revalidatePath("/admin/vendor-products");
+        return { success: true, count: ids.length };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
 export async function adminRejectProductAction(id: string, reason: string) {
     try {
         const session = await getSession();

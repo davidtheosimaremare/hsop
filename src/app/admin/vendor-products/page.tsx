@@ -16,21 +16,21 @@ import {
 } from "lucide-react";
 import { 
     adminApproveProductAction, 
+    adminBulkApproveProductsAction,
     adminRejectProductAction 
 } from "@/app/actions/vendor-product";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export const dynamic = "force-dynamic";
-
-// I need an action to fetch all vendor products for admin
-// I'll add it to vendor-product.ts
 
 export default function AdminVendorProductsPage() {
     const [products, setProducts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [isPending, startTransition] = useTransition();
 
     const fetchProducts = async () => {
@@ -47,6 +47,35 @@ export default function AdminVendorProductsPage() {
     useEffect(() => {
         fetchProducts();
     }, []);
+
+    const toggleSelectAll = () => {
+        const pendingProducts = filteredProducts.filter(p => p.status === "PENDING");
+        if (selectedIds.length === pendingProducts.length && pendingProducts.length > 0) {
+            setSelectedIds([]);
+        } else {
+            setSelectedIds(pendingProducts.map(p => p.id));
+        }
+    };
+
+    const toggleSelect = (id: string) => {
+        setSelectedIds(prev => 
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        );
+    };
+
+    const handleBulkApprove = async () => {
+        if (selectedIds.length === 0) return;
+        if (!confirm(`Setujui ${selectedIds.length} produk terpilih untuk ditampilkan di toko?`)) return;
+
+        const result = await adminBulkApproveProductsAction(selectedIds);
+        if (result.success) {
+            toast.success(`${result.count} produk berhasil disetujui`);
+            setSelectedIds([]);
+            fetchProducts();
+        } else {
+            toast.error(result.error || "Gagal menyetujui produk");
+        }
+    };
 
     const handleApprove = async (id: string) => {
         if (!confirm("Setujui produk ini untuk ditampilkan di toko?")) return;
@@ -81,9 +110,20 @@ export default function AdminVendorProductsPage() {
 
     return (
         <div className="space-y-6">
-            <div className="space-y-1">
-                <h1 className="text-3xl font-black text-slate-900 tracking-tight">Persetujuan Produk Vendor</h1>
-                <p className="text-slate-500 font-medium">Verifikasi dan setujui produk yang diajukan oleh vendor.</p>
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div className="space-y-1">
+                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">Persetujuan Produk Vendor</h1>
+                    <p className="text-slate-500 font-medium">Verifikasi dan setujui produk yang diajukan oleh vendor.</p>
+                </div>
+                {selectedIds.length > 0 && (
+                    <Button 
+                        onClick={handleBulkApprove}
+                        className="bg-green-600 hover:bg-green-700 text-white font-black text-xs uppercase tracking-widest px-6 h-11 rounded-xl shadow-lg shadow-green-600/20"
+                    >
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Setujui {selectedIds.length} Terpilih
+                    </Button>
+                )}
             </div>
 
             <Card className="border-none shadow-sm bg-white rounded-2xl overflow-hidden">
@@ -103,6 +143,13 @@ export default function AdminVendorProductsPage() {
                         <table className="w-full text-left">
                             <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-50">
                                 <tr>
+                                    <th className="px-6 py-4 w-10">
+                                        <Checkbox 
+                                            checked={selectedIds.length > 0 && selectedIds.length === filteredProducts.filter(p => p.status === "PENDING").length}
+                                            onCheckedChange={toggleSelectAll}
+                                            disabled={loading || filteredProducts.filter(p => p.status === "PENDING").length === 0}
+                                        />
+                                    </th>
                                     <th className="px-6 py-4">Produk</th>
                                     <th className="px-6 py-4">Vendor</th>
                                     <th className="px-6 py-4">Harga</th>
@@ -113,21 +160,31 @@ export default function AdminVendorProductsPage() {
                             <tbody className="divide-y divide-slate-50">
                                 {loading ? (
                                     <tr>
-                                        <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
+                                        <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
                                             <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
                                             Memuat data...
                                         </td>
                                     </tr>
                                 ) : filteredProducts.length === 0 ? (
                                     <tr>
-                                        <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
+                                        <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
                                             <Package className="w-12 h-12 mx-auto mb-2 opacity-20" />
                                             Tidak ada antrian produk vendor.
                                         </td>
                                     </tr>
                                 ) : (
                                     filteredProducts.map((product) => (
-                                        <tr key={product.id} className="hover:bg-slate-50/50 transition-colors">
+                                        <tr key={product.id} className={cn(
+                                            "hover:bg-slate-50/50 transition-colors",
+                                            selectedIds.includes(product.id) && "bg-teal-50/50"
+                                        )}>
+                                            <td className="px-6 py-4">
+                                                <Checkbox 
+                                                    checked={selectedIds.includes(product.id)}
+                                                    onCheckedChange={() => toggleSelect(product.id)}
+                                                    disabled={product.status !== "PENDING"}
+                                                />
+                                            </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center border border-slate-200 flex-shrink-0">
