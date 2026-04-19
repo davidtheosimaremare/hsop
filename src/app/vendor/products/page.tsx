@@ -89,6 +89,30 @@ export default function VendorProductsPage() {
         XLSX.writeFile(wb, "Template_Import_Produk_Vendor.xlsx");
     };
 
+    const handleExportData = () => {
+        if (products.length === 0) {
+            toast.error("Tidak ada data produk untuk diekspor");
+            return;
+        }
+
+        const dataToExport = products.map(p => ({
+            "Nama Barang": p.name,
+            "Kode Barang (MLFB/ SKU)": p.sku,
+            "Merek Barang": p.brand || "—",
+            "Kategori Barang": p.category || "—",
+            "Harga Jual": p.price,
+            "Stok": p.availableToSell,
+            "Status": p.status === "APPROVED" ? "Disetujui" : p.status === "PENDING" ? "Menunggu" : "Ditolak",
+            "Deskripsi": p.description || ""
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(dataToExport);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Produk Vendor");
+        XLSX.writeFile(wb, `Data_Produk_Vendor_${new Date().toISOString().split('T')[0]}.xlsx`);
+        toast.success("Data produk berhasil diekspor");
+    };
+
     const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -178,6 +202,10 @@ export default function VendorProductsPage() {
                     <Button variant="outline" onClick={handleExportTemplate} className="rounded-2xl border-slate-200 font-bold text-xs h-11 px-5 shadow-sm hover:bg-slate-50 transition-all">
                         <FileDown className="w-4 h-4 mr-2 text-teal-600" />
                         Template
+                    </Button>
+                    <Button variant="outline" onClick={handleExportData} className="rounded-2xl border-slate-200 font-bold text-xs h-11 px-5 shadow-sm hover:bg-slate-50 transition-all">
+                        <FileDown className="w-4 h-4 mr-2 text-red-600" />
+                        Ekspor Data
                     </Button>
                     <div className="relative">
                         <Input
