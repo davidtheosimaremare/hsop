@@ -7,7 +7,7 @@ import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import ShareButton from "./ShareButton";
-import { getProductSlug, cn } from "@/lib/utils";
+import { getProductSlug, cn, formatRichText } from "@/lib/utils";
 import { useCart } from "@/lib/useCart";
 import { usePricing } from "@/lib/PricingContext";
 import AdminProductFloatingBar from "./AdminProductFloatingBar";
@@ -378,7 +378,7 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
 
                         </div>
                     ) : (
-                        <div className="text-sm text-gray-600 space-y-4 prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: product.description || "Tidak ada deskripsi." }} />
+                        <div className="text-sm text-gray-600 space-y-4 prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: formatRichText(product.description) || "Tidak ada deskripsi." }} />
                     )}
                 </div>
 
@@ -522,7 +522,7 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                     <h2 className="text-xl font-bold text-gray-900 mb-6 border-b pb-4">Deskripsi Produk Lengkap</h2>
                     <div
                         className="prose prose-sm md:prose-base max-w-none text-gray-700 rich-text-content"
-                        dangerouslySetInnerHTML={{ __html: product.longDescription }}
+                        dangerouslySetInnerHTML={{ __html: formatRichText(product.longDescription) }}
                     />
                 </section>
             )}
