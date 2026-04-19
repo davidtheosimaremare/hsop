@@ -12,8 +12,16 @@ interface Category {
     children: Category[];
 }
 
+interface Category {
+    id: string;
+    name: string;
+    alias: string | null;
+    children: Category[];
+}
+
 interface Brand {
     name: string;
+    displayName: string;
     count: number;
 }
 
@@ -165,7 +173,7 @@ export default function SidebarFilter({ categories, brands }: SidebarFilterProps
                                     />
                                     <span className={`text-sm ${currentBrand === brand.name ? "text-red-600 font-medium" : "text-gray-700"
                                         }`}>
-                                        {brand.name}
+                                        {brand.displayName}
                                     </span>
                                 </div>
                                 <span className="text-xs text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">

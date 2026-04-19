@@ -25,42 +25,32 @@ export async function getCategoriesTree() {
 }
 
 export async function getBrands() {
-    // Since brand is not coming from accurate, extract the first word from product name
+    // Fetch only visible brands
+    const brands = await db.brand.findMany({
+        where: { isVisible: true },
+        orderBy: { name: 'asc' }
+    });
+
+    // We need counts for each brand
+    // For now, let's get the counts from the product table
     const products = await db.product.findMany({
-        where: {
-            isVisible: true,
-            name: { not: "" }
-        },
-        select: {
-            name: true
-        }
+        where: { isVisible: true },
+        select: { brand: true }
     });
 
     const brandCounts: Record<string, number> = {};
-
     products.forEach(p => {
-        if (p.name) {
-            const firstWord = p.name.trim().split(/\s+/)[0];
-            if (firstWord) {
-                // Hilangkan koma dari brand agar tidak ada duplikat
-                const cleanWord = firstWord.replace(/,/g, '');
-                if (cleanWord) {
-                    const groupName = cleanWord.toUpperCase();
-                    // Filter out purely numeric or single character brands if you want,
-                    // but to strictly follow the "first word is the brand" rule:
-                    brandCounts[groupName] = (brandCounts[groupName] || 0) + 1;
-                }
-            }
+        if (p.brand) {
+            const b = p.brand.toUpperCase();
+            brandCounts[b] = (brandCounts[b] || 0) + 1;
         }
     });
 
-    const brands = Object.entries(brandCounts).map(([name, count]) => ({
-        name,
-        count
-    })).filter(b => b.name && b.name.trim() !== "")
-      .sort((a, b) => a.name.localeCompare(b.name));
-
-    return brands;
+    return brands.map(b => ({
+        name: b.name,
+        displayName: b.alias || b.name,
+        count: brandCounts[b.name.toUpperCase()] || 0
+    })).filter(b => b.count > 0);
 }
 
 export interface ProductFilterParams {
@@ -91,9 +81,17 @@ export async function getPublicProducts({
     });
     const hiddenCategoryNames = hiddenCategories.map(c => c.name);
 
+    // Fetch hidden brands
+    const hiddenBrands = await db.brand.findMany({
+        where: { isVisible: false },
+        select: { name: true }
+    });
+    const hiddenBrandNames = hiddenBrands.map(b => b.name);
+
     const where: Prisma.ProductWhereInput = {
         isVisible: true,
         category: hiddenCategoryNames.length > 0 ? { notIn: hiddenCategoryNames } : undefined,
+        brand: hiddenBrandNames.length > 0 ? { notIn: hiddenBrandNames } : undefined,
     };
 
     if (query) {
@@ -131,10 +129,9 @@ export async function getPublicProducts({
     }
 
     if (brand && brand !== "all") {
-        where.AND = [
-            ...(Array.isArray(where.AND) ? where.AND : (where.AND ? [(where.AND as any)] : [])),
-            { name: { startsWith: brand, mode: "insensitive" } }
-        ];
+        // If the brand has an alias, we should still search by the original name in the product table
+        // because the product table stores the original name.
+        where.brand = { equals: brand, mode: "insensitive" };
     }
 
     // Stock filter - use database value (synced from Accurate)

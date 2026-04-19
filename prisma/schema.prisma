@@ -241,6 +241,18 @@ model ClientProject {
   updatedAt   DateTime @updatedAt
 }
 
+model Brand {
+  id         String   @id @default(cuid())
+  name       String   @unique
+  alias      String?
+  isVisible  Boolean  @default(true)
+  accurateId Int?     @unique
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([name])
+}
+
 model Banner {
   id        String   @id @default(cuid())
   title     String?

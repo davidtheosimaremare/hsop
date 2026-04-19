@@ -61,6 +61,7 @@ export type Permission =
   | "search:manage"
   | "format_file:manage"
   | "footer:manage"
+  | "brands:manage"
   | "developer:view";
 
 // Define permissions for each role
@@ -93,6 +94,7 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
     "search:manage",
     "format_file:manage",
     "footer:manage",
+    "brands:manage",
     "developer:view",
   ],
   ADMIN: [
@@ -122,6 +124,7 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
     "search:manage",
     "format_file:manage",
     "footer:manage",
+    "brands:manage",
     // No access to: webhooks, users:manage, developer
   ],
   MANAGER: [
@@ -236,6 +239,7 @@ export const routePermissions: Record<string, Permission[]> = {
   "/admin/settings/search": ["search:manage"],
   "/admin/settings/format-file": ["format_file:manage"],
   "/admin/settings/footer": ["footer:manage"],
+  "/admin/settings/brands": ["brands:manage"],
   // Users & Dev
   "/admin/users": ["users:view"],
   "/admin/developer/webhooks": ["webhooks:view"],
@@ -450,6 +454,7 @@ export const sidebarMenuItems = [
       { title: "Saran Pencarian", href: "/admin/settings/search", icon: "Search", requiredPermission: "search:manage" },
       { title: "Portfolio", href: "/admin/settings/portfolio", icon: "Briefcase", requiredPermission: "portfolio:manage" },
       { title: "Footer", href: "/admin/settings/footer", icon: "LayoutTemplate", requiredPermission: "footer:manage" },
+      { title: "Daftar Brand", href: "/admin/settings/brands", icon: "ShoppingBag", requiredPermission: "brands:manage" },
     ],
   },
 
@@ -773,6 +778,12 @@ export const permissionCategories = [
     label: "Footer",
     description: "Footer website",
     icon: "🦶",
+  },
+  {
+    id: "brands",
+    label: "Brand",
+    description: "Manajemen brand produk",
+    icon: "🏷️",
   },
   {
     id: "developer",
