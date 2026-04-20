@@ -19,12 +19,19 @@ export default function VendorLayout({
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
     useEffect(() => {
+        if (pathname === "/vendor/login") return;
+
         if (!isLoading && !user) {
-            router.push("/masuk");
+            router.push("/vendor/login");
         } else if (!isLoading && user && user.role !== "VENDOR" && user.role !== "SUPER_ADMIN") {
             router.push("/");
         }
-    }, [isLoading, user, router]);
+    }, [isLoading, user, router, pathname]);
+
+    // If it's the login page, just render the children without the sidebar/topbar
+    if (pathname === "/vendor/login") {
+        return <>{children}</>;
+    }
 
     if (isLoading) {
         return (
