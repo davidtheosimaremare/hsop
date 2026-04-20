@@ -60,7 +60,7 @@ export default function DashboardPage() {
                 // Get customer type from user data
                 if (userResult) {
                     setUser(userResult);
-                    setCustomerType(userResult.customerType || "RETAIL");
+                    setCustomerType(userResult.customer?.type || "RETAIL");
                 }
                 setUpgradeRequest(upgradeResult);
 

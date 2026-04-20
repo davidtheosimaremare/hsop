@@ -67,7 +67,7 @@ export default function VendorSidebar({ isOpen, setIsOpen }: SidebarProps) {
             </Button>
 
             <nav className="flex-1 py-4 px-3 space-y-0.5 overflow-y-auto">
-                {vendorSidebarMenuItems.map((item) => {
+                {(vendorSidebarMenuItems as any[]).map((item) => {
                     const IconComponent = iconMap[item.icon] || LayoutDashboard;
                     const isParentActive = item.href === "/vendor"
                         ? pathname === "/vendor"
@@ -102,7 +102,7 @@ export default function VendorSidebar({ isOpen, setIsOpen }: SidebarProps) {
                                     </button>
                                 </CollapsibleTrigger>
                                 <CollapsibleContent className="space-y-0.5 pl-4">
-                                    {item.children.map((child) => {
+                                    {item.children.map((child: any) => {
                                         const ChildIcon = iconMap[child.icon] || FileText;
                                         const isChildActive = pathname === child.href;
                                         return (

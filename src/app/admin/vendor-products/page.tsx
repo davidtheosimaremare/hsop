@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect, useTransition, useCallback } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,19 +33,24 @@ export default function AdminVendorProductsPage() {
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [isPending, startTransition] = useTransition();
 
-    const fetchProducts = async () => {
+    const fetchProducts = useCallback(async () => {
         setLoading(true);
-        const res = await fetch("/api/admin/vendor-products");
-        if (res.ok) {
-            const data = await res.json();
-            setProducts(data.products || []);
+        try {
+            const res = await fetch("/api/admin/vendor-products");
+            if (res.ok) {
+                const data = await res.json();
+                setProducts(data.products || []);
+            }
+        } catch (error) {
+            console.error("Fetch products failed:", error);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
-    };
+    }, []);
 
     useEffect(() => {
         fetchProducts();
-    }, []);
+    }, [fetchProducts]);
 
     const filteredProducts = products.filter(p => 
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 

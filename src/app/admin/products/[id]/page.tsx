@@ -162,6 +162,7 @@ export default async function AdminProductDetailPage({ params }: { params: { id:
                                     <EditableDatasheetSection
                                         productId={product.id}
                                         sku={product.sku}
+                                        brand={product.brand}
                                         initialDatasheet={product.datasheet}
                                     />
                                 </div>

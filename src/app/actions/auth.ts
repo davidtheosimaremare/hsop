@@ -1,11 +1,18 @@
 "use server";
 
-import { redirect, isRedirectError } from "next/navigation";
+import { redirect } from "next/navigation";
 import { encrypt } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { compare } from "bcryptjs";
 import { unstable_noStore as noStore } from "next/cache";
 import { cookies } from "next/headers";
+
+function isRedirectError(error: any) {
+    return error && typeof error === 'object' && (
+        error.digest?.startsWith('NEXT_REDIRECT') ||
+        error.message?.includes('NEXT_REDIRECT')
+    );
+}
 
 export async function loginAction(prevState: any, formData: FormData) {
     noStore();
@@ -29,11 +36,19 @@ export async function loginAction(prevState: any, formData: FormData) {
 
         const isValid = await compare(password, user.password);
         if (!isValid) {
-            return { error: "Email atau password salah." };
+            return { error: "Email atau password salah.", email };
+        }
+
+        if (!user.isVerified) {
+            return { 
+                error: "Akun Anda belum diverifikasi.", 
+                unverified: true, 
+                email 
+            };
         }
 
         if (!user.isActive) {
-            return { error: "Akun Anda dinonaktifkan." };
+            return { error: "Akun Anda dinonaktifkan.", email };
         }
 
         userRole = user.role;
@@ -92,11 +107,11 @@ export async function requestPasswordReset(prevState: any, formData: FormData) {
         if (!user) return { error: "Email tidak terdaftar." };
 
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+        const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
         await db.user.update({
             where: { id: user.id },
-            data: { otp, otpExpiry }
+            data: { otp, otpExpiresAt }
         });
 
         if (user.phone) await sendFonteeOTP(user.phone, otp);
@@ -108,26 +123,40 @@ export async function requestPasswordReset(prevState: any, formData: FormData) {
     }
 }
 
-export async function verifyOTPAndReset(prevState: any, formData: FormData) {
+export async function resetPasswordAction(prevState: any, formData: FormData) {
     const email = formData.get("email") as string;
     const otp = formData.get("otp") as string;
     const newPassword = formData.get("password") as string;
+    const confirmPassword = formData.get("confirmPassword") as string;
+
+    if (newPassword !== confirmPassword) {
+        return { error: "Konfirmasi kata sandi tidak cocok." };
+    }
 
     try {
-        const user = await db.user.findUnique({ where: { email } });
-        if (!user || user.otp !== otp || !user.otpExpiry || user.otpExpiry < new Date()) {
+        const user = await db.user.findUnique({ 
+            where: { email },
+            select: { id: true, otp: true, otpExpiresAt: true }
+        });
+
+        if (!user || user.otp !== otp || !user.otpExpiresAt || user.otpExpiresAt < new Date()) {
             return { error: "OTP salah atau kedaluwarsa." };
         }
 
-        const hashedPassword = await hash(newPassword, 10);
+        const hashedPassword = await hash(newPassword, 12);
         await db.user.update({
             where: { id: user.id },
-            data: { password: hashedPassword, otp: null, otpExpiry: null }
+            data: { 
+                password: hashedPassword, 
+                otp: null, 
+                otpExpiresAt: null 
+            }
         });
 
-        return { success: true };
+        return { success: true, message: "Kata sandi Anda telah berhasil diubah." };
     } catch (error) {
-        return { error: "Gagal reset password." };
+        console.error("Reset password error:", error);
+        return { error: "Gagal mereset kata sandi. Silakan coba lagi." };
     }
 }
 

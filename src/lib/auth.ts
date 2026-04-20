@@ -21,20 +21,22 @@ export async function decrypt(input: string): Promise<any> {
 }
 
 export async function login(formData: FormData) {
-    // Verify credentials and create session
-    const user = { email: formData.get("email"), role: "admin" }; // Simplified
+    const user = { email: formData.get("email"), role: "admin" }; 
 
-    // Create the session
-    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); 
     const session = await encrypt({ user, expires });
 
-    // Save the session in a cookie
     const cookieStore = await cookies();
-    cookieStore.set("session", session, { expires, httpOnly: true, path: "/" });
+    cookieStore.set("session", session, { 
+        expires, 
+        httpOnly: true, 
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax"
+    });
 }
 
 export async function logout() {
-    // Destroy the session aggressively
     const cookieStore = await cookies();
     cookieStore.set("session", "", { 
         expires: new Date(0), 
@@ -52,7 +54,6 @@ export async function getSession() {
     try {
         return await decrypt(session);
     } catch (error) {
-        // Token expired or invalid - return null to treat as logged out
         return null;
     }
 }
@@ -62,9 +63,20 @@ export async function updateSession(request: NextRequest) {
     if (!session) return;
 
     try {
-        // Refresh the session so it doesn't expire
         const parsed = await decrypt(session);
-        parsed.expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+        
+        // Cek sisa waktu sesi (dalam milidetik)
+        const expires = new Date(parsed.expires).getTime();
+        const now = Date.now();
+        const oneHourInMs = 60 * 60 * 1000;
+
+        // HANYA update cookie jika sisa waktu kurang dari 23 jam (artinya sudah lewat 1 jam)
+        // Ini mencegah browser menerima "Set-Cookie" di setiap request API kecil
+        if (expires - now > 23 * oneHourInMs) {
+            return; 
+        }
+
+        parsed.expires = new Date(Date.now() + 24 * 60 * 60 * 1000); 
         const res = NextResponse.next();
         res.cookies.set({
             name: "session",
@@ -72,10 +84,11 @@ export async function updateSession(request: NextRequest) {
             httpOnly: true,
             expires: parsed.expires,
             path: "/",
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax"
         });
         return res;
     } catch (error) {
-        // Token expired or invalid - clear the session cookie
         const res = NextResponse.next();
         res.cookies.set({
             name: "session",
