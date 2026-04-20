@@ -55,7 +55,7 @@ export default function VendorTopBar() {
                         </div>
                         <div className="hidden md:block text-left">
                             <p className="text-[12px] font-bold text-slate-900 leading-none">
-                                {user?.name?.replace(/Hokiindo Simulation/gi, "").replace(/Simulation/gi, "").trim() || user?.email || "Vendor"}
+                                {user?.name?.replace(/Simulation/gi, "").trim() || user?.email || "Vendor"}
                             </p>
                             <p className="text-[10px] text-teal-600 font-bold uppercase tracking-wider leading-none mt-0.5">Vendor</p>
                         </div>
@@ -71,7 +71,7 @@ export default function VendorTopBar() {
                                     </div>
                                     <div className="min-w-0">
                                         <p className="text-sm font-bold text-slate-900 truncate">
-                                            {user?.name?.replace(/Hokiindo Simulation/gi, "").replace(/Simulation/gi, "").trim() || "Vendor"}
+                                            {user?.name?.replace(/Simulation/gi, "").trim() || "Vendor"}
                                         </p>
                                         <p className="text-[11px] text-slate-400 truncate">{user?.email}</p>
                                     </div>

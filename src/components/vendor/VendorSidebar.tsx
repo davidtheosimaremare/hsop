@@ -72,7 +72,7 @@ export default function VendorSidebar({ isOpen, setIsOpen }: SidebarProps) {
                      <div className="bg-teal-50 rounded-xl p-3 border border-teal-100">
                         <p className="text-[10px] font-black uppercase tracking-widest text-teal-600 mb-1">Vendor Portal</p>
                         <p className="text-xs font-bold text-teal-800 truncate">
-                            {user?.name?.replace(/Hokiindo Simulation/gi, "").replace(/Simulation/gi, "").trim() || "Vendor"}
+                            {user?.name?.replace(/Simulation/gi, "").trim() || "Vendor"}
                         </p>
                      </div>
                    ) : (
