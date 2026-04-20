@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Upload, X, Pencil, Save, XCircle, Package, Download, RefreshCw } from "lucide-react";
-import { uploadFile } from "@/app/actions/upload";
+import { uploadFile, uploadCroppedImage } from "@/app/actions/upload";
 import { updateProductDetails } from "@/app/actions/product";
 import { scrapeSieportalImage, scrapeSiemensProduct } from "@/app/actions/scraper";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { ProductImageCropper } from "./ProductImageCropper";
 
 interface EditableImageSectionProps {
     productId: string;
@@ -35,31 +37,15 @@ export function EditableImageSection({ productId, sku, brand, initialImage, prod
         setImageInputType("upload");
     };
 
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        const formData = new FormData();
-        formData.append("file", file);
-
-        startTransition(async () => {
-            const result = await uploadFile(formData, false, "products");
-            if (result.success && result.url) {
-                setImage(result.url);
-            } else {
-                alert("Upload failed");
-            }
-        });
-    };
-
     const handleSave = () => {
         startTransition(async () => {
             const result = await updateProductDetails(productId, { image });
             if (result.success) {
                 setIsEditing(false);
                 router.refresh();
+                toast.success("Gambar berhasil disimpan!");
             } else {
-                alert("Failed to save changes");
+                toast.error("Gagal menyimpan gambar");
             }
         });
     };
@@ -74,50 +60,18 @@ export function EditableImageSection({ productId, sku, brand, initialImage, prod
             if (result.success && result.url) {
                 setImage(result.url);
                 setImageInputType("url");
-                alert("Gambar berhasil ditarik dan disimpan di server lokal!");
+                toast.success("Gambar berhasil ditarik!");
                 router.refresh();
             } else {
-                alert(result.error || "Gagal mengambil gambar dari Sieportal.");
+                toast.error(result.error || "Gagal mengambil gambar.");
             }
         } catch (error) {
             console.error(error);
-            alert("Terjadi kesalahan saat scraping Puppeteer.");
+            toast.error("Terjadi kesalahan saat scraping.");
         } finally {
             setIsScraping(false);
         }
     };
-
-    // OPTION 2: Sync URL ONLY (Lightweight)
-    const handleSyncImageUrl = async () => {
-        if (!confirm("Sinkronkan URL gambar saja dari Siemens Mall (tanpa download)? Gambar saat ini akan diganti.")) return;
-
-        setIsSyncing(true);
-        try {
-            const result = await scrapeSiemensProduct(sku);
-            if (result.success && result.data?.image) {
-                const saveResult = await updateProductDetails(productId, { image: result.data.image });
-                if (saveResult.success) {
-                    setImage(result.data.image);
-                    setImageInputType("url");
-                    alert("URL Gambar berhasil disinkronkan dari Siemens!");
-                    router.refresh();
-                }
-            } else {
-                alert(result.error || "Gagal sinkronisasi URL dari Siemens.");
-            }
-        } catch (error) {
-            console.error(error);
-            alert("Terjadi kesalahan saat sinkronisasi.");
-        } finally {
-            setIsSyncing(false);
-        }
-    };
-
-    useEffect(() => {
-        if (image && image.startsWith("http") && !image.includes("blob:")) {
-            // Logic placeholder
-        }
-    }, [image]);
 
     if (!isEditing) {
         return (
@@ -147,7 +101,6 @@ export function EditableImageSection({ productId, sku, brand, initialImage, prod
                 </div>
 
                 <div className="flex flex-col gap-2.5">
-                    {/* Always visible: Manual Upload */}
                     <Button
                         variant="outline"
                         size="sm"
@@ -159,7 +112,6 @@ export function EditableImageSection({ productId, sku, brand, initialImage, prod
                     </Button>
 
                     <div className="pt-2 border-t border-slate-50">
-                        {/* SINGLE SYNC OPTION */}
                         <Button
                             variant="outline"
                             size="sm"
@@ -181,83 +133,85 @@ export function EditableImageSection({ productId, sku, brand, initialImage, prod
     }
 
     return (
-        <div className="space-y-4 rounded-lg border p-4 bg-gray-50">
+        <div className="space-y-4 rounded-3xl border border-slate-100 p-6 bg-slate-50/50 shadow-sm animate-in fade-in zoom-in-95 duration-300">
             <div className="flex items-center justify-between">
-                <Label className="text-base font-semibold">Edit Gambar</Label>
-                <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={handleCancel} disabled={isPending || isScraping || isSyncing}>
-                        <XCircle className="h-4 w-4 text-gray-500" />
-                    </Button>
-                </div>
+                <Label className="text-sm font-black uppercase tracking-widest text-slate-700">Edit Gambar</Label>
+                <Button variant="ghost" size="icon" className="rounded-full hover:bg-white" onClick={handleCancel} disabled={isPending || isScraping || isSyncing}>
+                    <XCircle className="h-5 w-5 text-slate-400 hover:text-red-600 transition-colors" />
+                </Button>
             </div>
 
-            <div className="flex bg-white rounded-md border p-1 shadow-sm">
+            <div className="flex bg-white rounded-xl border border-slate-200 p-1 shadow-inner">
                 <button
                     type="button"
                     onClick={() => setImageInputType("upload")}
-                    className={`flex-1 px-3 py-1 text-sm rounded-sm transition-colors ${imageInputType === "upload" ? "bg-red-600 text-white shadow-sm" : "hover:bg-gray-100 text-gray-600"}`}
+                    className={`flex-1 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${imageInputType === "upload" ? "bg-slate-900 text-white shadow-lg" : "hover:bg-slate-50 text-slate-400"}`}
                 >
-                    Upload File
+                    Upload & Crop
                 </button>
                 <button
                     type="button"
                     onClick={() => setImageInputType("url")}
-                    className={`flex-1 px-3 py-1 text-sm rounded-sm transition-colors ${imageInputType === "url" ? "bg-red-600 text-white shadow-sm" : "hover:bg-gray-100 text-gray-600"}`}
+                    className={`flex-1 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${imageInputType === "url" ? "bg-slate-900 text-white shadow-lg" : "hover:bg-slate-50 text-slate-400"}`}
                 >
                     Pakai URL
                 </button>
             </div>
 
             <div className="flex flex-col gap-4">
-                <div className="relative w-full aspect-square bg-white rounded-lg overflow-hidden border border-dashed border-gray-300 flex items-center justify-center shrink-0 shadow-sm">
+                <div className="relative w-full aspect-square bg-white rounded-2xl overflow-hidden border border-slate-100 flex items-center justify-center shrink-0 shadow-md">
                     {image ? (
-                        <Image src={image} alt="Preview" fill className="object-cover" />
+                        <Image src={image} alt="Preview" fill className="object-contain p-2" />
                     ) : (
-                        <div className="flex flex-col items-center text-gray-400">
-                            <Upload className="h-8 w-8 mb-1" />
-                            <span className="text-xs">No Image</span>
+                        <div className="flex flex-col items-center text-slate-300">
+                            <Upload className="h-10 w-10 mb-2 opacity-20" />
+                            <span className="text-[10px] font-bold uppercase tracking-widest">Belum ada gambar</span>
                         </div>
                     )}
                     {image && (
                         <button
                             type="button"
                             onClick={() => setImage("")}
-                            className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md transition-all"
+                            className="absolute top-2 right-2 bg-red-600/90 backdrop-blur-sm text-white rounded-full p-1.5 hover:bg-red-600 shadow-xl transition-all"
                         >
-                            <X className="h-3 w-3" />
+                            <X className="h-3.5 w-3.5" />
                         </button>
                     )}
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-4">
                     {imageInputType === "upload" ? (
-                        <div key="upload-input" className="space-y-2">
-                            <Label className="text-xs text-gray-500 uppercase font-semibold tracking-wider">Upload Local File</Label>
-                            <Input type="file" accept="image/*" onChange={handleFileUpload} disabled={isPending || isScraping || isSyncing} className="bg-white" />
-                            <p className="text-xs text-gray-500">JPG, PNG, WEBP. Max 5MB.</p>
+                        <div key="upload-input" className="space-y-4 animate-in slide-in-from-left-2 duration-300">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Upload & Sesuaikan</Label>
+                            <ProductImageCropper 
+                                onImageUploaded={(url) => {
+                                    setImage(url);
+                                }}
+                            />
+                            <p className="text-[9px] text-slate-400 font-medium leading-relaxed italic text-center">Potong gambar agar produk berada tepat di tengah kotak (1:1).</p>
                         </div>
                     ) : (
-                        <div key="url-input" className="space-y-2">
-                            <Label className="text-xs text-gray-500 uppercase font-semibold tracking-wider">Image URL Link</Label>
+                        <div key="url-input" className="space-y-2 animate-in slide-in-from-right-2 duration-300">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Image URL Link</Label>
                             <Input
                                 type="text"
                                 placeholder="https://example.com/image.jpg"
                                 value={image || ""}
                                 onChange={(e) => setImage(e.target.value)}
                                 disabled={isPending || isScraping || isSyncing}
-                                className="bg-white font-mono text-sm"
+                                className="h-11 rounded-xl border-slate-200 bg-white font-mono text-[10px] focus:ring-teal-500"
                             />
                         </div>
                     )}
                 </div>
             </div>
 
-            <div className="flex gap-2 pt-2">
-                <Button onClick={handleSave} disabled={isPending || isScraping || isSyncing} className="flex-1 bg-red-600 hover:bg-red-700 text-white">
+            <div className="flex gap-2 pt-4">
+                <Button onClick={handleSave} disabled={isPending || !image} className="flex-1 h-11 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg transition-all active:scale-95">
                     {isPending ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Save className="mr-2 h-4 w-4" />}
-                    Simpan
+                    Simpan Perubahan
                 </Button>
-                <Button variant="outline" onClick={handleCancel} disabled={isPending || isScraping || isSyncing}>
+                <Button variant="outline" className="h-11 px-6 rounded-xl font-bold text-slate-500" onClick={handleCancel} disabled={isPending}>
                     Batal
                 </Button>
             </div>

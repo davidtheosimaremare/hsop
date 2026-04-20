@@ -127,3 +127,23 @@ export async function uploadCroppedNewsImage(base64Data: string, filename: strin
         return { success: false, error: "Failed to save cropped image" };
     }
 }
+
+export async function uploadCroppedImage(base64Data: string, filename: string = "image.jpg", folder: UploadFolder = "products") {
+    try {
+        const match = base64Data.match(/^data:(image\/\w+);base64,/);
+        const mimeType = match ? match[1] : "image/jpeg";
+        const base64Content = base64Data.replace(/^data:image\/\w+;base64,/, "");
+        const buffer = Buffer.from(base64Content, "base64");
+
+        const timestamp = Date.now();
+        const ext = filename.split(".").pop() || "jpg";
+        const uniqueName = `${folder}-${timestamp}-cropped.${ext}`;
+
+        const publicUrl = await uploadBufferToMinio(buffer, uniqueName, mimeType, folder);
+
+        return { success: true, url: publicUrl };
+    } catch (error) {
+        console.error("Cropped image upload error:", error);
+        return { success: false, error: "Failed to save cropped image" };
+    }
+}

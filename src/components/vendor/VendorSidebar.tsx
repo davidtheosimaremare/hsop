@@ -67,23 +67,6 @@ export default function VendorSidebar({ isOpen, setIsOpen }: SidebarProps) {
             </Button>
 
             <nav className="flex-1 py-4 px-3 space-y-0.5 overflow-y-auto">
-                <div className="px-3 mb-6">
-                   {isOpen ? (
-                     <div className="bg-teal-50 rounded-xl p-3 border border-teal-100">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-teal-600 mb-1">Vendor Portal</p>
-                        <p className="text-xs font-bold text-teal-800 truncate">
-                            {user?.name?.replace(/Simulation/gi, "").trim() || "Vendor"}
-                        </p>
-                     </div>
-                   ) : (
-                     <div className="flex justify-center">
-                        <div className="w-10 h-10 bg-teal-50 rounded-xl flex items-center justify-center border border-teal-100">
-                            <Package className="h-5 w-5 text-teal-600" />
-                        </div>
-                     </div>
-                   )}
-                </div>
-
                 {vendorSidebarMenuItems.map((item) => {
                     const IconComponent = iconMap[item.icon] || LayoutDashboard;
                     const isParentActive = item.href === "/vendor"

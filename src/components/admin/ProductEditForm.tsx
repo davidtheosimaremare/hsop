@@ -7,11 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Plus, Trash2, Upload, FileText, X } from "lucide-react";
-import { uploadFile } from "@/app/actions/upload";
+import { uploadFile, uploadCroppedImage } from "@/app/actions/upload";
 import { updateProductDetails } from "@/app/actions/product";
 import { scrapeSiemensProduct } from "@/app/actions/scraper";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { ProductImageCropper } from "./ProductImageCropper";
+import { toast } from "sonner";
 
 // Dynamically import ReactQuill to avoid SSR issues
 const ReactQuill = dynamic(() => import("react-quill-new"), { ssr: false });
@@ -60,7 +62,7 @@ export function ProductEditForm({ product, onSuccess }: ProductEditFormProps) {
                 if (type === "image") setImage(result.url);
                 else setDatasheet(result.url);
             } else {
-                alert("Upload failed");
+                toast.error("Upload failed");
             }
         });
     };
@@ -91,11 +93,11 @@ export function ProductEditForm({ product, onSuccess }: ProductEditFormProps) {
             });
 
             if (result.success) {
-                // Redirect back to detail page
-                router.push(`/admin/products/${product.id}`);
-                router.refresh(); // Ensure data is fresh
+                toast.success("Perubahan disimpan");
+                if (onSuccess) onSuccess();
+                router.refresh();
             } else {
-                alert("Failed to save changes");
+                toast.error("Gagal menyimpan perubahan");
             }
         });
     };
@@ -105,48 +107,31 @@ export function ProductEditForm({ product, onSuccess }: ProductEditFormProps) {
 
         setIsScraping(true);
         try {
-            console.log("Starting scrape for SKU:", product.sku);
             const result = await scrapeSiemensProduct(product.sku);
-            console.log("Scrape result:", result);
-
             if (result.success && result.data) {
-                // Update Description
-                if (result.data.description) {
-                    console.log("Updating description to:", result.data.description);
-                    setDescription(result.data.description);
-                } else {
-                    console.log("No description found in scrape result");
-                }
-
-                // Update Image if empty
+                if (result.data.description) setDescription(result.data.description);
                 if (result.data.image && !image) {
                     setImage(result.data.image);
-                    setImageInputType("url"); // Switch to URL mode if scraped
+                    setImageInputType("url");
                 }
-
-                // Update Specs
                 if (result.data.specifications) {
                     const newSpecs = Object.entries(result.data.specifications).map(([key, value]) => ({
                         key,
                         value: String(value)
                     }));
-                    if (newSpecs.length > 0) {
-                        setSpecs(newSpecs);
-                    }
+                    if (newSpecs.length > 0) setSpecs(newSpecs);
                 }
-                alert("Data berhasil diambil dari Siemens!");
+                toast.success("Data ditarik dari Siemens");
             } else {
-                alert(result.error || "Gagal mengambil data.");
+                toast.error(result.error || "Gagal menarik data");
             }
         } catch (error) {
-            console.error(error);
-            alert("Terjadi kesalahan saat scraping.");
+            toast.error("Kesalahan teknis scraping");
         } finally {
             setIsScraping(false);
         }
     };
 
-    // Ensure we switch input type if image looks like a URL
     useEffect(() => {
         if (image && image.startsWith("http") && !image.includes("blob:")) {
             if (imageInputType !== "url") setImageInputType("url");
@@ -154,91 +139,84 @@ export function ProductEditForm({ product, onSuccess }: ProductEditFormProps) {
     }, [image]);
 
     return (
-        <div className="space-y-6 max-h-[80vh] overflow-y-auto p-1">
+        <div className="space-y-6 max-h-[80vh] overflow-y-auto p-1 custom-scrollbar">
             <div className="flex justify-end">
                 <Button
                     type="button"
                     variant="outline"
                     onClick={handleScrape}
                     disabled={isScraping || isPending}
-                    className="border-blue-200 text-blue-700 hover:bg-blue-50"
+                    className="border-blue-200 text-blue-700 hover:bg-blue-50 rounded-xl font-bold text-xs"
                 >
-                    {isScraping ? (
-                        <>
-                            <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                            Sedang Mengambil Data...
-                        </>
-                    ) : (
-                        <>
-                            <Upload className="mr-2 h-4 w-4" />
-                            Auto-Fill dari Siemens
-                        </>
-                    )}
+                    {isScraping ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Upload className="mr-2 h-4 w-4" />}
+                    Auto-Fill dari Siemens
                 </Button>
             </div>
 
             {/* Image Upload / URL Input */}
-            <div className="space-y-4 rounded-lg border p-4 bg-gray-50">
+            <div className="space-y-4 rounded-3xl border border-slate-100 p-6 bg-slate-50/50 shadow-sm">
                 <div className="flex items-center justify-between">
-                    <Label className="text-base">Gambar Produk</Label>
-                    <div className="flex bg-white rounded-md border p-1 shadow-sm">
+                    <Label className="text-[11px] font-black uppercase tracking-widest text-slate-700">Gambar Utama Produk</Label>
+                    <div className="flex bg-white rounded-xl border border-slate-200 p-1 shadow-inner">
                         <button
                             type="button"
                             onClick={() => setImageInputType("upload")}
-                            className={`px-3 py-1 text-sm rounded-sm transition-colors ${imageInputType === "upload" ? "bg-red-600 text-white shadow-sm" : "hover:bg-gray-100 text-gray-600"}`}
+                            className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${imageInputType === "upload" ? "bg-slate-900 text-white shadow-lg" : "hover:bg-slate-50 text-slate-400"}`}
                         >
-                            Upload File
+                            Upload & Crop
                         </button>
                         <button
                             type="button"
                             onClick={() => setImageInputType("url")}
-                            className={`px-3 py-1 text-sm rounded-sm transition-colors ${imageInputType === "url" ? "bg-red-600 text-white shadow-sm" : "hover:bg-gray-100 text-gray-600"}`}
+                            className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${imageInputType === "url" ? "bg-slate-900 text-white shadow-lg" : "hover:bg-slate-50 text-slate-400"}`}
                         >
-                            Log Image URL
+                            Link URL
                         </button>
                     </div>
                 </div>
 
-                <div className="flex items-start gap-4">
-                    <div className="relative w-32 h-32 bg-white rounded-lg overflow-hidden border border-dashed border-gray-300 flex items-center justify-center shrink-0 shadow-sm">
+                <div className="flex flex-col md:flex-row gap-6">
+                    <div className="relative w-full md:w-48 aspect-square bg-white rounded-2xl overflow-hidden border border-slate-100 flex items-center justify-center shrink-0 shadow-md">
                         {image ? (
-                            <Image src={image} alt="Preview" fill className="object-cover" />
+                            <Image src={image} alt="Preview" fill className="object-contain p-2" />
                         ) : (
-                            <div className="flex flex-col items-center text-gray-400">
-                                <Upload className="h-8 w-8 mb-1" />
-                                <span className="text-xs">No Image</span>
+                            <div className="flex flex-col items-center text-slate-300">
+                                <Package className="h-10 w-10 mb-2 opacity-20" />
+                                <span className="text-[9px] font-black uppercase tracking-widest">No Image</span>
                             </div>
                         )}
                         {image && (
                             <button
                                 type="button"
                                 onClick={() => setImage("")}
-                                className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md transition-all"
+                                className="absolute top-2 right-2 bg-red-600/90 backdrop-blur-sm text-white rounded-full p-1.5 hover:bg-red-600 shadow-xl transition-all"
                             >
-                                <X className="h-3 w-3" />
+                                <X className="h-3.5 w-3.5" />
                             </button>
                         )}
                     </div>
 
-                    <div className="flex-1 space-y-3">
+                    <div className="flex-1 space-y-4">
                         {imageInputType === "upload" ? (
-                            <div className="space-y-2">
-                                <Label className="text-xs text-gray-500 uppercase font-semibold tracking-wider">Upload Local File</Label>
-                                <Input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, "image")} disabled={isPending} className="bg-white" />
-                                <p className="text-xs text-gray-500">Supported formats: JPG, PNG, WEBP. Max size: 5MB.</p>
+                            <div className="space-y-4 animate-in slide-in-from-left-2 duration-300">
+                                <ProductImageCropper 
+                                    onImageUploaded={(url) => {
+                                        setImage(url);
+                                    }}
+                                />
+                                <p className="text-[9px] text-slate-400 font-medium leading-relaxed italic text-center">Gunakan foto persegi (1:1) agar terlihat pas di katalog.</p>
                             </div>
                         ) : (
-                            <div className="space-y-2">
-                                <Label className="text-xs text-gray-500 uppercase font-semibold tracking-wider">Image URL Link</Label>
+                            <div className="space-y-2 animate-in slide-in-from-right-2 duration-300">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Image URL Link</Label>
                                 <Input
                                     type="text"
                                     placeholder="https://example.com/image.jpg"
                                     value={image}
                                     onChange={(e) => setImage(e.target.value)}
                                     disabled={isPending}
-                                    className="bg-white font-mono text-sm"
+                                    className="h-11 rounded-xl border-slate-200 bg-white font-mono text-[10px]"
                                 />
-                                <p className="text-xs text-gray-500">Paste a direct link to an image. Ensure the URL is publicly accessible.</p>
                             </div>
                         )}
                     </div>
@@ -247,8 +225,8 @@ export function ProductEditForm({ product, onSuccess }: ProductEditFormProps) {
 
             {/* Description (Rich Text) */}
             <div className="space-y-2">
-                <Label>Deskripsi Lengkap</Label>
-                <div className="prose-sm">
+                <Label className="text-[11px] font-black uppercase tracking-widest text-slate-700">Deskripsi Ringkas</Label>
+                <div className="rounded-2xl overflow-hidden border border-slate-100 shadow-sm">
                     <ReactQuill
                         theme="snow"
                         value={description}
@@ -259,30 +237,30 @@ export function ProductEditForm({ product, onSuccess }: ProductEditFormProps) {
             </div>
 
             {/* Specifications */}
-            <div className="space-y-2">
+            <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                    <Label>Spesifikasi Teknis</Label>
-                    <Button type="button" variant="outline" size="sm" onClick={addSpecRow}>
-                        <Plus className="h-4 w-4 mr-1" /> Tambah Baris
+                    <Label className="text-[11px] font-black uppercase tracking-widest text-slate-700">Spesifikasi Teknis</Label>
+                    <Button type="button" variant="outline" size="sm" onClick={addSpecRow} className="h-8 rounded-lg font-bold text-[10px] uppercase tracking-wider">
+                        <Plus className="h-3 w-3 mr-1.5 text-teal-600" /> Tambah Detail
                     </Button>
                 </div>
-                <div className="space-y-2 border rounded-md p-3 bg-gray-50">
-                    {specs.length === 0 && <p className="text-sm text-gray-400 text-center italic">Belum ada spesifikasi</p>}
+                <div className="space-y-2 border border-slate-100 rounded-2xl p-4 bg-slate-50/50">
+                    {specs.length === 0 && <p className="text-[10px] text-slate-400 text-center font-bold uppercase py-4">Belum ada spesifikasi</p>}
                     {specs.map((spec, index) => (
-                        <div key={index} className="flex gap-2">
+                        <div key={index} className="flex gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
                             <Input
-                                placeholder="Parameter (cth: Voltage)"
+                                placeholder="Parameter"
                                 value={spec.key}
                                 onChange={(e) => updateSpec(index, "key", e.target.value)}
-                                className="flex-1"
+                                className="flex-1 h-10 rounded-xl border-slate-200 bg-white text-xs font-bold"
                             />
                             <Input
-                                placeholder="Nilai (cth: 220V)"
+                                placeholder="Nilai"
                                 value={spec.value}
                                 onChange={(e) => updateSpec(index, "value", e.target.value)}
-                                className="flex-1"
+                                className="flex-1 h-10 rounded-xl border-slate-200 bg-white text-xs font-medium"
                             />
-                            <Button type="button" variant="ghost" size="icon" onClick={() => removeSpecRow(index)} className="text-red-500 hover:text-red-700 hover:bg-red-50">
+                            <Button type="button" variant="ghost" size="icon" onClick={() => removeSpecRow(index)} className="h-10 w-10 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl">
                                 <Trash2 className="h-4 w-4" />
                             </Button>
                         </div>
@@ -291,25 +269,25 @@ export function ProductEditForm({ product, onSuccess }: ProductEditFormProps) {
             </div>
 
             {/* Datasheet Upload */}
-            <div className="space-y-2">
-                <Label>Datasheet (PDF)</Label>
-                <div className="flex gap-2 items-center">
-                    <Input type="file" accept=".pdf" onChange={(e) => handleFileUpload(e, "datasheet")} disabled={isPending} className="flex-1" />
+            <div className="space-y-3">
+                <Label className="text-[11px] font-black uppercase tracking-widest text-slate-700">Datasheet (PDF)</Label>
+                <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                    <Input type="file" accept=".pdf" onChange={(e) => handleFileUpload(e, "datasheet")} disabled={isPending} className="h-11 rounded-xl border-slate-200 bg-white file:font-black file:text-[10px] file:uppercase file:tracking-widest file:bg-slate-900 file:text-white file:border-none file:rounded-lg file:mr-4 file:px-4 cursor-pointer" />
                     {datasheet && (
-                        <div className="flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-2 rounded-md border border-blue-200 text-sm">
+                        <div className="flex items-center gap-3 bg-teal-50 text-teal-700 px-4 py-2.5 rounded-xl border border-teal-100 text-xs font-bold shadow-sm">
                             <FileText className="h-4 w-4" />
-                            <span className="truncate max-w-[150px]">File Terupload</span>
-                            <button onClick={() => setDatasheet("")} className="ml-2 hover:text-red-600"><X className="h-3 w-3" /></button>
+                            <span className="truncate max-w-[200px]">File Siap</span>
+                            <button onClick={() => setDatasheet("")} className="ml-2 p-1 hover:bg-teal-100 rounded-full transition-colors text-red-500"><X className="h-3.5 w-3.5" /></button>
                         </div>
                     )}
                 </div>
             </div>
 
             {/* Actions */}
-            <div className="flex justify-end pt-4 border-t">
-                <Button onClick={handleSubmit} disabled={isPending} className="bg-red-600 hover:bg-red-700">
+            <div className="flex justify-end pt-6 border-t border-slate-100">
+                <Button onClick={handleSubmit} disabled={isPending} className="w-full sm:w-auto h-12 px-10 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl transition-all active:scale-95">
                     {isPending ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : null}
-                    Simpan Perubahan
+                    Simpan Perubahan Produk
                 </Button>
             </div>
         </div>

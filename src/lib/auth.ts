@@ -29,16 +29,25 @@ export async function login(formData: FormData) {
     const session = await encrypt({ user, expires });
 
     // Save the session in a cookie
-    (await cookies()).set("session", session, { expires, httpOnly: true });
+    const cookieStore = await cookies();
+    cookieStore.set("session", session, { expires, httpOnly: true, path: "/" });
 }
 
 export async function logout() {
-    // Destroy the session
-    (await cookies()).set("session", "", { expires: new Date(0) });
+    // Destroy the session aggressively
+    const cookieStore = await cookies();
+    cookieStore.set("session", "", { 
+        expires: new Date(0), 
+        path: "/",
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax"
+    });
 }
 
 export async function getSession() {
-    const session = (await cookies()).get("session")?.value;
+    const cookieStore = await cookies();
+    const session = cookieStore.get("session")?.value;
     if (!session) return null;
     try {
         return await decrypt(session);
@@ -62,6 +71,7 @@ export async function updateSession(request: NextRequest) {
             value: await encrypt(parsed),
             httpOnly: true,
             expires: parsed.expires,
+            path: "/",
         });
         return res;
     } catch (error) {
@@ -71,6 +81,7 @@ export async function updateSession(request: NextRequest) {
             name: "session",
             value: "",
             expires: new Date(0),
+            path: "/",
         });
         return res;
     }

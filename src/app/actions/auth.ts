@@ -1,10 +1,11 @@
 "use server";
 
 import { redirect, isRedirectError } from "next/navigation";
-import { login, logout } from "@/lib/auth";
+import { encrypt } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { compare } from "bcryptjs";
 import { unstable_noStore as noStore } from "next/cache";
+import { cookies } from "next/headers";
 
 export async function loginAction(prevState: any, formData: FormData) {
     noStore();
@@ -13,96 +14,68 @@ export async function loginAction(prevState: any, formData: FormData) {
     const remember = formData.get("remember") === "on";
 
     if (!email || !password) {
-        console.log("Missing credentials. Email:", email, "Password length:", password?.length);
         return { error: "Email dan password wajib diisi." };
     }
-    console.log("Login Action triggered. Email:", email, "Password length:", password.length);
 
+    let userRole = null;
     try {
-        console.log("Attempting login for:", email);
-
-        // 1. Find user
         const user = await db.user.findUnique({
             where: { email },
         });
-        console.log("User found:", user ? "YES" : "NO");
-        console.log("User data:", JSON.stringify({ id: user?.id, email: user?.email, customerId: user?.customerId, role: user?.role }, null, 2));
 
         if (!user) {
             return { error: "Email atau password salah." };
         }
 
-        // 2. Verify password
         const isValid = await compare(password, user.password);
-        console.log("Password valid:", isValid ? "YES" : "NO");
-
         if (!isValid) {
             return { error: "Email atau password salah." };
         }
 
-        // 3. Check if user is active
         if (!user.isActive) {
-            return { 
-                error: "Akun Anda telah dinonaktifkan oleh admin. Silakan hubungi admin untuk informasi lebih lanjut." 
-            };
+            return { error: "Akun Anda dinonaktifkan." };
         }
 
-        // 4. Check Verification
-        if (!user.isVerified) {
-            return {
-                error: "Akun belum diverifikasi.",
-                unverified: true,
-                email: email
-            };
-        }
-
-        // 4. Create session
-        const { encrypt } = await import("@/lib/auth");
-        // Expires in 30 days if remember me is checked, otherwise 24 hours
-        const expires = new Date(Date.now() + (remember ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000));
-        const session = await encrypt({
+        userRole = user.role;
+        const expires = new Date(Date.now() + (remember ? 30 : 1) * 24 * 60 * 60 * 1000);
+        
+        // Simpan hanya data penting di Cookie (Hapus password dll)
+        const sessionData = {
             user: {
                 id: user.id,
                 email: user.email,
-                role: user.role,
                 name: user.name,
-                isActive: user.isActive,
-                customerId: user.customerId,
+                role: user.role,
+                customerId: user.customerId
             },
             expires
-        });
-        console.log("Session created with customerId:", user.customerId);
+        };
 
-        const { cookies } = await import("next/headers");
+        const session = await encrypt(sessionData);
         const cookieStore = await cookies();
-        cookieStore.set("session", session, { expires, httpOnly: true, path: "/" });
-        console.log("Session cookie set.");
-
-        // Small delay to ensure cookie is committed in some environments
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        // Redirect based on role
-        // Admin roles (SUPER_ADMIN, ADMIN, MANAGER) -> /admin
-        // Vendor role -> /vendor
-        // Customer roles (CUSTOMER) -> / (home)
-        const adminRoles = ["SUPER_ADMIN", "ADMIN", "MANAGER", "STAFF", "VIEWER"];
-        console.log(`User role: ${user.role}. Admin roles: ${adminRoles.join(', ')}`);
         
-        if (user.role && adminRoles.includes(user.role)) {
-            console.log("Redirecting to /admin");
-            redirect("/admin");
-        } else if (user.role === "VENDOR") {
-            console.log("Redirecting to /vendor");
-            redirect("/vendor");
-        } else {
-            console.log("Redirecting to /");
-            redirect("/");
-        }
+        cookieStore.set("session", session, { 
+            expires, 
+            httpOnly: true, 
+            path: "/",
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax"
+        });
 
     } catch (error) {
-        if (isRedirectError(error)) throw error; // Re-throw redirect errors
-        console.error("Login error DETAILS:", error);
+        if (isRedirectError(error)) throw error;
+        console.error("Login error:", error);
         return { error: "Terjadi kesalahan sistem." };
+    }
+
+    // Redirect di luar try-catch
+    const adminRoles = ["SUPER_ADMIN", "ADMIN", "MANAGER", "STAFF", "VIEWER"];
+    if (userRole && adminRoles.includes(userRole)) {
+        redirect("/admin");
+    } else if (userRole === "VENDOR") {
+        redirect("/vendor");
+    } else {
+        redirect("/");
     }
 }
 
@@ -112,157 +85,88 @@ import { hash } from "bcryptjs";
 
 export async function requestPasswordReset(prevState: any, formData: FormData) {
     const email = formData.get("email") as string;
-
-    if (!email) {
-        return { error: "Email wajib diisi." };
-    }
+    if (!email) return { error: "Email wajib diisi." };
 
     try {
         const user = await db.user.findUnique({ where: { email } });
-
-        if (!user) {
-            // Security: Don't reveal if user exists. Just say success.
-            return { success: true, message: "Jika email terdaftar, kode OTP telah dikirim.", redirect: `/reset-password?email=${encodeURIComponent(email)}` };
-        }
+        if (!user) return { error: "Email tidak terdaftar." };
 
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+        const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
         await db.user.update({
             where: { id: user.id },
-            data: {
-                otp,
-                otpExpiresAt
-            }
+            data: { otp, otpExpiry }
         });
 
-        // Send OTP
-        await Promise.all([
-            sendFonteeOTP(user.phone || '', otp),
-            sendEmailOTP(user.email, otp)
-        ]);
+        if (user.phone) await sendFonteeOTP(user.phone, otp);
+        await sendEmailOTP(user.email, otp);
 
-        return { success: true, message: "Kode OTP telah dikirim.", redirect: `/reset-password?email=${encodeURIComponent(email)}` };
-
+        return { success: true, email };
     } catch (error) {
-        console.error("Reset request error:", error);
-        return { error: "Terjadi kesalahan sistem." };
+        return { error: "Gagal mengirim OTP." };
     }
 }
 
-export async function resetPasswordAction(prevState: any, formData: FormData) {
+export async function verifyOTPAndReset(prevState: any, formData: FormData) {
     const email = formData.get("email") as string;
     const otp = formData.get("otp") as string;
-    const password = formData.get("password") as string;
-    const confirmPassword = formData.get("confirmPassword") as string;
-
-    if (!email || !otp || !password || !confirmPassword) {
-        return { error: "Semua field wajib diisi." };
-    }
-
-    if (password !== confirmPassword) {
-        return { error: "Konfirmasi kata sandi tidak cocok." };
-    }
+    const newPassword = formData.get("password") as string;
 
     try {
         const user = await db.user.findUnique({ where: { email } });
-
-        if (!user) {
-            return { error: "User tidak ditemukan." };
+        if (!user || user.otp !== otp || !user.otpExpiry || user.otpExpiry < new Date()) {
+            return { error: "OTP salah atau kedaluwarsa." };
         }
 
-        if (!user.otp || !user.otpExpiresAt) {
-            return { error: "Kode OTP tidak valid atau sudah kadaluarsa." };
-        }
-
-        if (user.otp !== otp) {
-            return { error: "Kode OTP salah." };
-        }
-
-        if (new Date() > user.otpExpiresAt) {
-            return { error: "Kode OTP sudah kadaluarsa." };
-        }
-
-        const hashedPassword = await hash(password, 12);
-
+        const hashedPassword = await hash(newPassword, 10);
         await db.user.update({
             where: { id: user.id },
-            data: {
-                password: hashedPassword,
-                otp: null,
-                otpExpiresAt: null,
-                isVerified: true // Implicitly verify
-            }
+            data: { password: hashedPassword, otp: null, otpExpiry: null }
         });
 
-        return { success: true, message: "Password berhasil diubah. Silakan masuk.", redirect: "/masuk" };
-
+        return { success: true };
     } catch (error) {
-        console.error("Reset password error:", error);
-        return { error: "Terjadi kesalahan sistem." };
+        return { error: "Gagal reset password." };
     }
 }
 
-
-
-export async function getCurrentUser() {
-    const { getSession } = await import("@/lib/auth");
-    const session = await getSession();
-    return session?.user || null;
+export async function logoutAction() {
+    const { logout } = await import("@/lib/auth");
+    await logout();
+    redirect("/masuk");
 }
 
 export async function getCurrentUserWithCustomer() {
     const { getSession } = await import("@/lib/auth");
-    const { db } = await import("@/lib/db");
     const session = await getSession();
 
-    if (!session?.user) return null;
+    if (!session?.user?.id) return null;
 
-    let customerType = "RETAIL";
-    let companyName = null;
-    let image = null;
-    let address = null;
-
-    if (session.user.customerId) {
-        const customer = await db.customer.findUnique({
-            where: { id: session.user.customerId },
-            select: { type: true, name: true, company: true, image: true, address: true }
-        });
-        customerType = customer?.type || "RETAIL";
-        companyName = customer?.company || customer?.name || null;
-        image = customer?.image || null;
-        address = customer?.address || null;
-    } else {
+    try {
         const user = await db.user.findUnique({
             where: { id: session.user.id },
-            select: { address: true }
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                role: true,
+                image: true,
+                customerId: true,
+                customer: {
+                    select: {
+                        id: true,
+                        name: true,
+                        image: true,
+                        type: true
+                    }
+                }
+            }
         });
-        address = user?.address || null;
-    }
 
-    return {
-        ...session.user,
-        customerType,
-        companyName,
-        image,
-        address
-    };
-}
-
-export async function logoutAction() {
-    const { getSession } = await import("@/lib/auth");
-    const session = await getSession();
-    const userRole = session?.user?.role;
-
-    const { logout } = await import("@/lib/auth");
-    await logout();
-
-    // Redirect based on previous role
-    const adminRoles = ["SUPER_ADMIN", "ADMIN", "MANAGER"];
-    if (userRole && adminRoles.includes(userRole)) {
-        redirect("/admin/login");
-    } else {
-        // Customer users redirect to home
-        redirect("/");
+        return user;
+    } catch (error) {
+        console.error("Error fetching current user:", error);
+        return null;
     }
 }

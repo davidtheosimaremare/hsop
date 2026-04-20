@@ -52,18 +52,18 @@ export default function ProductListItem({ product }: ProductListItemProps) {
             <div className="flex items-center gap-4 p-3">
                 {/* Product Image */}
                 <Link href={`/produk/${getProductSlug(product as any)}`} className="flex-shrink-0">
-                    <div className="w-20 h-20 bg-gray-100 rounded-lg relative overflow-hidden">
+                    <div className="w-20 h-20 bg-white rounded-lg relative overflow-hidden border border-gray-100 p-1">
                         {product.image ? (
                             <Image
                                 src={product.image}
                                 alt={product.name}
                                 fill
-                                className="object-cover"
+                                className="object-contain p-1"
                                 sizes="80px"
                             />
                         ) : (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <span className="text-gray-400 text-xs">No Image</span>
+                            <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
+                                <span className="text-gray-400 text-[10px]">No Image</span>
                             </div>
                         )}
                     </div>

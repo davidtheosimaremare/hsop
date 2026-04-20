@@ -58,18 +58,18 @@ export default function ProductCard({ product }: ProductCardProps) {
         <div className="group bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow flex flex-col">
             {/* Product Image */}
             <Link href={`/produk/${getProductSlug(product as any)}`} className="block relative">
-                <div className="aspect-square bg-gray-100 relative">
+                <div className="aspect-square bg-white relative p-2">
                     {product.image ? (
                         <Image
                             src={product.image}
                             alt={product.name}
                             fill
-                            className="object-cover"
+                            className="object-contain p-2"
                             sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
                         />
                     ) : (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="w-3/4 h-3/4 bg-gray-200 rounded-lg flex items-center justify-center text-gray-400 text-xs">
+                        <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
+                            <div className="w-3/4 h-3/4 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs">
                                 No Image
                             </div>
                         </div>

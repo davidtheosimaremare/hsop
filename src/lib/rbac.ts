@@ -513,15 +513,16 @@ export const sidebarMenuItems = [
     requiredPermission: "dashboard:view",
   },
   {
-    title: "Produk Saya",
+    title: "Daftar Produk",
     href: "/vendor/products",
-    icon: "Package",
+    icon: "ShoppingBag",
     requiredPermission: "vendor_products:view",
-    children: [
-      { title: "Daftar Produk", href: "/vendor/products", icon: "ShoppingBag", requiredPermission: "vendor_products:view" },
-      { title: "Tambah Produk", href: "/vendor/products/new", icon: "Package", requiredPermission: "vendor_products:manage" },
-      { title: "Update Stok", href: "/vendor/stock-update", icon: "RefreshCw", requiredPermission: "vendor_products:manage" },
-    ],
+  },
+  {
+    title: "Update Stok",
+    href: "/vendor/stock-update",
+    icon: "RefreshCw",
+    requiredPermission: "vendor_products:manage",
   },
   ];
 

@@ -12,7 +12,9 @@ import {
     History,
     RefreshCw,
     Search,
-    Package
+    Package,
+    Calendar,
+    ArrowRight
 } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -58,6 +60,18 @@ export default function VendorStockUpdatePage() {
         fetchLogs();
         fetchVendorProducts();
     }, []);
+
+    // Group logs by date
+    const groupedLogs = stockLogs.reduce((groups: Record<string, any[]>, log) => {
+        const date = new Date(log.createdAt).toLocaleDateString("id-ID", { 
+            day: 'numeric', 
+            month: 'long', 
+            year: 'numeric' 
+        });
+        if (!groups[date]) groups[date] = [];
+        groups[date].push(log);
+        return groups;
+    }, {});
 
     const handleExportTemplate = () => {
         if (vendorProducts.length === 0) {
@@ -179,25 +193,18 @@ export default function VendorStockUpdatePage() {
     );
 
     return (
-        <div className="space-y-8 pb-12 animate-in fade-in duration-700">
+        <div className="space-y-10 pb-20 animate-in fade-in duration-700">
             {/* Header Section */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-1">
                 <div className="space-y-1">
-                    <div className="flex items-center gap-2 mb-1">
-                        <Badge variant="outline" className="border-teal-200 text-teal-700 bg-teal-50/50 px-2 py-0 text-[10px] font-black uppercase tracking-widest">
-                            Management
-                        </Badge>
-                        <span className="h-1 w-1 rounded-full bg-slate-300" />
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Update Stok Cepat</span>
-                    </div>
-                    <h1 className="text-4xl font-black text-slate-900 tracking-tight leading-none">Update Stok</h1>
-                    <p className="text-slate-500 font-medium mt-2">Kelola ketersediaan produk Anda secara langsung di sini.</p>
+                    <h1 className="text-3xl font-black text-slate-900 tracking-tight leading-none">Update Stok</h1>
+                    <p className="text-slate-500 font-medium mt-2">Kelola ketersediaan produk Anda secara langsung atau via Excel.</p>
                 </div>
                 
                 <div className="flex flex-wrap items-center gap-3">
                     <Button variant="outline" onClick={handleExportTemplate} className="rounded-2xl border-slate-200 font-bold text-xs h-11 px-5 shadow-sm hover:bg-slate-50 transition-all">
                         <FileDown className="w-4 h-4 mr-2 text-teal-600" />
-                        Template & Data Excel
+                        Download Data Excel
                     </Button>
                     <div className="relative">
                         <Input
@@ -211,161 +218,172 @@ export default function VendorStockUpdatePage() {
                         <Button variant="outline" asChild className="rounded-2xl border-slate-200 font-bold text-xs h-11 px-5 shadow-sm hover:bg-slate-50 transition-all cursor-pointer">
                             <label htmlFor="stock-import">
                                 {isImporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin text-teal-600" /> : <FileUp className="w-4 h-4 mr-2 text-teal-600" />}
-                                Upload Excel
+                                Upload Update Stok
                             </label>
                         </Button>
                     </div>
                 </div>
             </div>
 
-            <div className="grid gap-8 lg:grid-cols-3">
-                {/* Main Section: Product List Update */}
-                <div className="lg:col-span-2 space-y-6">
-                    <Card className="border-none shadow-sm bg-white rounded-[2.5rem] overflow-hidden border border-slate-100">
-                        <CardHeader className="p-8 pb-4">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                <div className="relative w-full md:max-w-md group">
-                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-teal-600 transition-colors" />
-                                    <Input
-                                        placeholder="Cari produk Anda..."
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="h-12 pl-12 bg-slate-50/50 border-transparent focus:bg-white focus:ring-teal-500 focus:border-teal-500 rounded-2xl font-medium transition-all"
-                                    />
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="p-0">
-                            <div className="overflow-x-auto px-4 pb-8">
-                                <table className="w-full text-left border-separate border-spacing-y-2">
-                                    <thead className="text-slate-400 text-[10px] font-black uppercase tracking-widest">
-                                        <tr>
-                                            <th className="px-6 py-4 font-black">Produk</th>
-                                            <th className="px-6 py-4 font-black text-center">Stok Saat Ini</th>
-                                            <th className="px-6 py-4 font-black">Input Stok Baru</th>
-                                            <th className="px-6 py-4 text-right font-black">Aksi</th>
+            {/* Main Section: Product List Update */}
+            <Card className="border-none shadow-sm bg-white rounded-[2.5rem] overflow-hidden border border-slate-100">
+                <CardHeader className="p-8 pb-4">
+                    <div className="relative max-w-md group">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-teal-600 transition-colors" />
+                        <Input
+                            placeholder="Cari produk berdasarkan nama atau SKU..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="h-12 pl-12 bg-slate-50/50 border-transparent focus:bg-white focus:ring-teal-500 rounded-2xl font-medium"
+                        />
+                    </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <div className="overflow-x-auto px-6 pb-8">
+                        <table className="w-full text-left border-separate border-spacing-y-3">
+                            <thead className="text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                                <tr>
+                                    <th className="px-6 py-2">Informasi Produk</th>
+                                    <th className="px-6 py-2 text-center">Stok Saat Ini</th>
+                                    <th className="px-6 py-2">Input Stok Baru</th>
+                                    <th className="px-6 py-2 text-right">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {loadingProducts ? (
+                                    <tr>
+                                        <td colSpan={4} className="px-6 py-20 text-center">
+                                            <Loader2 className="w-10 h-10 animate-spin text-teal-600 mx-auto" />
+                                        </td>
+                                    </tr>
+                                ) : filteredProducts.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={4} className="px-6 py-20 text-center">
+                                            <p className="text-slate-400 font-bold uppercase tracking-widest">Tidak ada produk ditemukan.</p>
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    filteredProducts.map((p) => (
+                                        <tr key={p.id} className="group">
+                                            <td className="px-6 py-4 bg-white border-y border-l border-slate-50 first:rounded-l-3xl shadow-sm">
+                                                <p className="text-sm font-black text-slate-900 truncate max-w-[400px]">{p.name}</p>
+                                                <p className="text-[10px] font-black text-teal-600 uppercase tracking-widest mt-0.5">{p.sku}</p>
+                                            </td>
+                                            <td className="px-6 py-4 bg-white border-y border-slate-50 text-center shadow-sm">
+                                                <span className="inline-flex h-9 px-4 items-center rounded-xl bg-slate-50 font-black text-sm text-slate-900 border border-slate-100">
+                                                    {p.availableToSell}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 bg-white border-y border-slate-50 shadow-sm">
+                                                <Input 
+                                                    type="number"
+                                                    placeholder="Set Stok..."
+                                                    value={newStocks[p.id] || ""}
+                                                    onChange={(e) => setNewStocks(prev => ({ ...prev, [p.id]: e.target.value }))}
+                                                    className="h-10 w-32 bg-slate-50 border-slate-200 rounded-xl font-black text-center focus:bg-white focus:ring-teal-500"
+                                                />
+                                            </td>
+                                            <td className="px-6 py-4 bg-white border-y border-r border-slate-50 last:rounded-r-3xl text-right shadow-sm">
+                                                <Button 
+                                                    size="sm"
+                                                    onClick={() => handleUpdateSingle(p)}
+                                                    disabled={isUpdating === p.id}
+                                                    className="bg-slate-900 hover:bg-slate-800 text-white rounded-xl h-10 px-6 font-black text-[10px] uppercase tracking-widest shadow-lg transition-all active:scale-95"
+                                                >
+                                                    {isUpdating === p.id ? <Loader2 className="w-3 h-3 animate-spin" /> : "Update Stok"}
+                                                </Button>
+                                            </td>
                                         </tr>
-                                    </thead>
-                                    <tbody>
-                                        {loadingProducts ? (
-                                            <tr>
-                                                <td colSpan={4} className="px-6 py-20 text-center">
-                                                    <Loader2 className="w-10 h-10 animate-spin text-teal-600 mx-auto" />
-                                                </td>
-                                            </tr>
-                                        ) : filteredProducts.length === 0 ? (
-                                            <tr>
-                                                <td colSpan={4} className="px-6 py-20 text-center">
-                                                    <p className="text-slate-400 font-bold uppercase tracking-widest">Tidak ada produk.</p>
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            filteredProducts.map((p) => (
-                                                <tr key={p.id} className="group">
-                                                    <td className="px-6 py-4 bg-white border-y border-l border-slate-50 first:rounded-l-3xl">
-                                                        <p className="text-sm font-black text-slate-900 truncate max-w-[200px]">{p.name}</p>
-                                                        <p className="text-[10px] font-black text-teal-600 uppercase tracking-widest">{p.sku}</p>
-                                                    </td>
-                                                    <td className="px-6 py-4 bg-white border-y border-slate-50 text-center">
-                                                        <Badge variant="outline" className="h-8 px-4 rounded-xl border-slate-200 font-black text-sm text-slate-900 bg-slate-50/50">
-                                                            {p.availableToSell}
-                                                        </Badge>
-                                                    </td>
-                                                    <td className="px-6 py-4 bg-white border-y border-slate-50">
-                                                        <Input 
-                                                            type="number"
-                                                            placeholder="Stok..."
-                                                            value={newStocks[p.id] || ""}
-                                                            onChange={(e) => setNewStocks(prev => ({ ...prev, [p.id]: e.target.value }))}
-                                                            className="h-10 w-28 bg-slate-50 border-slate-200 rounded-xl font-black text-center focus:bg-white"
-                                                        />
-                                                    </td>
-                                                    <td className="px-6 py-4 bg-white border-y border-r border-slate-50 last:rounded-r-3xl text-right">
-                                                        <Button 
-                                                            size="sm"
-                                                            onClick={() => handleUpdateSingle(p)}
-                                                            disabled={isUpdating === p.id}
-                                                            className="bg-slate-900 hover:bg-slate-800 text-white rounded-xl h-10 px-4 font-black text-[10px] uppercase tracking-widest shadow-lg transition-all active:scale-95"
-                                                        >
-                                                            {isUpdating === p.id ? <Loader2 className="w-3 h-3 animate-spin" /> : "Update"}
-                                                        </Button>
-                                                    </td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </CardContent>
-                    </Card>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Activity Log Section (FULL WIDTH AT BOTTOM) */}
+            <div className="space-y-6">
+                <div className="flex items-center gap-3 px-1">
+                    <div className="w-10 h-10 rounded-2xl bg-teal-50 flex items-center justify-center border border-teal-100">
+                        <History className="h-5 w-5 text-teal-600" />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-black text-slate-900 tracking-tight">Riwayat Perubahan Stok</h2>
+                        <p className="text-xs text-slate-500 font-medium">Log aktivitas pembaharuan inventaris Anda.</p>
+                    </div>
                 </div>
 
-                {/* Activity Log Section */}
-                <div className="space-y-6">
-                    <Card className="border-none shadow-sm bg-white rounded-3xl overflow-hidden border border-slate-100">
-                        <CardHeader className="p-6 border-b border-slate-50">
-                            <CardTitle className="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
-                                <History className="h-4 w-4 text-teal-600" />
-                                Riwayat Perubahan
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-0">
-                            {loadingLogs ? (
-                                <div className="p-12 flex justify-center">
-                                    <Loader2 className="w-6 h-6 animate-spin text-teal-600" />
-                                </div>
-                            ) : stockLogs.length > 0 ? (
-                                <div className="max-h-[600px] overflow-y-auto">
-                                    <div className="divide-y divide-slate-50">
-                                        {stockLogs.map((log) => (
-                                            <div key={log.id} className="p-4 hover:bg-slate-50/50 transition-colors">
-                                                <div className="flex items-start justify-between gap-3">
-                                                    <div className="min-w-0">
-                                                        <h4 className="text-[11px] font-black text-slate-900 truncate leading-tight">{log.product?.name}</h4>
-                                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{log.product?.sku}</p>
-                                                    </div>
-                                                    <Badge className={cn(
-                                                        "text-[9px] font-black px-1.5 py-0 rounded-md border-none flex-shrink-0",
-                                                        log.changeValue > 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                                                    )}>
-                                                        {log.changeValue > 0 ? `+${log.changeValue}` : log.changeValue}
-                                                    </Badge>
-                                                </div>
-                                                <div className="flex items-center justify-between mt-3">
-                                                    <div className="flex items-center gap-1.5">
-                                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{log.oldStock}</span>
-                                                        <RefreshCw className="w-2.5 h-2.5 text-slate-300" />
-                                                        <span className="text-[9px] font-black text-teal-600 uppercase tracking-widest">{log.newStock}</span>
-                                                    </div>
-                                                    <div className="flex flex-col items-end">
-                                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{log.source.split('_')[0]}</span>
-                                                        <span className="text-[8px] font-medium text-slate-300">
-                                                            {new Date(log.createdAt).toLocaleDateString("id-ID", { hour: '2-digit', minute: '2-digit' })}
+                <Card className="border-none shadow-sm bg-white rounded-[2.5rem] overflow-hidden border border-slate-100">
+                    <CardContent className="p-8">
+                        {loadingLogs ? (
+                            <div className="py-20 flex justify-center">
+                                <Loader2 className="w-10 h-10 animate-spin text-teal-600" />
+                            </div>
+                        ) : Object.keys(groupedLogs).length > 0 ? (
+                            <div className="space-y-10">
+                                {Object.entries(groupedLogs).map(([date, logs]) => (
+                                    <div key={date} className="space-y-4">
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex items-center gap-2 px-3 py-1 bg-slate-900 text-white rounded-full">
+                                                <Calendar className="w-3 h-3" />
+                                                <span className="text-[10px] font-black uppercase tracking-widest">{date}</span>
+                                            </div>
+                                            <div className="h-px flex-1 bg-slate-100" />
+                                        </div>
+                                        
+                                        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                                            {logs.map((log) => (
+                                                <div key={log.id} className="p-4 rounded-3xl bg-slate-50/50 border border-slate-100 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+                                                    <div className="flex justify-between items-start mb-3">
+                                                        <Badge className={cn(
+                                                            "text-[9px] font-black px-2 py-0.5 rounded-full border-none",
+                                                            log.changeValue > 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                                                        )}>
+                                                            {log.changeValue > 0 ? `+${log.changeValue}` : log.changeValue} Units
+                                                        </Badge>
+                                                        <span className="text-[10px] font-bold text-slate-300">
+                                                            {new Date(log.createdAt).toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit' })}
                                                         </span>
                                                     </div>
+                                                    <div className="min-w-0">
+                                                        <h4 className="text-xs font-black text-slate-900 truncate group-hover:text-teal-600 transition-colors">{log.product?.name}</h4>
+                                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{log.product?.sku}</p>
+                                                    </div>
+                                                    <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[8px] font-bold text-slate-400 uppercase">Lama</span>
+                                                                <span className="text-xs font-bold text-slate-500">{log.oldStock}</span>
+                                                            </div>
+                                                            <ArrowRight className="w-3 h-3 text-slate-300" />
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[8px] font-black text-teal-600 uppercase">Baru</span>
+                                                                <span className="text-sm font-black text-slate-900">{log.newStock}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <span className="text-[8px] font-black text-slate-400 uppercase block">Metode</span>
+                                                            <span className="text-[10px] font-bold text-slate-600">{log.source.replace('_', ' ')}</span>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            ))}
+                                        </div>
                                     </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="py-20 text-center">
+                                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <History className="h-8 w-8 text-slate-200" />
                                 </div>
-                            ) : (
-                                <div className="p-12 text-center">
-                                    <p className="text-xs text-slate-400 font-medium italic">Belum ada riwayat.</p>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    <Card className="border-none shadow-sm bg-slate-900 rounded-3xl overflow-hidden text-white relative">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/10 -mr-8 -mt-8 rounded-full blur-2xl" />
-                        <CardContent className="p-6 space-y-4">
-                            <h4 className="font-black text-teal-400 text-[10px] uppercase tracking-widest">Tips Update Stok</h4>
-                            <p className="text-xs text-slate-400 leading-relaxed font-medium">
-                                Anda bisa mengupdate stok secara satuan melalui tabel, atau menggunakan file Excel untuk update masif sekaligus. Setiap perubahan akan dicatat dalam riwayat.
-                            </p>
-                        </CardContent>
-                    </Card>
-                </div>
+                                <h3 className="font-bold text-slate-800">Belum Ada Riwayat</h3>
+                                <p className="text-xs text-slate-400 mt-1">Perubahan stok Anda akan muncul di sini secara detail.</p>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
             </div>
         </div>
     );

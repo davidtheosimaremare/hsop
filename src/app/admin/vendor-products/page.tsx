@@ -1,14 +1,13 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 
     Search, 
     Package, 
     CheckCircle, 
-    XCircle,
     Loader2,
     Eye,
     Check,
@@ -36,7 +35,6 @@ export default function AdminVendorProductsPage() {
 
     const fetchProducts = async () => {
         setLoading(true);
-        // We'll use a new action here
         const res = await fetch("/api/admin/vendor-products");
         if (res.ok) {
             const data = await res.json();
@@ -48,6 +46,12 @@ export default function AdminVendorProductsPage() {
     useEffect(() => {
         fetchProducts();
     }, []);
+
+    const filteredProducts = products.filter(p => 
+        p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        p.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.vendor?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
     const toggleSelectAll = () => {
         const pendingProducts = filteredProducts.filter(p => p.status === "PENDING");
@@ -66,7 +70,7 @@ export default function AdminVendorProductsPage() {
 
     const handleBulkApprove = async () => {
         if (selectedIds.length === 0) return;
-        if (!confirm(`Setujui ${selectedIds.length} produk terpilih untuk ditampilkan di toko?`)) return;
+        if (!confirm(`Setujui ${selectedIds.length} produk terpilih?`)) return;
 
         const result = await adminBulkApproveProductsAction(selectedIds);
         if (result.success) {
@@ -79,8 +83,6 @@ export default function AdminVendorProductsPage() {
     };
 
     const handleApprove = async (id: string) => {
-        if (!confirm("Setujui produk ini untuk ditampilkan di toko?")) return;
-        
         const result = await adminApproveProductAction(id);
         if (result.success) {
             toast.success("Produk disetujui");
@@ -103,140 +105,136 @@ export default function AdminVendorProductsPage() {
         }
     };
 
-    const filteredProducts = products.filter(p => 
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-        p.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.vendor?.name?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-                <div className="space-y-1">
-                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">Persetujuan Produk Vendor</h1>
-                    <p className="text-slate-500 font-medium">Verifikasi dan setujui produk yang diajukan oleh vendor.</p>
+        <div className="space-y-4 pb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1">
+                <div>
+                    <h1 className="text-xl font-black text-slate-900 tracking-tight">Antrean Produk Vendor</h1>
+                    <p className="text-[11px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">Total: {products.length} Items</p>
                 </div>
-                {selectedIds.length > 0 && (
-                    <Button 
-                        onClick={handleBulkApprove}
-                        className="bg-green-600 hover:bg-green-700 text-white font-black text-xs uppercase tracking-widest px-6 h-11 rounded-xl shadow-lg shadow-green-600/20"
-                    >
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                        Setujui {selectedIds.length} Terpilih
-                    </Button>
-                )}
+                <div className="flex items-center gap-2">
+                    {selectedIds.length > 0 && (
+                        <Button 
+                            onClick={handleBulkApprove}
+                            size="sm"
+                            className="bg-teal-600 hover:bg-teal-700 text-white font-black text-[10px] uppercase tracking-wider px-4 h-9 rounded-xl shadow-lg shadow-teal-600/20"
+                        >
+                            <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
+                            Approve {selectedIds.length}
+                        </Button>
+                    )}
+                </div>
             </div>
 
-            <Card className="border-none shadow-sm bg-white rounded-2xl overflow-hidden">
-                <CardHeader className="border-b border-slate-50 py-4">
-                    <div className="relative max-w-md">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Card className="border-none shadow-sm bg-white rounded-2xl overflow-hidden border border-slate-100">
+                <CardHeader className="border-b border-slate-50 p-4">
+                    <div className="relative max-w-sm group">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 group-focus-within:text-teal-600 transition-colors" />
                         <Input
-                            placeholder="Cari produk atau nama vendor..."
+                            placeholder="Cari produk atau vendor..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-10 bg-slate-50 border-transparent focus:bg-white focus:ring-red-500 rounded-xl"
+                            className="pl-9 h-9 bg-slate-50 border-transparent focus:bg-white focus:ring-teal-500 rounded-xl text-xs font-medium"
                         />
                     </div>
                 </CardHeader>
                 <CardContent className="p-0">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left">
-                            <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-50">
+                        <table className="w-full text-left table-fixed">
+                            <thead className="bg-slate-50/50 text-slate-400 text-[9px] font-black uppercase tracking-widest border-b border-slate-50">
                                 <tr>
-                                    <th className="px-6 py-4 w-10">
+                                    <th className="px-4 py-3 w-10">
                                         <Checkbox 
                                             checked={selectedIds.length > 0 && selectedIds.length === filteredProducts.filter(p => p.status === "PENDING").length}
                                             onCheckedChange={toggleSelectAll}
                                             disabled={loading || filteredProducts.filter(p => p.status === "PENDING").length === 0}
                                         />
                                     </th>
-                                    <th className="px-6 py-4">Produk</th>
-                                    <th className="px-6 py-4">Vendor</th>
-                                    <th className="px-6 py-4">Harga</th>
-                                    <th className="px-6 py-4">Status</th>
-                                    <th className="px-6 py-4 text-right">Aksi</th>
+                                    <th className="px-4 py-3 w-1/3">Produk</th>
+                                    <th className="px-4 py-3">Vendor</th>
+                                    <th className="px-4 py-3 w-32">Harga</th>
+                                    <th className="px-4 py-3 w-28">Status</th>
+                                    <th className="px-4 py-3 text-right w-40">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
                                 {loading ? (
                                     <tr>
-                                        <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
-                                            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
-                                            Memuat data...
+                                        <td colSpan={6} className="px-4 py-16 text-center">
+                                            <Loader2 className="w-6 h-6 animate-spin mx-auto text-teal-600" />
                                         </td>
                                     </tr>
                                 ) : filteredProducts.length === 0 ? (
                                     <tr>
-                                        <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
-                                            <Package className="w-12 h-12 mx-auto mb-2 opacity-20" />
-                                            Tidak ada antrian produk vendor.
+                                        <td colSpan={6} className="px-4 py-16 text-center text-slate-400 font-bold text-xs uppercase tracking-widest">
+                                            Tidak ada antrean.
                                         </td>
                                     </tr>
                                 ) : (
                                     filteredProducts.map((product) => (
                                         <tr key={product.id} className={cn(
-                                            "hover:bg-slate-50/50 transition-colors",
+                                            "hover:bg-slate-50/50 transition-colors group",
                                             selectedIds.includes(product.id) && "bg-teal-50/50"
                                         )}>
-                                            <td className="px-6 py-4">
+                                            <td className="px-4 py-3">
                                                 <Checkbox 
                                                     checked={selectedIds.includes(product.id)}
                                                     onCheckedChange={() => toggleSelect(product.id)}
                                                     disabled={product.status !== "PENDING"}
                                                 />
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center border border-slate-200 flex-shrink-0">
-                                                        <Package className="w-5 h-5 text-slate-300" />
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center flex-shrink-0">
+                                                        <Package className="w-3.5 h-3.5 text-slate-300" />
                                                     </div>
                                                     <div className="min-w-0">
-                                                        <p className="text-sm font-bold text-slate-900 truncate">{product.name}</p>
-                                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{product.sku}</p>
+                                                        <p className="text-xs font-bold text-slate-900 truncate leading-tight" title={product.name}>{product.name}</p>
+                                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">{product.sku}</p>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <p className="text-sm font-bold text-slate-700">{product.vendor?.name || "Unknown"}</p>
-                                                <p className="text-[10px] text-slate-400">{product.vendor?.email}</p>
+                                            <td className="px-4 py-3 min-w-0">
+                                                <p className="text-[11px] font-bold text-slate-700 truncate">{product.vendor?.name || "Unknown"}</p>
+                                                <p className="text-[9px] text-slate-400 truncate">{product.vendor?.email}</p>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <p className="text-sm font-bold text-slate-900">Rp {product.price.toLocaleString("id-ID")}</p>
+                                            <td className="px-4 py-3">
+                                                <p className="text-xs font-black text-slate-900">Rp {product.price.toLocaleString("id-ID")}</p>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                {product.status === "APPROVED" ? (
-                                                    <Badge className="bg-green-100 text-green-700 border-green-200">Disetujui</Badge>
-                                                ) : product.status === "PENDING" ? (
-                                                    <Badge className="bg-amber-100 text-amber-700 border-amber-200">Menunggu</Badge>
-                                                ) : (
-                                                    <Badge className="bg-red-100 text-red-700 border-red-200">Ditolak</Badge>
-                                                )}
+                                            <td className="px-4 py-3">
+                                                <Badge className={cn(
+                                                    "text-[8px] font-black uppercase px-1.5 py-0 rounded-md border-none",
+                                                    product.status === "APPROVED" ? "bg-green-50 text-green-700" :
+                                                    product.status === "PENDING" ? "bg-amber-50 text-amber-700" :
+                                                    "bg-red-50 text-red-700"
+                                                )}>
+                                                    {product.status === "APPROVED" ? "Approved" : product.status === "PENDING" ? "Pending" : "Rejected"}
+                                                </Badge>
                                             </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <div className="flex items-center justify-end gap-2">
+                                            <td className="px-4 py-3 text-right">
+                                                <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                                     {product.status === "PENDING" && (
                                                         <>
                                                             <Button 
                                                                 size="sm" 
                                                                 onClick={() => handleApprove(product.id)}
-                                                                className="bg-green-600 hover:bg-green-700 text-white rounded-lg h-8 px-3 text-xs font-bold"
+                                                                className="bg-green-600 hover:bg-green-700 text-white rounded-lg h-7 px-2.5 text-[9px] font-black uppercase tracking-wider"
                                                             >
-                                                                <Check className="w-3.5 h-3.5 mr-1" /> Setujui
+                                                                <Check className="w-3 h-3 mr-1" /> OK
                                                             </Button>
                                                             <Button 
                                                                 size="sm" 
                                                                 variant="outline"
                                                                 onClick={() => handleReject(product.id)}
-                                                                className="border-red-200 text-red-600 hover:bg-red-50 rounded-lg h-8 px-3 text-xs font-bold"
+                                                                className="border-red-100 text-red-600 hover:bg-red-50 rounded-lg h-7 px-2.5 text-[9px] font-black uppercase tracking-wider"
                                                             >
-                                                                <X className="w-3.5 h-3.5 mr-1" /> Tolak
+                                                                <X className="w-3 h-3 mr-1" /> No
                                                             </Button>
                                                         </>
                                                     )}
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" asChild>
+                                                    <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-white" asChild>
                                                         <Link href={`/admin/products/${product.id}/edit`}>
-                                                            <Eye className="w-4 h-4 text-slate-400" />
+                                                            <Eye className="w-3.5 h-3.5 text-slate-400" />
                                                         </Link>
                                                     </Button>
                                                 </div>

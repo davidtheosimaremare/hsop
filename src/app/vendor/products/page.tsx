@@ -18,7 +18,8 @@ import {
     XCircle,
     Loader2,
     Filter,
-    ArrowRight
+    ArrowRight,
+    ArrowUpDown
 } from "lucide-react";
 import Link from "next/link";
 import { 
@@ -43,6 +44,7 @@ export default function VendorProductsPage() {
     const [searchQuery, setSearchQuery] = useState("");
     const [isImporting, setIsImporting] = useState(false);
     const [isPending, startTransition] = useTransition();
+    const [sortBy, setSortBy] = useState<string>("newest");
 
     const fetchProducts = async () => {
         setLoading(true);
@@ -167,7 +169,26 @@ export default function VendorProductsPage() {
         p.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.brand?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.category?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    ).sort((a, b) => {
+        switch (sortBy) {
+            case "name-asc":
+                return a.name.localeCompare(b.name);
+            case "name-desc":
+                return b.name.localeCompare(a.name);
+            case "category":
+                return (a.category || "").localeCompare(b.category || "");
+            case "brand":
+                return (a.brand || "").localeCompare(b.brand || "");
+            case "stock-low":
+                return a.availableToSell - b.availableToSell;
+            case "stock-high":
+                return b.availableToSell - a.availableToSell;
+            case "newest":
+                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            default:
+                return 0;
+        }
+    });
 
     const getStatusBadge = (status: string) => {
         switch (status) {
@@ -202,10 +223,6 @@ export default function VendorProductsPage() {
                     <Button variant="outline" onClick={handleExportTemplate} className="rounded-2xl border-slate-200 font-bold text-xs h-11 px-5 shadow-sm hover:bg-slate-50 transition-all">
                         <FileDown className="w-4 h-4 mr-2 text-teal-600" />
                         Template
-                    </Button>
-                    <Button variant="outline" onClick={handleExportData} className="rounded-2xl border-slate-200 font-bold text-xs h-11 px-5 shadow-sm hover:bg-slate-50 transition-all">
-                        <FileDown className="w-4 h-4 mr-2 text-red-600" />
-                        Ekspor Data
                     </Button>
                     <div className="relative">
                         <Input
@@ -245,10 +262,33 @@ export default function VendorProductsPage() {
                                 className="h-12 pl-12 bg-slate-50/50 border-transparent focus:bg-white focus:ring-teal-500 focus:border-teal-500 rounded-2xl font-medium transition-all"
                             />
                         </div>
-                        <Button variant="ghost" size="sm" className="text-slate-400 font-bold text-xs uppercase tracking-widest hover:bg-slate-50 rounded-xl">
-                            <Filter className="w-3.5 h-3.5 mr-2" />
-                            Filter Lanjut
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="text-slate-400 font-bold text-xs uppercase tracking-widest hover:bg-slate-50 rounded-xl">
+                                        <ArrowUpDown className="w-3.5 h-3.5 mr-2" />
+                                        Urutkan: {
+                                            sortBy === "newest" ? "Terbaru" :
+                                            sortBy === "name-asc" ? "Nama (A-Z)" :
+                                            sortBy === "name-desc" ? "Nama (Z-A)" :
+                                            sortBy === "category" ? "Kategori" :
+                                            sortBy === "brand" ? "Merek" :
+                                            sortBy === "stock-low" ? "Stok Terendah" :
+                                            sortBy === "stock-high" ? "Stok Tertinggi" : "Default"
+                                        }
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48 rounded-xl">
+                                    <DropdownMenuItem onClick={() => setSortBy("newest")}>Terbaru</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setSortBy("name-asc")}>Nama (A-Z)</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setSortBy("name-desc")}>Nama (Z-A)</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setSortBy("category")}>Kategori</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setSortBy("brand")}>Merek</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setSortBy("stock-low")}>Stok Terendah</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setSortBy("stock-high")}>Stok Tertinggi</DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
                     </div>
                 </CardHeader>
                 <CardContent className="p-0">

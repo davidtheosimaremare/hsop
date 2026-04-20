@@ -41,7 +41,6 @@ export default function VendorTopBar() {
             </div>
 
             <div className="flex-1">
-                <h2 className="text-sm font-black text-teal-800 uppercase tracking-widest hidden md:block">Portal Vendor Hokiindo</h2>
             </div>
 
             <div className="flex items-center gap-2 ml-auto">

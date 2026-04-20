@@ -10,9 +10,10 @@ import { Label } from "@/components/ui/label";
 import { ChevronLeft, Save, Loader2, Info, Image as ImageIcon, X, Upload, Check, ChevronsUpDown } from "lucide-react";
 import Link from "next/link";
 import { createVendorProductAction, getVendorCategoriesAction } from "@/app/actions/vendor-product";
-import { uploadFile } from "@/app/actions/upload";
+import { uploadFile, uploadCroppedImage } from "@/app/actions/upload";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { ProductImageCropper } from "@/components/admin/ProductImageCropper";
 import {
   Command,
   CommandEmpty,
@@ -48,39 +49,6 @@ export default function NewVendorProductPage() {
         };
         fetchCategories();
     }, []);
-
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        if (!file.type.startsWith("image/")) {
-            toast.error("File harus berupa gambar");
-            return;
-        }
-
-        if (file.size > 5 * 1024 * 1024) {
-            toast.error("Ukuran gambar maksimal 5MB");
-            return;
-        }
-
-        setUploadingImage(true);
-        const formData = new FormData();
-        formData.append("file", file);
-
-        try {
-            const result = await uploadFile(formData, false, "products");
-            if (result.success && result.url) {
-                setImageUrl(result.url);
-                toast.success("Gambar berhasil diunggah");
-            } else {
-                toast.error(result.error || "Gagal mengunggah gambar");
-            }
-        } catch (error) {
-            toast.error("Terjadi kesalahan saat mengunggah gambar");
-        } finally {
-            setUploadingImage(false);
-        }
-    };
 
     const removeImage = () => {
         setImageUrl(null);
@@ -255,7 +223,7 @@ export default function NewVendorProductPage() {
                                 <div className="space-y-4">
                                     {imageUrl ? (
                                         <div className="relative aspect-square rounded-2xl overflow-hidden border border-slate-100 group">
-                                            <img src={imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                                            <img src={imageUrl} alt="Preview" className="w-full h-full object-contain p-2" />
                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                                 <Button 
                                                     type="button" 
@@ -269,32 +237,12 @@ export default function NewVendorProductPage() {
                                             </div>
                                         </div>
                                     ) : (
-                                        <label className={cn(
-                                            "flex flex-col items-center justify-center aspect-square rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-teal-300 transition-all cursor-pointer group",
-                                            uploadingImage && "opacity-50 cursor-not-allowed pointer-events-none"
-                                        )}>
-                                            {uploadingImage ? (
-                                                <Loader2 className="h-8 w-8 text-teal-600 animate-spin" />
-                                            ) : (
-                                                <>
-                                                    <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                                                        <Upload className="h-6 w-6 text-teal-600" />
-                                                    </div>
-                                                    <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Unggah Gambar</span>
-                                                    <span className="text-[10px] text-slate-400 font-medium mt-1">JPG, PNG, WEBP (Max 5MB)</span>
-                                                </>
-                                            )}
-                                            <input 
-                                                type="file" 
-                                                accept="image/*" 
-                                                className="hidden" 
-                                                onChange={handleImageUpload}
-                                                disabled={uploadingImage}
-                                            />
-                                        </label>
+                                        <ProductImageCropper 
+                                            onImageUploaded={(url) => setImageUrl(url)}
+                                        />
                                     )}
-                                    <p className="text-[10px] text-slate-400 font-medium leading-relaxed text-center">
-                                        Gunakan gambar dengan latar belakang putih dan resolusi tinggi untuk hasil terbaik.
+                                    <p className="text-[10px] text-slate-400 font-medium leading-relaxed text-center italic">
+                                        Gunakan foto persegi (1:1) agar produk terlihat pas di katalog pencarian.
                                     </p>
                                 </div>
                             </CardContent>

@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { updateSession, decrypt } from "@/lib/auth";
 
 export default async function proxy(request: NextRequest) {
-    // 1. Update session if it exists (extend expiry)
-    await updateSession(request);
+    // 1. Update session and get the response object
+    // CRITICAL: We must use the response returned by updateSession, 
+    // otherwise the cookie update never reaches the browser.
+    let res = await updateSession(request) || NextResponse.next();
 
     // 2. Protect /admin and /vendor routes
     if (request.nextUrl.pathname.startsWith("/admin") || request.nextUrl.pathname.startsWith("/vendor")) {
@@ -16,7 +18,7 @@ export default async function proxy(request: NextRequest) {
             if (request.nextUrl.pathname !== loginPath) {
                 return NextResponse.redirect(new URL(loginPath, request.url));
             }
-            return NextResponse.next();
+            return res;
         }
 
         // Session exists, check role
@@ -25,7 +27,6 @@ export default async function proxy(request: NextRequest) {
             const user = session.user;
 
             if (isAdminRoute) {
-                // If user is CUSTOMER or VENDOR, they should not be in /admin (unless they have permission, but usually they don't)
                 const adminRoles = ["SUPER_ADMIN", "ADMIN", "MANAGER", "STAFF", "VIEWER"];
                 if (!adminRoles.includes(user?.role)) {
                     return NextResponse.redirect(new URL("/", request.url));
@@ -45,12 +46,15 @@ export default async function proxy(request: NextRequest) {
         } catch (error) {
             // Invalid session
             if (request.nextUrl.pathname !== loginPath) {
-                return NextResponse.redirect(new URL(loginPath, request.url));
+                const redirectRes = NextResponse.redirect(new URL(loginPath, request.url));
+                // Clear the corrupted session cookie
+                redirectRes.cookies.set("session", "", { expires: new Date(0), path: "/" });
+                return redirectRes;
             }
         }
     }
 
-    return NextResponse.next();
+    return res;
 }
 
 export const config = {
