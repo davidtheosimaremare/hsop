@@ -1,6 +1,6 @@
 "use server";
 
-import { redirect } from "next/navigation";
+import { redirect, isRedirectError } from "next/navigation";
 import { login, logout } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { compare } from "bcryptjs";
@@ -104,14 +104,6 @@ export async function loginAction(prevState: any, formData: FormData) {
         console.error("Login error DETAILS:", error);
         return { error: "Terjadi kesalahan sistem." };
     }
-}
-
-// Helper to check for redirect error type
-function isRedirectError(error: any) {
-    return error && typeof error === 'object' && (
-        error.digest?.startsWith('NEXT_REDIRECT') ||
-        error.message?.includes('NEXT_REDIRECT')
-    );
 }
 
 import { sendFonteeOTP } from "@/lib/fontee";
