@@ -151,7 +151,6 @@ export async function getCurrentUserWithCustomer() {
                 email: true,
                 name: true,
                 role: true,
-                image: true,
                 customerId: true,
                 customer: {
                     select: {

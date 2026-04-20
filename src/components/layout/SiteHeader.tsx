@@ -11,9 +11,9 @@ export default async function SiteHeader() {
     const companyDetails = await getSiteSetting("company_details") as any;
 
     return <Header 
-        user={user} 
+        user={user as any} 
         userId={user?.id}
-        customerImage={user?.image}
+        customerImage={user?.customer?.image}
         menuConfig={menuConfig} 
         searchSuggestions={searchSuggestions} 
         companyDetails={companyDetails}
