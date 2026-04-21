@@ -120,6 +120,9 @@ model Product {
   vendor          User?       @relation("VendorProducts", fields: [vendorId], references: [id])
   status          String      @default("APPROVED")
   isVendorProduct Boolean     @default(false)
+  vendorPrice     Float?      // Harga beli modal dari vendor
+  marginType      String?     // 'PERCENTAGE', 'FIXED', 'MANUAL'
+  marginValue     Float?      // Nilai dari margin (misal 10 untuk 10%, atau 50000 untuk +50k)
   stockLogs       ProductStockLog[]
 
   @@index([sku])

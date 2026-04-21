@@ -215,7 +215,10 @@ export async function bulkImportVendorProductsAction(products: any[]) {
 }
 
 // Admin Actions for Vendor Products
-export async function adminApproveProductAction(id: string) {
+export async function adminApproveProductAction(
+    id: string, 
+    marginData: { type: string, value: number, finalPrice: number, vendorPrice: number }
+) {
     try {
         const session = await getSession();
         if (!session || !["SUPER_ADMIN", "ADMIN", "MANAGER"].includes(session.user.role)) {
@@ -227,6 +230,10 @@ export async function adminApproveProductAction(id: string) {
             data: {
                 status: "APPROVED",
                 isVisible: true,
+                vendorPrice: marginData.vendorPrice,
+                marginType: marginData.type,
+                marginValue: marginData.value,
+                price: marginData.finalPrice,
             },
         });
 

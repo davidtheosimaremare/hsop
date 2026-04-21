@@ -24,6 +24,15 @@ import Link from "next/link";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 
+import { 
+    Dialog, 
+    DialogContent, 
+    DialogHeader, 
+    DialogTitle, 
+    DialogDescription,
+    DialogFooter 
+} from "@/components/ui/dialog";
+
 export const dynamic = "force-dynamic";
 
 export default function AdminVendorProductsPage() {
@@ -32,6 +41,58 @@ export default function AdminVendorProductsPage() {
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [isPending, startTransition] = useTransition();
+
+    // Dialog States
+    const [dialogOpen, setDialogOpen] = useState(false);
+    const [selectedProduct, setSelectedProduct] = useState<any>(null);
+    const [marginType, setMarginType] = useState<"PERCENTAGE" | "FIXED" | "MANUAL">("PERCENTAGE");
+    const [marginValue, setMarginValue] = useState<number>(10);
+    const [dialogLoading, setDialogLoading] = useState(false);
+
+    const calculateFinalPrice = (basePrice: number) => {
+        if (marginType === "PERCENTAGE") {
+            return basePrice + (basePrice * (marginValue / 100));
+        } else if (marginType === "FIXED") {
+            return basePrice + marginValue;
+        } else {
+            return marginValue;
+        }
+    };
+
+    const openApprovalDialog = (product: any) => {
+        setSelectedProduct(product);
+        setMarginType("PERCENTAGE");
+        setMarginValue(10);
+        setDialogOpen(true);
+    };
+
+    const submitApproval = async () => {
+        if (!selectedProduct) return;
+        setDialogLoading(true);
+
+        const finalPrice = calculateFinalPrice(selectedProduct.price);
+        
+        try {
+            const result = await adminApproveProductAction(selectedProduct.id, {
+                type: marginType,
+                value: marginValue,
+                finalPrice: finalPrice,
+                vendorPrice: selectedProduct.price,
+            });
+
+            if (result.success) {
+                toast.success("Produk disetujui & dipublikasikan!");
+                setDialogOpen(false);
+                fetchProducts();
+            } else {
+                toast.error(result.error || "Gagal menyetujui produk");
+            }
+        } catch (err: any) {
+            toast.error(err.message || "Terjadi kesalahan server");
+        } finally {
+            setDialogLoading(false);
+        }
+    };
 
     const fetchProducts = useCallback(async () => {
         setLoading(true);
@@ -117,18 +178,7 @@ export default function AdminVendorProductsPage() {
                     <h1 className="text-xl font-black text-slate-900 tracking-tight">Antrean Produk Vendor</h1>
                     <p className="text-[11px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">Total: {products.length} Items</p>
                 </div>
-                <div className="flex items-center gap-2">
-                    {selectedIds.length > 0 && (
-                        <Button 
-                            onClick={handleBulkApprove}
-                            size="sm"
-                            className="bg-teal-600 hover:bg-teal-700 text-white font-black text-[10px] uppercase tracking-wider px-4 h-9 rounded-xl shadow-lg shadow-teal-600/20"
-                        >
-                            <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
-                            Approve {selectedIds.length}
-                        </Button>
-                    )}
-                </div>
+                {/* Bulk Approve button removed temporarily to enforce individual margins */}
             </div>
 
             <Card className="border-none shadow-sm bg-white rounded-2xl overflow-hidden border border-slate-100">
@@ -148,16 +198,9 @@ export default function AdminVendorProductsPage() {
                         <table className="w-full text-left table-fixed">
                             <thead className="bg-slate-50/50 text-slate-400 text-[9px] font-black uppercase tracking-widest border-b border-slate-50">
                                 <tr>
-                                    <th className="px-4 py-3 w-10">
-                                        <Checkbox 
-                                            checked={selectedIds.length > 0 && selectedIds.length === filteredProducts.filter(p => p.status === "PENDING").length}
-                                            onCheckedChange={toggleSelectAll}
-                                            disabled={loading || filteredProducts.filter(p => p.status === "PENDING").length === 0}
-                                        />
-                                    </th>
                                     <th className="px-4 py-3 w-1/3">Produk</th>
                                     <th className="px-4 py-3">Vendor</th>
-                                    <th className="px-4 py-3 w-32">Harga</th>
+                                    <th className="px-4 py-3 w-32">Harga Dasar</th>
                                     <th className="px-4 py-3 w-28">Status</th>
                                     <th className="px-4 py-3 text-right w-40">Aksi</th>
                                 </tr>
@@ -165,13 +208,13 @@ export default function AdminVendorProductsPage() {
                             <tbody className="divide-y divide-slate-50">
                                 {loading ? (
                                     <tr>
-                                        <td colSpan={6} className="px-4 py-16 text-center">
+                                        <td colSpan={5} className="px-4 py-16 text-center">
                                             <Loader2 className="w-6 h-6 animate-spin mx-auto text-teal-600" />
                                         </td>
                                     </tr>
                                 ) : filteredProducts.length === 0 ? (
                                     <tr>
-                                        <td colSpan={6} className="px-4 py-16 text-center text-slate-400 font-bold text-xs uppercase tracking-widest">
+                                        <td colSpan={5} className="px-4 py-16 text-center text-slate-400 font-bold text-xs uppercase tracking-widest">
                                             Tidak ada antrean.
                                         </td>
                                     </tr>
@@ -181,13 +224,6 @@ export default function AdminVendorProductsPage() {
                                             "hover:bg-slate-50/50 transition-colors group",
                                             selectedIds.includes(product.id) && "bg-teal-50/50"
                                         )}>
-                                            <td className="px-4 py-3">
-                                                <Checkbox 
-                                                    checked={selectedIds.includes(product.id)}
-                                                    onCheckedChange={() => toggleSelect(product.id)}
-                                                    disabled={product.status !== "PENDING"}
-                                                />
-                                            </td>
                                             <td className="px-4 py-3">
                                                 <div className="flex items-center gap-2 min-w-0">
                                                     <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center flex-shrink-0">
@@ -204,7 +240,12 @@ export default function AdminVendorProductsPage() {
                                                 <p className="text-[9px] text-slate-400 truncate">{product.vendor?.email}</p>
                                             </td>
                                             <td className="px-4 py-3">
-                                                <p className="text-xs font-black text-slate-900">Rp {product.price.toLocaleString("id-ID")}</p>
+                                                <p className="text-xs font-black text-slate-500">Rp {product.price.toLocaleString("id-ID")}</p>
+                                                {product.marginType && (
+                                                    <p className="text-[9px] font-bold text-teal-600 mt-0.5" title="Harga Jual Hokiindo">
+                                                        Jual: Rp {(product.price || 0).toLocaleString("id-ID")}
+                                                    </p>
+                                                )}
                                             </td>
                                             <td className="px-4 py-3">
                                                 <Badge className={cn(
@@ -222,7 +263,7 @@ export default function AdminVendorProductsPage() {
                                                         <>
                                                             <Button 
                                                                 size="sm" 
-                                                                onClick={() => handleApprove(product.id)}
+                                                                onClick={() => openApprovalDialog(product)}
                                                                 className="bg-green-600 hover:bg-green-700 text-white rounded-lg h-7 px-2.5 text-[9px] font-black uppercase tracking-wider"
                                                             >
                                                                 <Check className="w-3 h-3 mr-1" /> OK
@@ -252,6 +293,85 @@ export default function AdminVendorProductsPage() {
                     </div>
                 </CardContent>
             </Card>
+
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Set Margin Harga Produk</DialogTitle>
+                        <DialogDescription>
+                            Tentukan harga jual <span className="font-bold text-slate-900">{selectedProduct?.name}</span> agar muncul di Hokiindo.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {selectedProduct && (
+                        <div className="space-y-4 py-4">
+                            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex justify-between items-center">
+                                <span className="text-xs font-bold text-slate-500">Harga Dasar Vendor</span>
+                                <span className="text-sm font-black text-slate-900">Rp {selectedProduct.price.toLocaleString("id-ID")}</span>
+                            </div>
+
+                            <div className="space-y-3">
+                                <label className="text-xs font-bold text-slate-700">Tipe Margin Setup</label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    <Button 
+                                        type="button"
+                                        variant={marginType === "PERCENTAGE" ? "default" : "outline"}
+                                        className={cn("h-8 text-[11px] font-bold rounded-lg", marginType === "PERCENTAGE" && "bg-teal-600")}
+                                        onClick={() => { setMarginType("PERCENTAGE"); setMarginValue(10); }}
+                                    >
+                                        Persentase (%)
+                                    </Button>
+                                    <Button 
+                                        type="button"
+                                        variant={marginType === "FIXED" ? "default" : "outline"}
+                                        className={cn("h-8 text-[11px] font-bold rounded-lg", marginType === "FIXED" && "bg-teal-600")}
+                                        onClick={() => { setMarginType("FIXED"); setMarginValue(50000); }}
+                                    >
+                                        Angka Tetap
+                                    </Button>
+                                    <Button 
+                                        type="button"
+                                        variant={marginType === "MANUAL" ? "default" : "outline"}
+                                        className={cn("h-8 text-[11px] font-bold rounded-lg", marginType === "MANUAL" && "bg-teal-600")}
+                                        onClick={() => { setMarginType("MANUAL"); setMarginValue(selectedProduct.price); }}
+                                    >
+                                        Harga Manual
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-slate-700">
+                                    {marginType === "PERCENTAGE" ? "Besaran Persen (%)" : marginType === "FIXED" ? "Besaran Angka (Rp)" : "Harga Jual Akhir (Rp)"}
+                                </label>
+                                <Input 
+                                    type="number" 
+                                    value={marginValue} 
+                                    onChange={(e) => setMarginValue(Number(e.target.value))} 
+                                    className="h-10 text-sm font-bold bg-slate-50"
+                                />
+                            </div>
+
+                            <div className="pt-4 mt-4 border-t border-slate-100 flex justify-between items-center">
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Harga Tayang Hokiindo</span>
+                                <span className="text-xl font-black text-teal-600">Rp {calculateFinalPrice(selectedProduct.price).toLocaleString("id-ID")}</span>
+                            </div>
+                        </div>
+                    )}
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={dialogLoading}>Batal</Button>
+                        <Button 
+                            className="bg-teal-600 hover:bg-teal-700 text-white font-bold" 
+                            onClick={submitApproval}
+                            disabled={dialogLoading}
+                        >
+                            {dialogLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-2" />}
+                            Setujui & Publikasikan
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
