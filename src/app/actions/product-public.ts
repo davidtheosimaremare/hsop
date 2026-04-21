@@ -5,7 +5,7 @@ import { Prisma } from "@prisma/client";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 
-export const getCategoriesTree = unstable_cache(
+const getCategoriesTreeCached = unstable_cache(
     async () => {
         const categories = await db.category.findMany({
             where: { isVisible: true },
@@ -25,7 +25,11 @@ export const getCategoriesTree = unstable_cache(
     { revalidate: 3600, tags: ['categories'] }
 );
 
-export const getBrands = unstable_cache(
+export async function getCategoriesTree() {
+    return getCategoriesTreeCached();
+}
+
+const getBrandsCached = unstable_cache(
     async () => {
         const brands = await db.brand.findMany({
             where: { isVisible: true },
@@ -56,6 +60,10 @@ export const getBrands = unstable_cache(
     ['brands-list'],
     { revalidate: 3600, tags: ['brands'] }
 );
+
+export async function getBrands() {
+    return getBrandsCached();
+}
 
 export interface ProductFilterParams {
     query?: string;
@@ -200,7 +208,7 @@ export async function getPublicProducts({
 }
 
 
-export const getPublicProductBySlug = cache(async (slug: string) => {
+const getPublicProductBySlugCached = cache(async (slug: string) => {
     // 1. First try matching exact SKU (user preference)
     const productBySku = await db.product.findUnique({
         where: { sku: slug },
@@ -239,7 +247,11 @@ export const getPublicProductBySlug = cache(async (slug: string) => {
     });
 });
 
-export const getRelatedProducts = unstable_cache(
+export async function getPublicProductBySlug(slug: string) {
+    return getPublicProductBySlugCached(slug);
+}
+
+const getRelatedProductsCached = unstable_cache(
     async (category: string, excludeId: string, name: string = "") => {
         // Clean name for better matching
         const nameWords = name.split(/[\s-]+/).filter(w => w.length >= 3).slice(0, 2);
@@ -281,4 +293,8 @@ export const getRelatedProducts = unstable_cache(
     ['related-products'],
     { revalidate: 600, tags: ['products'] }
 );
+
+export async function getRelatedProducts(category: string, excludeId: string, name: string = "") {
+    return getRelatedProductsCached(category, excludeId, name);
+}
 

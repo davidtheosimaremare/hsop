@@ -3,7 +3,7 @@
 import { db } from "@/lib/db";
 import { revalidatePath, unstable_cache, revalidateTag } from "next/cache";
 
-export const getSiteSetting = unstable_cache(
+const getSiteSettingCached = unstable_cache(
     async (key: string) => {
         try {
             const setting = await db.siteSetting.findUnique({
@@ -18,6 +18,10 @@ export const getSiteSetting = unstable_cache(
     ['site-settings'],
     { revalidate: 300, tags: ['settings'] }
 );
+
+export async function getSiteSetting(key: string) {
+    return getSiteSettingCached(key);
+}
 
 export async function updateSiteSetting(key: string, value: any) {
     try {
@@ -64,7 +68,7 @@ export async function deleteSearchSuggestion(id: string) {
     }
 }
 
-export const getSearchSuggestions = unstable_cache(
+const getSearchSuggestionsCached = unstable_cache(
     async (limit: number = 10) => {
         try {
             const suggestions = await db.searchSuggestion.findMany({
@@ -80,6 +84,10 @@ export const getSearchSuggestions = unstable_cache(
     ['search-suggestions'],
     { revalidate: 3600, tags: ['search'] }
 );
+
+export async function getSearchSuggestions(limit?: number) {
+    return getSearchSuggestionsCached(limit);
+}
 
 export async function createCategorySection(title: string) {
     try {
@@ -255,7 +263,7 @@ export async function deleteClientProject(id: string) {
 
 // --- Menu Category Actions ---
 
-export const getCategoryMenuConfig = unstable_cache(
+const getCategoryMenuConfigCached = unstable_cache(
     async () => {
         try {
             const setting = await db.siteSetting.findUnique({
@@ -270,6 +278,10 @@ export const getCategoryMenuConfig = unstable_cache(
     ['category-menu-config'],
     { revalidate: 3600, tags: ['settings', 'categories'] }
 );
+
+export async function getCategoryMenuConfig() {
+    return getCategoryMenuConfigCached();
+}
 
 export async function updateCategoryMenuConfig(config: any) {
     try {
