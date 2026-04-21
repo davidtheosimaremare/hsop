@@ -1,10 +1,7 @@
-import SiteHeader from "@/components/layout/SiteHeader";
-import Footer from "@/components/layout/Footer";
-
 export default function GlobalLoading() {
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col pointer-events-none">
-            <SiteHeader />
+            <header className="h-[70px] bg-white border-b w-full" />
 
             <main className="flex-1 w-full relative flex items-center justify-center min-h-[50vh]">
                 {/* Visual loading indicator (Top Bar) */}
@@ -29,8 +26,6 @@ export default function GlobalLoading() {
                     }
                 `}} />
             </main>
-
-            <Footer />
         </div>
     );
 }

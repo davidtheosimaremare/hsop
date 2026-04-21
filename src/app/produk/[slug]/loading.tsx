@@ -1,11 +1,9 @@
-import SiteHeader from "@/components/layout/SiteHeader";
-import Footer from "@/components/layout/Footer";
 import { Loader2 } from "lucide-react";
 
 export default function LoadingProduct() {
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
-            <SiteHeader />
+            <header className="h-[70px] bg-white border-b w-full" />
 
             <main className="flex-1 w-full relative">
                 {/* Visual loading indicator for fast feedback */}
@@ -62,8 +60,6 @@ export default function LoadingProduct() {
                     }
                 `}} />
             </main>
-
-            <Footer />
         </div>
     );
 }
