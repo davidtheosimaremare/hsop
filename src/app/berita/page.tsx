@@ -1,4 +1,4 @@
-export const dynamic = "force-dynamic";
+// Berita list: Suspense handles loading state, no need for force-dynamic
 
 import { Suspense } from "react";
 import SiteHeader from "@/components/layout/SiteHeader";

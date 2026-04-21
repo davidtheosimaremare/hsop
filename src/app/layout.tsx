@@ -31,11 +31,21 @@ export async function generateMetadata(): Promise<Metadata> {
   const tagline = companyDetails?.siteTagline || "Distributor Siemens Electrical Indonesia";
   
   return {
+    metadataBase: new URL('https://shop.hokiindo.co.id'),
     title: {
       template: `%s | ${siteTitle}`,
       default: `${siteTitle} - ${tagline}`,
     },
     description: companyDetails?.description || `${siteTitle} adalah distributor resmi produk Siemens Electrical di Indonesia. Temukan berbagai produk electrical berkualitas tinggi untuk kebutuhan proyek Anda.`,
+    openGraph: {
+      type: 'website',
+      locale: 'id_ID',
+      siteName: siteTitle,
+    },
+    robots: {
+      index: true,
+      follow: true,
+    },
     icons: {
       icon: [
         { url: companyDetails?.favicon || "/favicon.ico", type: "image/x-icon" },

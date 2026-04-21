@@ -1,15 +1,10 @@
+import { Suspense } from "react";
 import SiteHeader from "@/components/layout/SiteHeader";
 import Footer from "@/components/layout/Footer";
-import { Share2, Minus, Plus, ShoppingCart, MessageCircle, ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { getPublicProductBySlug, getRelatedProducts } from "@/app/actions/product-public";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-// We need to make this a Server Component
-// But it has interactive elements (quantity, tabs, slider).
-// Best approach: Keep page.tsx as Server Component for fetching, 
-// and extract the interactive detail view to a Client Component.
 
 import ProductDetailClient from "@/components/public/ProductDetailClient";
 import { getCustomerPricingData } from "@/app/actions/customer-pricing";
@@ -34,19 +29,16 @@ export async function generateMetadata(
     const companyDetails = await getSiteSetting("company_details") as any;
     const siteTitle = companyDetails?.siteTitle || companyDetails?.name || "Hokiindo";
 
-    // Use custom meta if exists, otherwise fallback to smart default
     const metaTitle = product.metaTitle || `${product.name} ${product.sku} - ${product.category || 'Distributor Resmi'} | ${siteTitle}`;
     
-    // Construct default description showing key elements
     const defaultDesc = `Katalog ${product.brand || 'Siemens'} ${product.name} (${product.sku}). Beli online produk ${product.category || 'Electrical'} terpercaya hanya di ${siteTitle}.`;
     const metaDesc = product.metaDescription || defaultDesc;
 
-    // Use primary image or fallback
     const firstImage = product.image || (product.sliderImages && product.sliderImages.length > 0 ? product.sliderImages[0] : null);
 
     return {
         title: metaTitle,
-        description: metaDesc.substring(0, 160), // SEO optimal length
+        description: metaDesc.substring(0, 160),
         alternates: {
             canonical: `https://shop.hokiindo.co.id/produk/${encodeURIComponent(product.sku)}`
         },
@@ -67,7 +59,6 @@ export async function generateMetadata(
 }
 
 
-// Since it's a dynamic route
 export default async function ProductDetailPage({ params }: { params: Promise<{ slug: string }> }) {
     const { slug } = await params;
     const product = await getPublicProductBySlug(slug);
@@ -76,21 +67,12 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         return notFound();
     }
 
-    // --- STOCK DARI DATABASE INTERNAL ---
     let availableToSell = product.availableToSell || 0;
 
-    // Create extended product object
     const productWithStock = {
         ...product,
         availableToSell
     };
-
-    // Fetch all supporting data in parallel (fast due to unstable_cache)
-    const [relatedProducts, pricingData, whatsappConfig] = await Promise.all([
-        getRelatedProducts(product.category || "", product.id, product.name),
-        getCustomerPricingData(),
-        getSiteSetting("whatsapp_config") as Promise<Record<string, string> | null>
-    ]);
 
     // === JSON-LD Structured Data Schema ===
     const firstImage = product.image || (product.sliderImages?.length > 0 ? product.sliderImages[0] : "");
@@ -115,7 +97,6 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         }
     };
     
-    // Optional breadcrumb JSON-LD
     const breadcrumbLd = {
         '@context': 'https://schema.org',
         '@type': 'BreadcrumbList',
@@ -141,7 +122,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
             <main className="flex-1">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-                    {/* Breadcrumb */}
+                    {/* Breadcrumb - instant */}
                     <nav className="text-sm mb-4">
                         <ol className="flex items-center gap-2 flex-wrap">
                             <li><Link href="/" className="text-gray-500 hover:text-red-600">Beranda</Link></li>
@@ -164,17 +145,10 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                         </ol>
                     </nav>
 
-                    <PricingProvider
-                        initialCustomer={pricingData.customer}
-                        initialMappings={pricingData.categoryMappings}
-                        initialDiscountRules={pricingData.discountRules}
-                    >
-                        <ProductDetailClient 
-                            product={productWithStock as any} 
-                            relatedProducts={relatedProducts as any[]} 
-                            whatsappConfig={whatsappConfig}
-                        />
-                    </PricingProvider>
+                    {/* Stream the product detail: shows skeleton first, then full content */}
+                    <Suspense fallback={<ProductDetailSkeleton product={productWithStock} />}>
+                        <ProductContentWrapper product={productWithStock as any} />
+                    </Suspense>
 
                 </div>
             </main>
@@ -184,3 +158,103 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
     );
 }
 
+/**
+ * Async server component that fetches heavy data (pricing, related products)
+ * and renders the full interactive product detail.
+ */
+async function ProductContentWrapper({ product }: { product: any }) {
+    const [relatedProducts, pricingData, whatsappConfig] = await Promise.all([
+        getRelatedProducts(product.category || "", product.id, product.name),
+        getCustomerPricingData(),
+        getSiteSetting("whatsapp_config") as Promise<Record<string, string> | null>
+    ]);
+
+    return (
+        <PricingProvider
+            initialCustomer={pricingData.customer}
+            initialMappings={pricingData.categoryMappings}
+            initialDiscountRules={pricingData.discountRules}
+        >
+            <ProductDetailClient 
+                product={product} 
+                relatedProducts={relatedProducts as any[]} 
+                whatsappConfig={whatsappConfig}
+            />
+        </PricingProvider>
+    );
+}
+
+/**
+ * Rich skeleton that shows actual product info (name, image, SKU) immediately
+ * while heavy data (pricing, related products) loads in background.
+ */
+function ProductDetailSkeleton({ product }: { product: any }) {
+    const galleryImages = [
+        product.image,
+        ...(product.sliderImages || [])
+    ].filter(Boolean) as string[];
+
+    return (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 p-6">
+                {/* Left: Real product image */}
+                <div className="w-full lg:w-[500px] flex-shrink-0 flex flex-col gap-4">
+                    <div className="aspect-square bg-gray-50 rounded-xl overflow-hidden flex items-center justify-center">
+                        {galleryImages[0] ? (
+                            <img
+                                src={galleryImages[0]}
+                                alt={product.name}
+                                className="w-full h-full object-contain"
+                            />
+                        ) : (
+                            <div className="text-gray-300 text-sm">No Image</div>
+                        )}
+                    </div>
+                    {galleryImages.length > 1 && (
+                        <div className="flex gap-2 lg:gap-4 overflow-hidden">
+                            {galleryImages.slice(0, 4).map((img, idx) => (
+                                <div key={idx} className="w-20 h-20 bg-gray-50 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
+                                    <img src={img} alt="" className="w-full h-full object-contain" />
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Right: Real product info + skeleton for price */}
+                <div className="flex-1 flex flex-col pt-2 lg:pt-4">
+                    {/* Brand - real */}
+                    {product.brand && (
+                        <span className="text-sm font-medium text-red-600 uppercase tracking-wide mb-2">
+                            {product.brand}
+                        </span>
+                    )}
+                    {/* Product name - real */}
+                    <h1 className="text-xl lg:text-2xl font-bold text-gray-900 mb-1 uppercase">
+                        {product.name}
+                    </h1>
+                    {/* SKU - real */}
+                    <p className="text-sm text-gray-500 mb-6">SKU: {product.sku}</p>
+
+                    {/* Price area - skeleton (loading) */}
+                    <div className="animate-pulse space-y-3 mb-8">
+                        <div className="h-8 bg-gray-200 rounded w-48"></div>
+                        <div className="h-4 bg-gray-200 rounded w-32"></div>
+                    </div>
+
+                    {/* Stock status - skeleton */}
+                    <div className="animate-pulse bg-gray-100 rounded-xl p-4 mb-6 space-y-4">
+                        <div className="h-10 bg-gray-200 rounded w-full"></div>
+                        <div className="h-10 bg-gray-200 rounded w-full"></div>
+                    </div>
+                    
+                    {/* Buttons - skeleton */}
+                    <div className="animate-pulse flex flex-wrap items-center gap-4 mt-auto">
+                        <div className="h-12 bg-gray-200 rounded w-32"></div>
+                        <div className="h-12 bg-gray-200 rounded flex-1"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}

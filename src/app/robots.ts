@@ -5,7 +5,18 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/admin/', '/api/admin/'], // Jangan indeks kontrol panel dan API rahasi
+      disallow: [
+        '/admin/',
+        '/api/',
+        '/dashboard/',
+        '/vendor/',
+        '/keranjang',
+        '/masuk',
+        '/daftar',
+        '/lupa-password',
+        '/reset-password',
+        '/verifikasi',
+      ],
     },
     sitemap: 'https://shop.hokiindo.co.id/sitemap.xml',
   }
