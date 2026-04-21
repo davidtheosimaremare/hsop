@@ -113,6 +113,8 @@ model Product {
   isVisible       Boolean     @default(true)
   datasheet       String?
   specifications  Json?
+  metaTitle       String?     // SEO Custom Title
+  metaDescription String?     // SEO Custom Description
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
   orderItems      OrderItem[]
