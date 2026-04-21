@@ -10,7 +10,9 @@ export async function GET() {
             ALTER TABLE "Product" 
             ADD COLUMN IF NOT EXISTS "vendorPrice" DOUBLE PRECISION,
             ADD COLUMN IF NOT EXISTS "marginType" TEXT,
-            ADD COLUMN IF NOT EXISTS "marginValue" DOUBLE PRECISION;
+            ADD COLUMN IF NOT EXISTS "marginValue" DOUBLE PRECISION,
+            ADD COLUMN IF NOT EXISTS "metaTitle" TEXT,
+            ADD COLUMN IF NOT EXISTS "metaDescription" TEXT;
         `);
         
         return NextResponse.json({ 
