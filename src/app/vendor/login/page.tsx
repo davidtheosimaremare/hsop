@@ -23,7 +23,7 @@ function VendorLoginForm() {
     const [showPassword, setShowPassword] = useState(false);
 
     // Initial state for the action
-    const initialState = { error: "", unverified: false, email: "", success: false, redirectUrl: "" };
+    const initialState: any = { error: "", unverified: false, email: "", success: false, redirectUrl: "" };
     const [state, formAction, isPending] = useActionState(vendorLoginAction, initialState);
 
     // Hard redirect on success to ensure AuthProvider updates
