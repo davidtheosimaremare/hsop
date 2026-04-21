@@ -45,13 +45,17 @@ export default function AdminVendorProductsPage() {
     // Dialog States
     const [dialogOpen, setDialogOpen] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<any>(null);
-    const [marginType, setMarginType] = useState<"PERCENTAGE" | "FIXED" | "MANUAL">("PERCENTAGE");
+    const [marginType, setMarginType] = useState<"PERCENTAGE" | "FIXED" | "MANUAL" | "MULTIPLY" | "DIVIDE">("PERCENTAGE");
     const [marginValue, setMarginValue] = useState<number>(10);
     const [dialogLoading, setDialogLoading] = useState(false);
 
     const calculateFinalPrice = (basePrice: number) => {
         if (marginType === "PERCENTAGE") {
             return basePrice + (basePrice * (marginValue / 100));
+        } else if (marginType === "MULTIPLY") {
+            return basePrice * marginValue;
+        } else if (marginType === "DIVIDE") {
+            return marginValue === 0 ? 0 : basePrice / marginValue;
         } else if (marginType === "FIXED") {
             return basePrice + marginValue;
         } else {
@@ -312,14 +316,30 @@ export default function AdminVendorProductsPage() {
 
                             <div className="space-y-3">
                                 <label className="text-xs font-bold text-slate-700">Tipe Margin Setup</label>
-                                <div className="grid grid-cols-3 gap-2">
+                                <div className="flex flex-wrap gap-2">
                                     <Button 
                                         type="button"
                                         variant={marginType === "PERCENTAGE" ? "default" : "outline"}
                                         className={cn("h-8 text-[11px] font-bold rounded-lg", marginType === "PERCENTAGE" && "bg-teal-600")}
                                         onClick={() => { setMarginType("PERCENTAGE"); setMarginValue(10); }}
                                     >
-                                        Persentase (%)
+                                        Persen (%)
+                                    </Button>
+                                    <Button 
+                                        type="button"
+                                        variant={marginType === "DIVIDE" ? "default" : "outline"}
+                                        className={cn("h-8 text-[11px] font-bold rounded-lg", marginType === "DIVIDE" && "bg-teal-600")}
+                                        onClick={() => { setMarginType("DIVIDE"); setMarginValue(0.85); }}
+                                    >
+                                        Bagi (÷)
+                                    </Button>
+                                    <Button 
+                                        type="button"
+                                        variant={marginType === "MULTIPLY" ? "default" : "outline"}
+                                        className={cn("h-8 text-[11px] font-bold rounded-lg", marginType === "MULTIPLY" && "bg-teal-600")}
+                                        onClick={() => { setMarginType("MULTIPLY"); setMarginValue(1.15); }}
+                                    >
+                                        Kali (x)
                                     </Button>
                                     <Button 
                                         type="button"
@@ -335,17 +355,21 @@ export default function AdminVendorProductsPage() {
                                         className={cn("h-8 text-[11px] font-bold rounded-lg", marginType === "MANUAL" && "bg-teal-600")}
                                         onClick={() => { setMarginType("MANUAL"); setMarginValue(selectedProduct.price); }}
                                     >
-                                        Harga Manual
+                                        Ubah Manual
                                     </Button>
                                 </div>
                             </div>
 
                             <div className="space-y-2">
                                 <label className="text-xs font-bold text-slate-700">
-                                    {marginType === "PERCENTAGE" ? "Besaran Persen (%)" : marginType === "FIXED" ? "Besaran Angka (Rp)" : "Harga Jual Akhir (Rp)"}
+                                    {marginType === "PERCENTAGE" ? "Besaran Persen (%)" : 
+                                     marginType === "DIVIDE" ? "Angka Pembagi (misal: 0.85)" : 
+                                     marginType === "MULTIPLY" ? "Angka Pengali (misal: 1.15)" : 
+                                     marginType === "FIXED" ? "Besaran Angka Tambahan (Rp)" : "Harga Jual Akhir (Rp)"}
                                 </label>
                                 <Input 
                                     type="number" 
+                                    step="any"
                                     value={marginValue} 
                                     onChange={(e) => setMarginValue(Number(e.target.value))} 
                                     className="h-10 text-sm font-bold bg-slate-50"
