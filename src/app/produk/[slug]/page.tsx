@@ -81,7 +81,6 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
     }
 
     // --- STOCK DARI DATABASE INTERNAL ---
-    // Mengambil langsung dari database seperti instruksi agar loading instan (0 detik).
     let availableToSell = product.availableToSell || 0;
 
     // Create extended product object
@@ -89,13 +88,6 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         ...product,
         availableToSell
     };
-    // --------------------------------
-
-    const [relatedProducts, pricingData, whatsappConfig] = await Promise.all([
-        getRelatedProducts(product.category || "", product.id, product.name),
-        getCustomerPricingData(),
-        getSiteSetting("whatsapp_config") as Promise<Record<string, string> | null>
-    ]);
 
     // === JSON-LD Structured Data Schema ===
     const firstImage = product.image || (product.sliderImages?.length > 0 ? product.sliderImages[0] : "");
@@ -169,22 +161,51 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                         </ol>
                     </nav>
 
-                    <PricingProvider
-                        initialCustomer={pricingData.customer}
-                        initialMappings={pricingData.categoryMappings}
-                        initialDiscountRules={pricingData.discountRules}
-                    >
-                        <ProductDetailClient 
-                            product={productWithStock as any} 
-                            relatedProducts={relatedProducts as any[]} 
-                            whatsappConfig={whatsappConfig}
-                        />
-                    </PricingProvider>
+                    <Suspense fallback={<ProductSkeleton />}>
+                        <ProductContentWrapper product={productWithStock as any} />
+                    </Suspense>
 
                 </div>
             </main>
 
             <Footer />
+        </div>
+    );
+}
+
+async function ProductContentWrapper({ product }: { product: any }) {
+    const [relatedProducts, pricingData, whatsappConfig] = await Promise.all([
+        getRelatedProducts(product.category || "", product.id, product.name),
+        getCustomerPricingData(),
+        getSiteSetting("whatsapp_config") as Promise<Record<string, string> | null>
+    ]);
+
+    return (
+        <PricingProvider
+            initialCustomer={pricingData.customer}
+            initialMappings={pricingData.categoryMappings}
+            initialDiscountRules={pricingData.discountRules}
+        >
+            <ProductDetailClient 
+                product={product} 
+                relatedProducts={relatedProducts as any[]} 
+                whatsappConfig={whatsappConfig}
+            />
+        </PricingProvider>
+    );
+}
+
+function ProductSkeleton() {
+    return (
+        <div className="animate-pulse">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
+                <div className="aspect-square bg-gray-200 rounded-lg"></div>
+                <div className="space-y-4">
+                    <div className="h-8 bg-gray-200 rounded w-3/4"></div>
+                    <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                    <div className="h-10 bg-gray-200 rounded w-full"></div>
+                </div>
+            </div>
         </div>
     );
 }

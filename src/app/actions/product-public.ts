@@ -32,16 +32,18 @@ export const getBrands = unstable_cache(
             orderBy: { name: 'asc' }
         });
 
-        const products = await db.product.findMany({
+        const productCounts = await db.product.groupBy({
+            by: ['brand'],
             where: { isVisible: true },
-            select: { brand: true }
+            _count: {
+                brand: true
+            }
         });
 
         const brandCounts: Record<string, number> = {};
-        products.forEach(p => {
-            if (p.brand) {
-                const b = p.brand.toUpperCase();
-                brandCounts[b] = (brandCounts[b] || 0) + 1;
+        productCounts.forEach(pc => {
+            if (pc.brand) {
+                brandCounts[pc.brand.toUpperCase()] = pc._count.brand;
             }
         });
 
