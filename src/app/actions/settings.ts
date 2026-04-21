@@ -1,22 +1,23 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, unstable_cache } from "next/cache";
 
-import { unstable_noStore as noStore } from "next/cache";
-
-export async function getSiteSetting(key: string) {
-    noStore(); // Force dynamic fetching
-    try {
-        const setting = await db.siteSetting.findUnique({
-            where: { key },
-        });
-        return setting?.value || null;
-    } catch (error) {
-        console.error("Error fetching site setting:", error);
-        return null;
-    }
-}
+export const getSiteSetting = unstable_cache(
+    async (key: string) => {
+        try {
+            const setting = await db.siteSetting.findUnique({
+                where: { key },
+            });
+            return setting?.value || null;
+        } catch (error) {
+            console.error("Error fetching site setting:", error);
+            return null;
+        }
+    },
+    ['site-settings'],
+    { revalidate: 300, tags: ['settings'] }
+);
 
 export async function updateSiteSetting(key: string, value: any) {
     try {
@@ -60,19 +61,22 @@ export async function deleteSearchSuggestion(id: string) {
     }
 }
 
-export async function getSearchSuggestions(limit: number = 10) {
-    noStore();
-    try {
-        const suggestions = await db.searchSuggestion.findMany({
-            orderBy: { count: 'desc' },
-            take: limit,
-        });
-        return suggestions.map(s => s.term);
-    } catch (error) {
-        console.error("Failed to fetch search suggestions:", error);
-        return [];
-    }
-}
+export const getSearchSuggestions = unstable_cache(
+    async (limit: number = 10) => {
+        try {
+            const suggestions = await db.searchSuggestion.findMany({
+                orderBy: { count: 'desc' },
+                take: limit,
+            });
+            return suggestions.map(s => s.term);
+        } catch (error) {
+            console.error("Failed to fetch search suggestions:", error);
+            return [];
+        }
+    },
+    ['search-suggestions'],
+    { revalidate: 3600, tags: ['search'] }
+);
 
 export async function createCategorySection(title: string) {
     try {
@@ -247,18 +251,21 @@ export async function deleteClientProject(id: string) {
 
 // --- Menu Category Actions ---
 
-export async function getCategoryMenuConfig() {
-    noStore();
-    try {
-        const setting = await db.siteSetting.findUnique({
-            where: { key: "category_menu_config" },
-        });
-        return setting?.value || [];
-    } catch (error) {
-        console.error("Failed to load menu config:", error);
-        return [];
-    }
-}
+export const getCategoryMenuConfig = unstable_cache(
+    async () => {
+        try {
+            const setting = await db.siteSetting.findUnique({
+                where: { key: "category_menu_config" },
+            });
+            return setting?.value || [];
+        } catch (error) {
+            console.error("Failed to load menu config:", error);
+            return [];
+        }
+    },
+    ['category-menu-config'],
+    { revalidate: 3600, tags: ['settings', 'categories'] }
+);
 
 export async function updateCategoryMenuConfig(config: any) {
     try {

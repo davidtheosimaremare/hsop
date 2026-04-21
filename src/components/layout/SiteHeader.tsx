@@ -5,10 +5,12 @@ import dynamic from "next/dynamic";
 const Header = dynamic(() => import("./Header"), { ssr: true });
 
 export default async function SiteHeader() {
-    const user = await getCurrentUserWithCustomer();
-    const menuConfig = (await getCategoryMenuConfig()) as any[];
-    const searchSuggestions = await getSearchSuggestions(8);
-    const companyDetails = await getSiteSetting("company_details") as any;
+    const [user, menuConfig, searchSuggestions, companyDetails] = await Promise.all([
+        getCurrentUserWithCustomer(),
+        getCategoryMenuConfig() as Promise<any[]>,
+        getSearchSuggestions(8),
+        getSiteSetting("company_details") as Promise<any>
+    ]);
 
     return <Header 
         user={user as any} 

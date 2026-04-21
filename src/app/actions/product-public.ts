@@ -3,56 +3,57 @@
 import { db } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 
-export async function getCategoriesTree() {
-    // Fetch categories with basic hierarchy (assuming 1 level for now based on UI)
-    // The UI shows "Categories" and "Subcategories".
-    // DB has parentId.
-    const categories = await db.category.findMany({
-        where: { isVisible: true },
-        orderBy: { order: 'asc' },
-        include: {
-            children: {
-                where: { isVisible: true },
-                orderBy: { order: 'asc' }
+export const getCategoriesTree = unstable_cache(
+    async () => {
+        const categories = await db.category.findMany({
+            where: { isVisible: true },
+            orderBy: { order: 'asc' },
+            include: {
+                children: {
+                    where: { isVisible: true },
+                    orderBy: { order: 'asc' }
+                }
             }
-        }
-    });
+        });
 
-    // Filter root categories (those without parentId or user logic)
-    // If your categories form a tree, we usually want top-level ones.
-    const rootCategories = categories.filter(c => !c.parentId);
-    return rootCategories;
-}
+        const rootCategories = categories.filter(c => !c.parentId);
+        return rootCategories;
+    },
+    ['categories-tree'],
+    { revalidate: 3600, tags: ['categories'] }
+);
 
-export async function getBrands() {
-    // Fetch only visible brands
-    const brands = await db.brand.findMany({
-        where: { isVisible: true },
-        orderBy: { name: 'asc' }
-    });
+export const getBrands = unstable_cache(
+    async () => {
+        const brands = await db.brand.findMany({
+            where: { isVisible: true },
+            orderBy: { name: 'asc' }
+        });
 
-    // We need counts for each brand
-    // For now, let's get the counts from the product table
-    const products = await db.product.findMany({
-        where: { isVisible: true },
-        select: { brand: true }
-    });
+        const products = await db.product.findMany({
+            where: { isVisible: true },
+            select: { brand: true }
+        });
 
-    const brandCounts: Record<string, number> = {};
-    products.forEach(p => {
-        if (p.brand) {
-            const b = p.brand.toUpperCase();
-            brandCounts[b] = (brandCounts[b] || 0) + 1;
-        }
-    });
+        const brandCounts: Record<string, number> = {};
+        products.forEach(p => {
+            if (p.brand) {
+                const b = p.brand.toUpperCase();
+                brandCounts[b] = (brandCounts[b] || 0) + 1;
+            }
+        });
 
-    return brands.map(b => ({
-        name: b.name,
-        displayName: b.alias || b.name,
-        count: brandCounts[b.name.toUpperCase()] || 0
-    })).filter(b => b.count > 0);
-}
+        return brands.map(b => ({
+            name: b.name,
+            displayName: b.alias || b.name,
+            count: brandCounts[b.name.toUpperCase()] || 0
+        })).filter(b => b.count > 0);
+    },
+    ['brands-list'],
+    { revalidate: 3600, tags: ['brands'] }
+);
 
 export interface ProductFilterParams {
     query?: string;
@@ -236,43 +237,46 @@ export const getPublicProductBySlug = cache(async (slug: string) => {
     });
 });
 
-export async function getRelatedProducts(category: string, excludeId: string, name: string = "") {
-    // Clean name for better matching
-    // We take the first 2 words of the name which usually contain the series/model info
-    const nameWords = name.split(/[\s-]+/).filter(w => w.length >= 3).slice(0, 2);
+export const getRelatedProducts = unstable_cache(
+    async (category: string, excludeId: string, name: string = "") => {
+        // Clean name for better matching
+        const nameWords = name.split(/[\s-]+/).filter(w => w.length >= 3).slice(0, 2);
 
-    // Initial search: Same category + matching keywords
-    const relatedProducts = await db.product.findMany({
-        where: {
-            category: category ? { contains: category, mode: "insensitive" } : undefined,
-            id: { not: excludeId },
-            isVisible: true,
-            OR: nameWords.length > 0 ? nameWords.map(word => ({
-                name: { contains: word, mode: "insensitive" }
-            })) : undefined
-        },
-        take: 8,
-        orderBy: { name: 'asc' }
-    });
-
-    // Fallback: If not enough related products, get from same category without keyword matching
-    let finalProducts = [...relatedProducts];
-    if (finalProducts.length < 8 && category) {
-        const fallbackProducts = await db.product.findMany({
+        // Initial search: Same category + matching keywords
+        const relatedProducts = await db.product.findMany({
             where: {
-                category: { contains: category, mode: "insensitive" },
-                id: { 
-                    not: excludeId,
-                    notIn: finalProducts.map(p => p.id) 
-                },
-                isVisible: true
+                category: category ? { contains: category, mode: "insensitive" } : undefined,
+                id: { not: excludeId },
+                isVisible: true,
+                OR: nameWords.length > 0 ? nameWords.map(word => ({
+                    name: { contains: word, mode: "insensitive" }
+                })) : undefined
             },
-            take: 8 - finalProducts.length,
-            orderBy: { createdAt: 'desc' }
+            take: 8,
+            orderBy: { name: 'asc' }
         });
-        finalProducts = [...finalProducts, ...fallbackProducts];
-    }
 
-    return finalProducts.slice(0, 8);
-}
+        // Fallback: If not enough related products, get from same category without keyword matching
+        let finalProducts = [...relatedProducts];
+        if (finalProducts.length < 8 && category) {
+            const fallbackProducts = await db.product.findMany({
+                where: {
+                    category: { contains: category, mode: "insensitive" },
+                    id: { 
+                        not: excludeId,
+                        notIn: finalProducts.map(p => p.id) 
+                    },
+                    isVisible: true
+                },
+                take: 8 - finalProducts.length,
+                orderBy: { createdAt: 'desc' }
+            });
+            finalProducts = [...finalProducts, ...fallbackProducts];
+        }
+
+        return finalProducts.slice(0, 8);
+    },
+    ['related-products'],
+    { revalidate: 600, tags: ['products'] }
+);
 
