@@ -210,6 +210,14 @@ export async function getPublicProductBySlug(slug: string) {
     });
     if (productByDecodedSku) return productByDecodedSku;
 
+    // 2.1 Micro fix: Jika tidak ketemu, coba ganti - kembali ke / (untuk kasus SKU seperti TL/500 -> TL-500)
+    if (slug.includes("-")) {
+        const productBySlashFix = await db.product.findUnique({
+            where: { sku: decodedSlug.replaceAll("-", "/") },
+        });
+        if (productBySlashFix) return productBySlashFix;
+    }
+
     // 3. Fallback: Siemens prefix logic if still needed for old links
     if (slug.includes("-")) {
         const firstHyphenIndex = slug.indexOf("-");

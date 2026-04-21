@@ -1,5 +1,6 @@
 import { MetadataRoute } from 'next'
 import { db } from '@/lib/db'
+import { getProductSlug } from '@/lib/utils'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Ambil Kategori yang di hide
@@ -26,7 +27,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Format array URL sitemap khusus produk
   const productUrls: MetadataRoute.Sitemap = products.map((product: any) => ({
-    url: `https://shop.hokiindo.co.id/produk/${encodeURIComponent(product.sku)}`,
+    url: `https://shop.hokiindo.co.id/produk/${encodeURIComponent(getProductSlug(product))}`,
     lastModified: product.updatedAt,
     changeFrequency: 'daily',
     priority: 0.8, // Prioritas tinggi untuk produk e-commerce

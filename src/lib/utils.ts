@@ -6,7 +6,9 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function getProductSlug(product: { sku: string }) {
-  return product.sku;
+  if (!product?.sku) return "";
+  // Ganti / jadi - agar url tidak rusak di NextJS
+  return product.sku.replaceAll("/", "-");
 }
 
 /**
