@@ -57,8 +57,8 @@ export async function GET(request: NextRequest) {
                 }
             };
 
-            // Check every 5 seconds for new notifications
-            const interval = setInterval(checkNotifications, 5000);
+            // Check every 30 seconds for new notifications (Increased from 5s to reduce DB load)
+            const interval = setInterval(checkNotifications, 30000);
 
             // Also check immediately after 1 second
             setTimeout(checkNotifications, 1000);

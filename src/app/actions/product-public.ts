@@ -2,6 +2,7 @@
 
 import { db } from "@/lib/db";
 import { Prisma } from "@prisma/client";
+import { cache } from "react";
 
 export async function getCategoriesTree() {
     // Fetch categories with basic hierarchy (assuming 1 level for now based on UI)
@@ -196,7 +197,7 @@ export async function getPublicProducts({
 }
 
 
-export async function getPublicProductBySlug(slug: string) {
+export const getPublicProductBySlug = cache(async (slug: string) => {
     // 1. First try matching exact SKU (user preference)
     const productBySku = await db.product.findUnique({
         where: { sku: slug },
@@ -230,67 +231,40 @@ export async function getPublicProductBySlug(slug: string) {
         if (p) return p;
     }
 
-    // 4. Try legacy ID
     return await db.product.findUnique({
         where: { id: slug },
     });
-}
+});
 
 export async function getRelatedProducts(category: string, excludeId: string, name: string = "") {
-    const hiddenCategories = await db.category.findMany({
-        where: { isVisible: false },
-        select: { name: true }
-    });
-    const hiddenCategoryNames = hiddenCategories.map(c => c.name);
-
     // Clean name for better matching
     // We take the first 2 words of the name which usually contain the series/model info
     const nameWords = name.split(/[\s-]+/).filter(w => w.length >= 3).slice(0, 2);
 
-    // We'll try to find products that match name words first
+    // Initial search: Same category + matching keywords
     const relatedProducts = await db.product.findMany({
         where: {
-            category: category ? { contains: category, mode: "insensitive" } : (hiddenCategoryNames.length > 0 ? { notIn: hiddenCategoryNames } : undefined),
+            category: category ? { contains: category, mode: "insensitive" } : undefined,
             id: { not: excludeId },
             isVisible: true,
-            AND: nameWords.map(word => ({
+            OR: nameWords.length > 0 ? nameWords.map(word => ({
                 name: { contains: word, mode: "insensitive" }
-            }))
+            })) : undefined
         },
         take: 8,
         orderBy: { name: 'asc' }
     });
 
-    // If we didn't find enough products with ALL keywords, try matching ANY keyword
+    // Fallback: If not enough related products, get from same category without keyword matching
     let finalProducts = [...relatedProducts];
-    if (finalProducts.length < 4) {
-        const anyWordProducts = await db.product.findMany({
-            where: {
-                category: category ? { contains: category, mode: "insensitive" } : (hiddenCategoryNames.length > 0 ? { notIn: hiddenCategoryNames } : undefined),
-                id: {
-                    not: excludeId,
-                    notIn: finalProducts.map(p => p.id)
-                },
-                isVisible: true,
-                OR: nameWords.map(word => ({
-                    name: { contains: word, mode: "insensitive" }
-                }))
-            },
-            take: 8 - finalProducts.length,
-            orderBy: { name: 'asc' }
-        });
-        finalProducts = [...finalProducts, ...anyWordProducts];
-    }
-
-    // Fallback: If still not enough, just get any from the same category
-    if (finalProducts.length < 8) {
+    if (finalProducts.length < 8 && category) {
         const fallbackProducts = await db.product.findMany({
             where: {
-                category: category ? { contains: category, mode: "insensitive" } : (hiddenCategoryNames.length > 0 ? { notIn: hiddenCategoryNames } : undefined),
-                AND: [
-                    { id: { not: excludeId } },
-                    { id: { notIn: finalProducts.map(p => p.id) } }
-                ],
+                category: { contains: category, mode: "insensitive" },
+                id: { 
+                    not: excludeId,
+                    notIn: finalProducts.map(p => p.id) 
+                },
                 isVisible: true
             },
             take: 8 - finalProducts.length,

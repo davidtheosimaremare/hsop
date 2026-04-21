@@ -158,20 +158,12 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    // Fetch notifications
+    // Setup search focus change
     useEffect(() => {
-        if (user) {
-            fetchNotifications();
+        if (isSearchFocused) {
+            setIsMobileMenuOpen(false);
         }
-    }, [user]);
-
-    async function fetchNotifications() {
-        const result = await getUserNotifications();
-        if (result.success) {
-            setNotifications(result.notifications.slice(0, 5)); // Only show latest 5
-            setUnreadCount(result.notifications.filter((n: any) => !n.read).length);
-        }
-    }
+    }, [isSearchFocused]);
 
     const handleLogout = async () => {
         setIsLoggingOut(true);
