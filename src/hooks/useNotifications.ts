@@ -98,13 +98,19 @@ export function useNotifications(userId?: string): UseNotificationsReturn {
     useEffect(() => {
         if (!userId) return;
 
+        let eventSource: EventSource | null = null;
+
         const setupSSE = () => {
+            // Only setup if tab is visible
+            if (document.visibilityState !== "visible") return;
+
             // Close existing connection if any
-            if (eventSourceRef.current) {
-                eventSourceRef.current.close();
+            if (eventSource) {
+                eventSource.close();
             }
 
-            const eventSource = new EventSource(`/api/notifications/stream?userId=${userId}`);
+            console.log("Setting up SSE connection...");
+            eventSource = new EventSource(`/api/notifications/stream?userId=${userId}`);
             eventSourceRef.current = eventSource;
 
             eventSource.onopen = () => {
@@ -113,9 +119,11 @@ export function useNotifications(userId?: string): UseNotificationsReturn {
 
             eventSource.onerror = (error) => {
                 console.error("SSE connection error:", error);
-                eventSource.close();
-                // Try to reconnect after 5 seconds
-                setTimeout(setupSSE, 5000);
+                if (eventSource) eventSource.close();
+                // Try to reconnect after 10 seconds (increased from 5)
+                setTimeout(() => {
+                    if (document.visibilityState === "visible") setupSSE();
+                }, 10000);
             };
 
             eventSource.addEventListener("message", (event) => {
@@ -123,35 +131,16 @@ export function useNotifications(userId?: string): UseNotificationsReturn {
                     const data = JSON.parse(event.data);
                     
                     if (data.type === "new_notification" && data.notification) {
-                        // Add new notification to the list
                         const newNotif = data.notification;
                         setNotifications(prev => {
-                            // Check if notification already exists
                             const exists = prev.some(n => n.id === newNotif.id);
-                            if (!exists) {
-                                return [newNotif, ...prev];
-                            }
+                            if (!exists) return [newNotif, ...prev];
                             return prev;
                         });
                         
-                        // Only increment if this is a truly new notification
-                        setUnreadCount(prev => {
-                            // Check if already counted
-                            const alreadyCounted = notifications.some(n => n.id === newNotif.id);
-                            if (!alreadyCounted) {
-                                return prev + 1;
-                            }
-                            return prev;
-                        });
-                        setTotal(prev => {
-                            const alreadyExists = notifications.some(n => n.id === newNotif.id);
-                            if (!alreadyExists) {
-                                return prev + 1;
-                            }
-                            return prev;
-                        });
+                        setUnreadCount(prev => prev + 1);
+                        setTotal(prev => prev + 1);
                         
-                        // Optional: Show browser notification
                         if (Notification.permission === "granted") {
                             new Notification(newNotif.title, {
                                 body: newNotif.message,
@@ -165,12 +154,27 @@ export function useNotifications(userId?: string): UseNotificationsReturn {
             });
         };
 
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === "visible") {
+                setupSSE();
+            } else {
+                if (eventSource) {
+                    console.log("Closing SSE connection due to tab hidden");
+                    eventSource.close();
+                    eventSource = null;
+                    eventSourceRef.current = null;
+                }
+            }
+        };
+
         setupSSE();
+        document.addEventListener("visibilitychange", handleVisibilityChange);
 
         return () => {
-            if (eventSourceRef.current) {
-                eventSourceRef.current.close();
+            if (eventSource) {
+                eventSource.close();
             }
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
         };
     }, [userId]);
 
