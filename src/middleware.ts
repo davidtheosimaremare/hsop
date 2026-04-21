@@ -1,25 +1,98 @@
 import { NextRequest, NextResponse } from "next/server";
 import { updateSession, decrypt } from "@/lib/auth";
 
+// Known bot user-agent patterns to block (aggressive scrapers, not search engines)
+const BLOCKED_BOT_PATTERNS = [
+    /python-requests/i,
+    /python-urllib/i,
+    /scrapy/i,
+    /curl\//i,
+    /wget\//i,
+    /httpclient/i,
+    /java\//i,
+    /libwww/i,
+    /lwp-/i,
+    /go-http-client/i,
+    /node-fetch/i,
+    /axios/i,
+    /php\//i,
+    /okhttp/i,
+    /httpie/i,
+];
+
+// Allow legitimate bots (search engines, social media previews)
+const ALLOWED_BOTS = [
+    /googlebot/i,
+    /bingbot/i,
+    /yandexbot/i,
+    /duckduckbot/i,
+    /baiduspider/i,
+    /facebookexternalhit/i,
+    /twitterbot/i,
+    /linkedinbot/i,
+    /whatsapp/i,
+    /telegrambot/i,
+    /slackbot/i,
+    /discordbot/i,
+    /applebot/i,
+];
+
 export default async function proxy(request: NextRequest) {
     const pathname = request.nextUrl.pathname;
+    const userAgent = request.headers.get("user-agent") || "";
 
+    // === BOT PROTECTION (public product pages only) ===
+    if (pathname.startsWith("/produk/") || pathname.startsWith("/pencarian")) {
+        // Allow legitimate bots (Google, Bing, social media)
+        const isAllowedBot = ALLOWED_BOTS.some(pattern => pattern.test(userAgent));
+        
+        if (!isAllowedBot) {
+            // Block known scraper bots
+            const isBlockedBot = BLOCKED_BOT_PATTERNS.some(pattern => pattern.test(userAgent));
+            if (isBlockedBot) {
+                return new NextResponse("Access Denied", { status: 403 });
+            }
+
+            // Cookie challenge: real browsers get a cookie on first visit
+            // Bots without JavaScript won't have this cookie
+            const hasAccessCookie = request.cookies.get("_hki_acc")?.value;
+            
+            if (!hasAccessCookie) {
+                // First visit: set the cookie via a tiny HTML page that JS redirects
+                // This blocks bots that don't execute JavaScript
+                const redirectUrl = request.nextUrl.toString();
+                const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+                    <title>Memuat...</title>
+                    <script>
+                        document.cookie="_hki_acc=1;path=/;max-age=86400;SameSite=Lax";
+                        window.location.replace("${redirectUrl}");
+                    </script>
+                    <noscript><meta http-equiv="refresh" content="0;url=${redirectUrl}"></noscript>
+                </head><body><p>Memuat halaman...</p></body></html>`;
+                
+                return new NextResponse(html, {
+                    status: 200,
+                    headers: { 
+                        "Content-Type": "text/html; charset=utf-8",
+                        "Cache-Control": "no-store, no-cache",
+                    },
+                });
+            }
+        }
+    }
+
+    // === SESSION UPDATE ===
     // 1. Update session and get the response object
-    // CRITICAL: We must use the response returned by updateSession, 
-    // otherwise the cookie update never reaches the browser.
     let res = await updateSession(request) || NextResponse.next();
 
-    // 2. Protect /admin and /vendor routes
+    // === ADMIN/VENDOR ROUTE PROTECTION ===
     if (pathname.startsWith("/admin") || pathname.startsWith("/vendor")) {
         const isAdminRoute = pathname.startsWith("/admin");
         const isVendorRoute = pathname.startsWith("/vendor");
         
-        // Define login paths
         const adminLoginPath = "/admin/login";
         const vendorLoginPath = "/vendor/login";
         const publicLoginPath = "/masuk";
-
-        // Current applicable login path
         const currentLoginPath = isAdminRoute ? adminLoginPath : vendorLoginPath;
 
         // Skip middleware logic for login pages themselves to avoid loops
@@ -53,14 +126,12 @@ export default async function proxy(request: NextRequest) {
             }
 
             if (isVendorRoute) {
-                // Only Vendors can access /vendor
                 if (user.role !== "VENDOR") {
                     return NextResponse.redirect(new URL("/", request.url));
                 }
             }
 
         } catch (error) {
-            // Invalid session - clear it and redirect to appropriate login
             const loginUrl = new URL(currentLoginPath, request.url);
             loginUrl.searchParams.set("callbackUrl", request.nextUrl.pathname + request.nextUrl.search);
             const redirectRes = NextResponse.redirect(loginUrl);
@@ -76,5 +147,7 @@ export const config = {
     matcher: [
         "/admin/:path*",
         "/vendor/:path*",
+        "/produk/:path*",
+        "/pencarian",
     ],
 };
