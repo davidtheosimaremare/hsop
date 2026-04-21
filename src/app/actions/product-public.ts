@@ -5,6 +5,25 @@ import { Prisma } from "@prisma/client";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 
+// Cached lookups for hidden categories/brands (rarely change, safe to cache 1h)
+const getHiddenCategoryNames = unstable_cache(
+    async () => {
+        const cats = await db.category.findMany({ where: { isVisible: false }, select: { name: true } });
+        return cats.map(c => c.name);
+    },
+    ['hidden-categories'],
+    { revalidate: 3600, tags: ['categories'] }
+);
+
+const getHiddenBrandNames = unstable_cache(
+    async () => {
+        const brands = await db.brand.findMany({ where: { isVisible: false }, select: { name: true } });
+        return brands.map(b => b.name);
+    },
+    ['hidden-brands'],
+    { revalidate: 3600, tags: ['brands'] }
+);
+
 const getCategoriesTreeCached = unstable_cache(
     async () => {
         const categories = await db.category.findMany({
@@ -86,19 +105,11 @@ export async function getPublicProducts({
 }: ProductFilterParams) {
     const skip = (page - 1) * pageSize;
 
-    // Fetch hidden categories to exclude their products
-    const hiddenCategories = await db.category.findMany({
-        where: { isVisible: false },
-        select: { name: true }
-    });
-    const hiddenCategoryNames = hiddenCategories.map(c => c.name);
-
-    // Fetch hidden brands
-    const hiddenBrands = await db.brand.findMany({
-        where: { isVisible: false },
-        select: { name: true }
-    });
-    const hiddenBrandNames = hiddenBrands.map(b => b.name);
+    // Use cached hidden categories/brands (they rarely change)
+    const [hiddenCategoryNames, hiddenBrandNames] = await Promise.all([
+        getHiddenCategoryNames(),
+        getHiddenBrandNames()
+    ]);
 
     const where: Prisma.ProductWhereInput = {
         isVisible: true,

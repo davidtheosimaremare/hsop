@@ -3,6 +3,12 @@ import { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Calendar, User, ChevronRight, ArrowLeft, ShoppingCart } from "lucide-react";
+import { cache } from "react";
+
+// Cache the news fetch so generateMetadata and page render share the same query
+const getNewsBySlug = cache(async (slug: string) => {
+    return db.news.findUnique({ where: { slug } });
+});
 
 interface PageProps {
     params: Promise<{ slug: string }>;
@@ -11,9 +17,7 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
     const { slug } = await params;
 
-    const news = await db.news.findUnique({
-        where: { slug },
-    });
+    const news = await getNewsBySlug(slug);
 
     if (!news) {
         return {
@@ -42,14 +46,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     };
 }
 
-export const dynamic = "force-dynamic";
+// Removed force-dynamic: berita pages change rarely
 
 export default async function NewsDetailPage({ params }: PageProps) {
     const { slug } = await params;
 
-    const news = await db.news.findUnique({
-        where: { slug, isPublished: true },
-    });
+    const news = await getNewsBySlug(slug);
+    if (news && !news.isPublished) notFound();
 
     if (!news) {
         notFound();

@@ -34,7 +34,6 @@ export async function getCustomerPricingData(): Promise<CustomerPricingData> {
     try {
         // Get current session
         const session = await getSession();
-        console.log("[PRICING] Session User ID:", session?.user?.id);
 
         let customer = null;
 
@@ -58,7 +57,7 @@ export async function getCustomerPricingData(): Promise<CustomerPricingData> {
                 }
             });
 
-            console.log("[PRICING] User Customer Data:", userWithCustomer?.customer);
+
 
             if (userWithCustomer?.customer) {
                 const customerData = userWithCustomer.customer;
@@ -74,7 +73,7 @@ export async function getCustomerPricingData(): Promise<CustomerPricingData> {
                 };
             }
         } else {
-            console.log("[PRICING] No user in session");
+
         }
 
         // Get category mappings (always fetch, needed for checking)
@@ -91,8 +90,6 @@ export async function getCustomerPricingData(): Promise<CustomerPricingData> {
         // Get discount rules
         const discountRules = await db.discountRule.findMany();
 
-        console.log("[PRICING] Category mappings count:", mappings.length);
-        console.log("[PRICING] Discount rules count:", discountRules.length);
 
         return {
             customer,

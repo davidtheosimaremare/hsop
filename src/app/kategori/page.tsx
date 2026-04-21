@@ -1,4 +1,4 @@
-export const dynamic = "force-dynamic";
+// Category menu data is cached via unstable_cache, no need for force-dynamic
 
 import { getCategoryMenuConfig } from "@/app/actions/settings";
 import KategoriClient from "./KategoriClient";

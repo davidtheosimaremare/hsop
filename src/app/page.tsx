@@ -18,24 +18,39 @@ const Footer = dynamic(() => import("@/components/layout/Footer"));
 import { getSiteSetting } from "@/app/actions/settings";
 import { getLatestNews } from "@/app/actions/news";
 import { db } from "@/lib/db";
+import { unstable_cache } from "next/cache";
 
 export const revalidate = 3600; // Cache for 1 hour, but admin can purge it instantly
+
+// Cache homepage data that rarely changes
+const getClientProjects = unstable_cache(
+  async () => {
+    return db.clientProject.findMany({
+      orderBy: [{ order: "asc" }, { createdAt: "desc" }],
+      where: { isVisible: true }
+    });
+  },
+  ['client-projects'],
+  { revalidate: 3600, tags: ['settings'] }
+);
+
+const getActiveBanners = unstable_cache(
+  async () => {
+    return db.banner.findMany({
+      where: { isActive: true },
+      orderBy: { order: "asc" }
+    });
+  },
+  ['active-banners'],
+  { revalidate: 3600, tags: ['settings'] }
+);
 
 export default async function Home() {
   const [savedGridSettings, clientProjects, latestNews, activeBanners] = await Promise.all([
     getSiteSetting("homepage_grid_categories"),
-    db.clientProject.findMany({
-      orderBy: [
-        { order: "asc" },
-        { createdAt: "desc" }
-      ],
-      where: { isVisible: true }
-    }),
+    getClientProjects(),
     getLatestNews(4),
-    db.banner.findMany({
-      where: { isActive: true },
-      orderBy: { order: "asc" }
-    })
+    getActiveBanners()
   ]);
 
   let gridCategories: any[] = [];
@@ -63,7 +78,6 @@ export default async function Home() {
             ...cat,
             name: item.customName || cat.name,
             originalName: cat.name,
-            // For explicitly selected grid items, we default to search unless we fetch slug/link in future
             link: undefined
           };
         })

@@ -34,7 +34,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     };
 }
 
-export const dynamic = "force-dynamic";
+// Removed force-dynamic: CMS pages change rarely, let Next.js cache them
 
 export default async function DynamicPage({ params }: PageProps) {
     const { slug } = await params;
