@@ -109,7 +109,8 @@ export async function updateVendorProductAction(id: string, data: any) {
         });
 
         revalidatePath("/vendor/products");
-        revalidatePath(`/vendor/products/${id}/edit`);
+        revalidatePath(`/produk/${product.sku}`);
+        revalidatePath("/", "layout");
         return { success: true, product };
     } catch (error: any) {
         return { success: false, error: error.message };
@@ -238,6 +239,7 @@ export async function adminApproveProductAction(
         });
 
         revalidatePath("/admin/vendor-products");
+        revalidatePath("/", "layout");
         return { success: true };
     } catch (error: any) {
         return { success: false, error: error.message };
@@ -267,6 +269,7 @@ export async function adminBulkApproveProductsAction(ids: string[]) {
         });
 
         revalidatePath("/admin/vendor-products");
+        revalidatePath("/", "layout");
         return { success: true, count: ids.length };
     } catch (error: any) {
         return { success: false, error: error.message };

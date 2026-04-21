@@ -15,6 +15,60 @@ import ProductDetailClient from "@/components/public/ProductDetailClient";
 import { getCustomerPricingData } from "@/app/actions/customer-pricing";
 import { PricingProvider } from "@/lib/PricingContext";
 import { getSiteSetting } from "@/app/actions/settings";
+import { Metadata, ResolvingMetadata } from "next";
+
+export async function generateMetadata(
+    { params }: { params: Promise<{ slug: string }> },
+    parent: ResolvingMetadata
+): Promise<Metadata> {
+    const { slug } = await params;
+    const product: any = await getPublicProductBySlug(slug);
+
+    if (!product) {
+        return {
+            title: "Produk Tidak Ditemukan - Hokiindo",
+            description: "Produk yang Anda cari tidak tersedia."
+        };
+    }
+
+    const companyDetails = await getSiteSetting("company_details") as any;
+    const siteTitle = companyDetails?.siteTitle || companyDetails?.name || "Hokiindo";
+
+    // Use custom meta if exists, otherwise fallback to smart default
+    const metaTitle = product.metaTitle || `${product.name} ${product.sku} - ${product.category || 'Distributor Resmi'} | ${siteTitle}`;
+    
+    // Construct default description showing key elements
+    const defaultDesc = `Katalog ${product.brand || 'Siemens'} ${product.name} (${product.sku}). Beli online produk ${product.category || 'Electrical'} terpercaya hanya di ${siteTitle}.`;
+    const metaDesc = product.metaDescription || defaultDesc;
+
+    // Use primary image or fallback
+    const firstImage = product.image || (product.sliderImages && product.sliderImages.length > 0 ? product.sliderImages[0] : null);
+    
+    // Previous metadata images (if you wanted to merge images, typically not needed for products)
+    // const previousImages = (await parent).openGraph?.images || []
+
+    return {
+        title: metaTitle,
+        description: metaDesc.substring(0, 160), // SEO optimal length
+        alternates: {
+            canonical: `https://shop.hokiindo.co.id/produk/${encodeURIComponent(product.sku)}`
+        },
+        openGraph: {
+            title: metaTitle,
+            description: metaDesc,
+            url: `https://shop.hokiindo.co.id/produk/${encodeURIComponent(product.sku)}`,
+            type: 'website',
+            images: firstImage ? [{ url: firstImage, width: 800, height: 600, alt: product.name }] : [],
+        },
+        twitter: {
+            card: 'summary_large_image',
+            title: metaTitle,
+            description: metaDesc,
+            images: firstImage ? [firstImage] : [],
+        }
+    };
+}
+
 
 // Since it's a dynamic route
 export default async function ProductDetailPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -26,18 +80,9 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         return notFound();
     }
 
-    // --- REAL-TIME STOCK FETCHING ---
-    let availableToSell = 0;
-    try {
-        const { fetchStockForProducts } = await import("@/lib/accurate");
-        const stockMap = await fetchStockForProducts([product.sku]);
-        const liveStock = stockMap.get(product.sku);
-        if (liveStock !== undefined) {
-            availableToSell = liveStock;
-        }
-    } catch (error) {
-        console.error("Failed to fetch live stock for detail:", error);
-    }
+    // --- STOCK DARI DATABASE INTERNAL ---
+    // Mengambil langsung dari database seperti instruksi agar loading instan (0 detik).
+    let availableToSell = product.availableToSell || 0;
 
     // Create extended product object
     const productWithStock = {
@@ -52,8 +97,51 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         getSiteSetting("whatsapp_config") as Promise<Record<string, string> | null>
     ]);
 
+    // === JSON-LD Structured Data Schema ===
+    const firstImage = product.image || (product.sliderImages?.length > 0 ? product.sliderImages[0] : "");
+    const jsonLd = {
+        '@context': 'https://schema.org',
+        '@type': 'Product',
+        name: product.name,
+        image: firstImage ? [firstImage] : [],
+        description: product.metaDescription || product.description || `Beli ${product.name} murah di Hokiindo`,
+        sku: product.sku,
+        brand: {
+            '@type': 'Brand',
+            name: product.brand || 'Siemens'
+        },
+        offers: {
+            '@type': 'Offer',
+            url: `https://shop.hokiindo.co.id/produk/${encodeURIComponent(product.sku)}`,
+            priceCurrency: 'IDR',
+            price: product.price,
+            availability: availableToSell > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+            itemCondition: 'https://schema.org/NewCondition'
+        }
+    };
+    
+    // Optional breadcrumb JSON-LD
+    const breadcrumbLd = {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'Beranda', item: 'https://shop.hokiindo.co.id/' },
+            { '@type': 'ListItem', position: 2, name: 'Produk', item: 'https://shop.hokiindo.co.id/pencarian' },
+            ...(product.category ? [{ '@type': 'ListItem', position: 3, name: product.category, item: `https://shop.hokiindo.co.id/pencarian?category=${encodeURIComponent(product.category)}` }] : []),
+            { '@type': 'ListItem', position: product.category ? 4 : 3, name: product.name }
+        ]
+    };
+
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+            />
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }}
+            />
             <SiteHeader />
 
             <main className="flex-1">

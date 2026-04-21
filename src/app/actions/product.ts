@@ -108,6 +108,7 @@ export async function syncProductsAction() {
         }
 
         revalidatePath("/admin/products");
+        revalidatePath("/", "layout"); // Force revalidate all public pages to show new names/data
 
         // Construct detailed message
         let msg = `Sync complete. Fetched: ${accurateProducts.length}, Unique: ${productsToSync.length}, Synced: ${syncedCount}, Errors: ${errorCount}`;
@@ -170,6 +171,8 @@ export async function syncSingleProductAction(itemNo: string) {
             }
         });
 
+        revalidatePath(`/produk/${ap.sku}`);
+        revalidatePath("/pencarian");
         // revalidatePath moved to caller (processQueueAction)
 
         return { success: true, message: `Synced ${itemNo}` };
@@ -210,7 +213,7 @@ export async function syncStockOnlyAction() {
         }
 
         revalidatePath("/admin/products");
-        revalidatePath("/pencarian");
+        revalidatePath("/", "layout"); // Ensure stock and names are updated everywhere
 
         const timestamp = new Date().toLocaleString("id-ID");
         return {

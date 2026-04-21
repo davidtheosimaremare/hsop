@@ -246,16 +246,34 @@ export async function fetchStockForProducts(skus: string[]): Promise<Map<string,
             url.searchParams.append('fields', 'no,availableToSell');
             url.searchParams.append('sp.page', page.toString());
             url.searchParams.append('sp.pageSize', pageSize.toString());
+            
+            // OPTIMIZATION: If we only are looking for 1 SKU (like in the Product Detail Page),
+            // tell Accurate to ONLY return that SKU. Cuts down 50 pages to 1 page instantly!
+            if (missingSkus.length === 1) {
+                url.searchParams.append('filter.keywords', missingSkus[0]);
+            }
 
             const headers = await generateAccurateAuthHeaders();
             if (!headers) break;
 
-            const response = await fetch(url.toString(), {
-                method: 'GET',
-                headers: headers as HeadersInit,
-                // Do not cache stock fetch at HTTP level to ensure we get fresh data when cache-miss occurs
-                cache: 'no-store'
-            });
+            // 3-second timeout to prevent server from hanging if Accurate is down
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3500);
+
+            let response;
+            try {
+                response = await fetch(url.toString(), {
+                    method: 'GET',
+                    headers: headers as HeadersInit,
+                    cache: 'no-store',
+                    signal: controller.signal
+                });
+            } catch (fetchErr) {
+                console.error("Accurate fetch timeout or error:", fetchErr);
+                clearTimeout(timeoutId);
+                break; // Break the loop if API is unresponsive
+            }
+            clearTimeout(timeoutId);
 
             if (!response.ok) break;
             const result = await response.json();
@@ -277,10 +295,27 @@ export async function fetchStockForProducts(skus: string[]): Promise<Map<string,
             if (foundInThisFetchCount >= missingSkus.length || items.length < pageSize) {
                 break;
             }
+            
+            // Safety limit: if we are using filter.keywords, we should NEVER need to go beyond page 1 or 2
+            if (missingSkus.length === 1 && page >= 2) break;
+            
+            // Hard limit overall to 10 pages maximum (1000 items) to prevent 50-second hangs
+            if (page >= 10) break;
+            
             page++;
         } catch (error) {
             console.error('Failed to fetch stock batch:', error);
             break;
+        }
+    }
+
+    // CRITICAL FIX: CACHE PENETRATION PREVENTION
+    // If a SKU was completely missing from Accurate (e.g. not synced yet or spelling error),
+    // we MUST cache it as 0 anyway. Otherwise, the next visitor will trigger another 50-page / timeout scan!
+    for (const sku of missingSkus) {
+        if (!resultStockMap.has(sku)) {
+            stockCache.set(sku, { value: 0, expiresAt: now + CACHE_TTL_STOCK });
+            resultStockMap.set(sku, 0); // Return 0 to prevent crashes
         }
     }
 
