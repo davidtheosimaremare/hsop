@@ -301,7 +301,6 @@ export async function updateCategoryMenuConfig(config: any) {
 }
 
 export async function getAllCategories() {
-    noStore();
     try {
         // Fetch all categories to be selected in the menu builder
         // We might want to filter or order them

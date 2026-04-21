@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import SiteHeader from "@/components/layout/SiteHeader";
 import Footer from "@/components/layout/Footer";
 import { Share2, Minus, Plus, ShoppingCart, MessageCircle, ChevronLeft, ChevronRight } from "lucide-react";
@@ -44,9 +43,6 @@ export async function generateMetadata(
 
     // Use primary image or fallback
     const firstImage = product.image || (product.sliderImages && product.sliderImages.length > 0 ? product.sliderImages[0] : null);
-    
-    // Previous metadata images (if you wanted to merge images, typically not needed for products)
-    // const previousImages = (await parent).openGraph?.images || []
 
     return {
         title: metaTitle,
@@ -74,7 +70,6 @@ export async function generateMetadata(
 // Since it's a dynamic route
 export default async function ProductDetailPage({ params }: { params: Promise<{ slug: string }> }) {
     const { slug } = await params;
-    // Note: slug is actually the ID or siemens-<SKU>
     const product = await getPublicProductBySlug(slug);
 
     if (!product) {
@@ -89,6 +84,13 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         ...product,
         availableToSell
     };
+
+    // Fetch all supporting data in parallel (fast due to unstable_cache)
+    const [relatedProducts, pricingData, whatsappConfig] = await Promise.all([
+        getRelatedProducts(product.category || "", product.id, product.name),
+        getCustomerPricingData(),
+        getSiteSetting("whatsapp_config") as Promise<Record<string, string> | null>
+    ]);
 
     // === JSON-LD Structured Data Schema ===
     const firstImage = product.image || (product.sliderImages?.length > 0 ? product.sliderImages[0] : "");
@@ -162,9 +164,17 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                         </ol>
                     </nav>
 
-                    <Suspense fallback={<ProductSkeleton />}>
-                        <ProductContentWrapper product={productWithStock as any} />
-                    </Suspense>
+                    <PricingProvider
+                        initialCustomer={pricingData.customer}
+                        initialMappings={pricingData.categoryMappings}
+                        initialDiscountRules={pricingData.discountRules}
+                    >
+                        <ProductDetailClient 
+                            product={productWithStock as any} 
+                            relatedProducts={relatedProducts as any[]} 
+                            whatsappConfig={whatsappConfig}
+                        />
+                    </PricingProvider>
 
                 </div>
             </main>
@@ -174,39 +184,3 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
     );
 }
 
-async function ProductContentWrapper({ product }: { product: any }) {
-    const [relatedProducts, pricingData, whatsappConfig] = await Promise.all([
-        getRelatedProducts(product.category || "", product.id, product.name),
-        getCustomerPricingData(),
-        getSiteSetting("whatsapp_config") as Promise<Record<string, string> | null>
-    ]);
-
-    return (
-        <PricingProvider
-            initialCustomer={pricingData.customer}
-            initialMappings={pricingData.categoryMappings}
-            initialDiscountRules={pricingData.discountRules}
-        >
-            <ProductDetailClient 
-                product={product} 
-                relatedProducts={relatedProducts as any[]} 
-                whatsappConfig={whatsappConfig}
-            />
-        </PricingProvider>
-    );
-}
-
-function ProductSkeleton() {
-    return (
-        <div className="animate-pulse">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
-                <div className="aspect-square bg-gray-200 rounded-lg"></div>
-                <div className="space-y-4">
-                    <div className="h-8 bg-gray-200 rounded w-3/4"></div>
-                    <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                    <div className="h-10 bg-gray-200 rounded w-full"></div>
-                </div>
-            </div>
-        </div>
-    );
-}
