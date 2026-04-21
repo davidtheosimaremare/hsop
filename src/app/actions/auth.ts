@@ -24,7 +24,6 @@ export async function loginAction(prevState: any, formData: FormData) {
         return { error: "Email dan password wajib diisi." };
     }
 
-    let userRole = null;
     try {
         const user = await db.user.findUnique({
             where: { email },
@@ -39,6 +38,11 @@ export async function loginAction(prevState: any, formData: FormData) {
             return { error: "Email atau password salah.", email };
         }
 
+        // --- STRICT ROLE CHECK FOR CUSTOMER PORTAL ---
+        if (user.role !== "CUSTOMER") {
+            return { error: "Akses ditolak. Silakan gunakan portal login yang sesuai (Admin/Vendor)." };
+        }
+
         if (!user.isVerified) {
             return { 
                 error: "Akun Anda belum diverifikasi.", 
@@ -51,10 +55,8 @@ export async function loginAction(prevState: any, formData: FormData) {
             return { error: "Akun Anda dinonaktifkan.", email };
         }
 
-        userRole = user.role;
         const expires = new Date(Date.now() + (remember ? 30 : 1) * 24 * 60 * 60 * 1000);
         
-        // Simpan hanya data penting di Cookie (Hapus password dll)
         const sessionData = {
             user: {
                 id: user.id,
@@ -77,20 +79,87 @@ export async function loginAction(prevState: any, formData: FormData) {
             sameSite: "lax"
         });
 
+        return { success: true, redirectUrl: "/" };
+
     } catch (error) {
         if (isRedirectError(error)) throw error;
         console.error("Login error:", error);
         return { error: "Terjadi kesalahan sistem." };
     }
+}
 
-    // Redirect di luar try-catch
-    const adminRoles = ["SUPER_ADMIN", "ADMIN", "MANAGER", "STAFF", "VIEWER"];
-    if (userRole && adminRoles.includes(userRole)) {
-        redirect("/admin");
-    } else if (userRole === "VENDOR") {
-        redirect("/vendor");
-    } else {
-        redirect("/");
+export async function vendorLoginAction(prevState: any, formData: FormData) {
+    noStore();
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+    const remember = formData.get("remember") === "on";
+
+    if (!email || !password) {
+        return { error: "Email dan password wajib diisi." };
+    }
+
+    try {
+        const user = await db.user.findUnique({
+            where: { email },
+        });
+
+        if (!user) {
+            return { error: "Email atau password salah." };
+        }
+
+        const isValid = await compare(password, user.password);
+        if (!isValid) {
+            return { error: "Email atau password salah.", email };
+        }
+
+        // --- STRICT ROLE CHECK FOR VENDOR PORTAL ---
+        // Only allow VENDOR
+        if (user.role !== "VENDOR") {
+            return { error: "Akses ditolak. Akun Anda bukan akun Vendor." };
+        }
+
+        if (!user.isVerified) {
+            return { 
+                error: "Akun Anda belum diverifikasi.", 
+                unverified: true, 
+                email 
+            };
+        }
+
+        if (!user.isActive) {
+            return { error: "Akun Anda dinonaktifkan.", email };
+        }
+
+        const expires = new Date(Date.now() + (remember ? 30 : 1) * 24 * 60 * 60 * 1000);
+        
+        const sessionData = {
+            user: {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                role: user.role,
+                customerId: user.customerId
+            },
+            expires
+        };
+
+        const session = await encrypt(sessionData);
+        const cookieStore = await cookies();
+        
+        cookieStore.set("session", session, { 
+            expires, 
+            httpOnly: true, 
+            path: "/",
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax"
+        });
+
+        return { success: true, redirectUrl: "/vendor" };
+
+    } catch (error) {
+        if (isRedirectError(error)) throw error;
+        console.error("Vendor login error:", error);
+        return { error: "Terjadi kesalahan sistem." };
     }
 }
 
@@ -163,7 +232,7 @@ export async function resetPasswordAction(prevState: any, formData: FormData) {
 export async function logoutAction() {
     const { logout } = await import("@/lib/auth");
     await logout();
-    redirect("/masuk");
+    redirect("/");
 }
 
 export async function getCurrentUserWithCustomer() {

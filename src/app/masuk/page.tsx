@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, Suspense, useEffect } from "react";
 import Image from "next/image";
 import { Eye, EyeOff, Home, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,18 +22,21 @@ const memberBenefits = [
 
 function LoginForm() {
     const searchParams = useSearchParams();
-    const router = useRouter(); // Check if this is needed with useActionState redirects
+    const router = useRouter(); 
     const registered = searchParams.get("registered");
     const [showPassword, setShowPassword] = useState(false);
 
     // Initial state for the action
-    const initialState = { error: "", unverified: false, email: "" };
+    const initialState = { error: "", unverified: false, email: "", success: false, redirectUrl: "" };
     const [state, formAction, isPending] = useActionState(loginAction, initialState);
 
-    // Redirect if unverified (optional: can also just show a button)
-    if (state?.unverified && state?.email) {
-        // We can show a special error message
-    }
+    // Hard redirect on success to ensure AuthProvider updates
+    useEffect(() => {
+        if (state?.success) {
+            const callbackUrl = searchParams.get("callbackUrl");
+            window.location.href = callbackUrl || state.redirectUrl || "/";
+        }
+    }, [state?.success, state?.redirectUrl, searchParams]);
 
     return (
         <div className="w-full max-w-sm">

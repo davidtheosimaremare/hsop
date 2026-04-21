@@ -31,7 +31,9 @@ export default async function proxy(request: NextRequest) {
         const sessionValue = request.cookies.get("session")?.value;
 
         if (!sessionValue) {
-            return NextResponse.redirect(new URL(currentLoginPath, request.url));
+            const loginUrl = new URL(currentLoginPath, request.url);
+            loginUrl.searchParams.set("callbackUrl", request.nextUrl.pathname + request.nextUrl.search);
+            return NextResponse.redirect(loginUrl);
         }
 
         // Session exists, check role
@@ -51,15 +53,17 @@ export default async function proxy(request: NextRequest) {
             }
 
             if (isVendorRoute) {
-                // Vendors and Super Admins can access /vendor
-                if (user.role !== "VENDOR" && user.role !== "SUPER_ADMIN") {
+                // Only Vendors can access /vendor
+                if (user.role !== "VENDOR") {
                     return NextResponse.redirect(new URL("/", request.url));
                 }
             }
 
         } catch (error) {
             // Invalid session - clear it and redirect to appropriate login
-            const redirectRes = NextResponse.redirect(new URL(currentLoginPath, request.url));
+            const loginUrl = new URL(currentLoginPath, request.url);
+            loginUrl.searchParams.set("callbackUrl", request.nextUrl.pathname + request.nextUrl.search);
+            const redirectRes = NextResponse.redirect(loginUrl);
             redirectRes.cookies.set("session", "", { expires: new Date(0), path: "/" });
             return redirectRes;
         }

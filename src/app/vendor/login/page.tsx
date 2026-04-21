@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useSearchParams } from "next/navigation";
 
-import { loginAction } from "@/app/actions/auth";
-import { useActionState } from "react";
+import { vendorLoginAction } from "@/app/actions/auth";
+import { useActionState, useEffect } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 
@@ -23,8 +23,16 @@ function VendorLoginForm() {
     const [showPassword, setShowPassword] = useState(false);
 
     // Initial state for the action
-    const initialState = { error: "", unverified: false, email: "" };
-    const [state, formAction, isPending] = useActionState(loginAction, initialState);
+    const initialState = { error: "", unverified: false, email: "", success: false, redirectUrl: "" };
+    const [state, formAction, isPending] = useActionState(vendorLoginAction, initialState);
+
+    // Hard redirect on success to ensure AuthProvider updates
+    useEffect(() => {
+        if (state?.success) {
+            const callbackUrl = searchParams.get("callbackUrl");
+            window.location.href = callbackUrl || state.redirectUrl || "/vendor";
+        }
+    }, [state?.success, state?.redirectUrl, searchParams]);
 
     return (
         <div className="w-full max-w-sm">

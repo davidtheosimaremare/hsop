@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { adminLoginAction } from "@/app/admin/actions/auth";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -8,23 +9,100 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Eye, EyeOff, Lock, Mail, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, AlertCircle, Loader2 } from "lucide-react";
 
 const initialState: any = {
     error: "",
     success: false,
 };
 
-export default function AdminLoginPage() {
+function AdminLoginForm() {
+    const searchParams = useSearchParams();
     const [state, formAction, isPending] = useActionState(adminLoginAction, initialState);
     const [showPassword, setShowPassword] = useState(false);
 
     useEffect(() => {
         if (state?.success) {
-            window.location.href = "/admin";
+            const callbackUrl = searchParams.get("callbackUrl");
+            window.location.href = callbackUrl || "/admin";
         }
-    }, [state?.success]);
+    }, [state?.success, searchParams]);
 
+    return (
+        <form action={formAction} className="space-y-4">
+            {state?.error && (
+                <Alert variant="destructive" className="bg-red-50 border-red-200 text-red-700">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                        {state.error}
+                    </AlertDescription>
+                </Alert>
+            )}
+
+            <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <div className="relative">
+                    <Mail className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+                    <Input
+                        id="email"
+                        name="email"
+                        type="email"
+                        placeholder="admin@hokiindo.co.id"
+                        className="pl-10"
+                        required
+                    />
+                </div>
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                    <Lock className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+                    <Input
+                        id="password"
+                        name="password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        className="pl-10 pr-10"
+                        required
+                    />
+                    <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 focus:outline-none"
+                    >
+                        {showPassword ? (
+                            <EyeOff className="h-5 w-5" />
+                        ) : (
+                            <Eye className="h-5 w-5" />
+                        )}
+                    </button>
+                </div>
+            </div>
+            <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2">
+                    <input
+                        type="checkbox"
+                        id="remember"
+                        name="remember"
+                        className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                    />
+                    <label
+                        htmlFor="remember"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-gray-600"
+                    >
+                        Ingat saya
+                    </label>
+                </div>
+            </div>
+
+            <Button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white" disabled={isPending}>
+                {isPending ? "Memproses..." : "Masuk"}
+            </Button>
+        </form>
+    );
+}
+
+export default function AdminLoginPage() {
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
             <Card className="w-full max-w-md border-gray-200 shadow-lg">
@@ -45,80 +123,17 @@ export default function AdminLoginPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <form action={formAction} className="space-y-4">
-                        {state?.error && (
-                            <Alert variant="destructive" className="bg-red-50 border-red-200 text-red-700">
-                                <AlertCircle className="h-4 w-4" />
-                                <AlertDescription>
-                                    {state.error}
-                                </AlertDescription>
-                            </Alert>
-                        )}
-
-                        <div className="space-y-2">
-                            <Label htmlFor="email">Email</Label>
-                            <div className="relative">
-                                <Mail className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-                                <Input
-                                    id="email"
-                                    name="email"
-                                    type="email"
-                                    placeholder="admin@hokiindo.co.id"
-                                    className="pl-10"
-                                    required
-                                />
-                            </div>
+                    <Suspense fallback={
+                        <div className="flex justify-center p-4">
+                            <Loader2 className="h-6 w-6 animate-spin text-red-600" />
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="password">Password</Label>
-                            <div className="relative">
-                                <Lock className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-                                <Input
-                                    id="password"
-                                    name="password"
-                                    type={showPassword ? "text" : "password"}
-                                    placeholder="••••••••"
-                                    className="pl-10 pr-10"
-                                    required
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 focus:outline-none"
-                                >
-                                    {showPassword ? (
-                                        <EyeOff className="h-5 w-5" />
-                                    ) : (
-                                        <Eye className="h-5 w-5" />
-                                    )}
-                                </button>
-                            </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                            <div className="flex items-center space-x-2">
-                                <input
-                                    type="checkbox"
-                                    id="remember"
-                                    name="remember"
-                                    className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
-                                />
-                                <label
-                                    htmlFor="remember"
-                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-gray-600"
-                                >
-                                    Ingat saya
-                                </label>
-                            </div>
-                        </div>
-
-                        <Button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white" disabled={isPending}>
-                            {isPending ? "Memproses..." : "Masuk"}
-                        </Button>
-                    </form>
+                    }>
+                        <AdminLoginForm />
+                    </Suspense>
                 </CardContent>
                 <CardFooter className="flex justify-center">
                     <p className="text-xs text-gray-400">
-                        &copy; 2026 Hokiindo Admin Panel
+                        &copy; {new Date().getFullYear()} Hokiindo Admin Panel
                     </p>
                 </CardFooter>
             </Card>
