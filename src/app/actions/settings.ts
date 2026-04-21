@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { revalidatePath, unstable_cache } from "next/cache";
+import { revalidatePath, unstable_cache, revalidateTag } from "next/cache";
 
 export const getSiteSetting = unstable_cache(
     async (key: string) => {
@@ -28,6 +28,7 @@ export async function updateSiteSetting(key: string, value: any) {
         });
         revalidatePath("/", "layout"); // Target the layout specifically
         revalidatePath("/admin/settings/footer");
+        revalidateTag('settings');
         return { success: true };
     } catch (error) {
         console.error("Error updating site setting:", error);
@@ -41,6 +42,7 @@ export async function addSearchSuggestion(term: string) {
             data: { term },
         });
         revalidatePath("/admin/settings/search");
+        revalidateTag('search');
         return { success: true };
     } catch (error) {
         console.error("Failed to add search suggestion:", error);
@@ -54,6 +56,7 @@ export async function deleteSearchSuggestion(id: string) {
             where: { id },
         });
         revalidatePath("/admin/settings/search");
+        revalidateTag('search');
         return { success: true };
     } catch (error) {
         console.error("Failed to delete search suggestion:", error);
@@ -151,6 +154,7 @@ export async function updateCategory(id: string, data: any) {
         });
         revalidatePath("/admin/settings/categories");
         revalidatePath("/admin/settings/grid-categories"); // Also revalidate the grid page
+        revalidateTag('categories');
         return { success: true };
     } catch (error) {
         console.error("Update category failed:", error);
@@ -275,6 +279,8 @@ export async function updateCategoryMenuConfig(config: any) {
             create: { key: 'category_menu_config', value: config }
         });
         revalidatePath("/", "layout");
+        revalidateTag('settings');
+        revalidateTag('categories');
         return { success: true };
     } catch (error) {
         console.error("Failed to update menu config:", error);
