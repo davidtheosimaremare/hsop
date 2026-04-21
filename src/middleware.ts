@@ -59,8 +59,8 @@ export default async function proxy(request: NextRequest) {
             
             if (!hasAccessCookie) {
                 // First visit: set the cookie via a tiny HTML page that JS redirects
-                // This blocks bots that don't execute JavaScript
-                const redirectUrl = request.nextUrl.toString();
+                // Use relative URL to work correctly in both dev and production
+                const redirectUrl = request.nextUrl.pathname + request.nextUrl.search;
                 const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
                     <title>Memuat...</title>
                     <script>
