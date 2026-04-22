@@ -220,7 +220,7 @@ export async function getPublicProducts({
 
 
 const getPublicProductBySlugCached = cache(async (slug: string) => {
-    // 1. First try matching exact SKU
+    // 1. First try matching exact SKU (fastest path - 90%+ of cases)
     const productBySku = await db.product.findUnique({
         where: { sku: slug },
     });
@@ -235,7 +235,7 @@ const getPublicProductBySlugCached = cache(async (slug: string) => {
         if (productByDecodedSku) return productByDecodedSku;
     }
 
-    // 3. Smart slash recovery: try replacing each hyphen with "/" individually
+    // 3. Smart slash recovery: batch-query all possible single-hyphen-to-slash variants
     // This handles SKUs like "TL-500-5.3m-F/P" which becomes "TL-500-5.3m-F-P" in URL
     if (slug.includes("-")) {
         const hyphenPositions: number[] = [];
@@ -243,24 +243,34 @@ const getPublicProductBySlugCached = cache(async (slug: string) => {
             if (slug[i] === '-') hyphenPositions.push(i);
         }
 
-        // Try each single hyphen as a slash (most common case: 1 slash in SKU)
-        for (const pos of hyphenPositions) {
-            const candidate = slug.substring(0, pos) + '/' + slug.substring(pos + 1);
-            const found = await db.product.findUnique({ where: { sku: candidate } });
+        // Build all single-slash candidates and query in ONE batch
+        const singleSlashCandidates = hyphenPositions.map(pos =>
+            slug.substring(0, pos) + '/' + slug.substring(pos + 1)
+        );
+
+        if (singleSlashCandidates.length > 0) {
+            const found = await db.product.findFirst({
+                where: { sku: { in: singleSlashCandidates } }
+            });
             if (found) return found;
         }
 
-        // Try pairs of hyphens as slashes (for SKUs with 2 slashes, e.g. "A/B-C/D")
-        if (hyphenPositions.length >= 2) {
+        // Try pairs of hyphens as slashes (for SKUs with 2 slashes)
+        if (hyphenPositions.length >= 2 && hyphenPositions.length <= 8) {
+            const pairCandidates: string[] = [];
             for (let i = 0; i < hyphenPositions.length; i++) {
                 for (let j = i + 1; j < hyphenPositions.length; j++) {
                     const chars = slug.split('');
                     chars[hyphenPositions[i]] = '/';
                     chars[hyphenPositions[j]] = '/';
-                    const candidate = chars.join('');
-                    const found = await db.product.findUnique({ where: { sku: candidate } });
-                    if (found) return found;
+                    pairCandidates.push(chars.join(''));
                 }
+            }
+            if (pairCandidates.length > 0) {
+                const found = await db.product.findFirst({
+                    where: { sku: { in: pairCandidates } }
+                });
+                if (found) return found;
             }
         }
     }
