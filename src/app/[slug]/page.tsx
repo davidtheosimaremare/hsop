@@ -31,6 +31,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
             description: page.metaDescription || "",
             type: "website",
         },
+        alternates: {
+            canonical: `https://shop.hokiindo.co.id/${slug}`,
+        }
     };
 }
 

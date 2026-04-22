@@ -54,6 +54,9 @@ export async function generateMetadata(
             title: metaTitle,
             description: metaDesc,
             images: firstImage ? [firstImage] : [],
+        },
+        alternates: {
+            canonical: `https://shop.hokiindo.co.id/produk/${product.slug}`,
         }
     };
 }
