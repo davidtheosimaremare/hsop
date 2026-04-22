@@ -125,6 +125,7 @@ model Product {
   vendorPrice     Float?      // Harga beli modal dari vendor
   marginType      String?     // 'PERCENTAGE', 'FIXED', 'MANUAL'
   marginValue     Float?      // Nilai dari margin (misal 10 untuk 10%, atau 50000 untuk +50k)
+  indentTime      String      @default("12 - 16 Minggu")
   stockLogs       ProductStockLog[]
 
   @@index([sku])

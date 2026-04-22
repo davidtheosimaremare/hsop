@@ -10,6 +10,7 @@ import { Toaster } from "sonner";
 import NextTopLoader from "nextjs-toploader";
 import ChatWidget from "@/components/chat/ChatWidget";
 import CookieConsent from "@/components/layout/CookieConsent";
+import HeadScripts from "@/components/layout/HeadScripts";
 
 import "./globals.css";
 import "@/styles/nprogress.css";
@@ -66,6 +67,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <HeadScripts />
+      </head>
       <body
         className={`${inter.variable} ${geistMono.variable} font-sans antialiased`}
         suppressHydrationWarning

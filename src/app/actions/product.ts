@@ -268,6 +268,7 @@ export async function updateProductDetails(
         image?: string;
         sliderImages?: string[];
         brand?: string;
+        indentTime?: string;
     }
 ) {
     try {

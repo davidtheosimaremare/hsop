@@ -13,6 +13,7 @@ import { EditableDescriptionSection } from "@/components/admin/EditableDescripti
 import { EditableLongDescriptionSection } from "@/components/admin/EditableLongDescriptionSection";
 import { EditableDatasheetSection } from "@/components/admin/EditableDatasheetSection";
 import { EditableBrandSection } from "@/components/admin/EditableBrandSection";
+import { EditableIndentTimeSection } from "@/components/admin/EditableIndentTimeSection";
 import { ProductSkuCopy } from "@/components/admin/ProductSkuCopy";
 import { PriceCopy } from "@/components/admin/PriceCopy";
 import { cn } from "@/lib/utils";
@@ -137,6 +138,18 @@ export default async function AdminProductDetailPage({ params }: { params: { id:
                                     </div>
                                     <div className="font-bold text-sm text-slate-900 bg-slate-50 px-3 py-2 rounded-xl border border-slate-100/50">
                                         {product.category || "General"}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                                        <Archive className="h-3 w-3" /> Waktu Indent
+                                    </div>
+                                    <div className="bg-slate-50 p-1 rounded-xl border border-slate-100/50">
+                                        <EditableIndentTimeSection
+                                            productId={product.id}
+                                            initialIndentTime={product.indentTime || "12 - 16 Minggu"}
+                                        />
                                     </div>
                                 </div>
 

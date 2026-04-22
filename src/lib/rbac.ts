@@ -240,6 +240,7 @@ export const routePermissions: Record<string, Permission[]> = {
   "/admin/settings/format-file": ["format_file:manage"],
   "/admin/settings/footer": ["footer:manage"],
   "/admin/settings/brands": ["brands:manage"],
+  "/admin/settings/seo": ["settings:edit"],
   // Users & Dev
   "/admin/users": ["users:view"],
   "/admin/developer/webhooks": ["webhooks:view"],
@@ -469,6 +470,7 @@ export const sidebarMenuItems = [
     requiredPermission: "settings:view",
     children: [
       { title: "Profil Perusahaan", href: "/admin/settings/company", icon: "Briefcase", requiredPermission: "settings:edit" },
+      { title: "SEO & Analytics", href: "/admin/settings/seo", icon: "Activity", requiredPermission: "settings:edit" },
       { title: "Tampilan Email", href: "/admin/settings/email-template", icon: "FileText", requiredPermission: "settings:edit" },
       { title: "Notifikasi", href: "/admin/settings", icon: "Bell", requiredPermission: "settings:view" },
     ],

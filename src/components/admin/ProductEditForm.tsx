@@ -27,6 +27,7 @@ interface ProductEditFormProps {
         specifications: any;
         datasheet: string | null;
         image: string | null;
+        indentTime: string;
     };
     onSuccess?: () => void;
 }
@@ -40,6 +41,7 @@ export function ProductEditForm({ product, onSuccess }: ProductEditFormProps) {
     const [description, setDescription] = useState(product.description || "");
     const [datasheet, setDatasheet] = useState(product.datasheet || "");
     const [image, setImage] = useState(product.image || "");
+    const [indentTime, setIndentTime] = useState(product.indentTime || "12 - 16 Minggu");
     const [imageInputType, setImageInputType] = useState<"upload" | "url">("upload");
 
     // Specifications State (Convert JSON object to Array for editing)
@@ -90,6 +92,7 @@ export function ProductEditForm({ product, onSuccess }: ProductEditFormProps) {
                 specifications: specsObject,
                 datasheet,
                 image,
+                indentTime,
             });
 
             if (result.success) {
@@ -234,6 +237,20 @@ export function ProductEditForm({ product, onSuccess }: ProductEditFormProps) {
                         className="bg-white"
                     />
                 </div>
+            </div>
+
+            {/* Indent Time */}
+            <div className="space-y-2">
+                <Label className="text-[11px] font-black uppercase tracking-widest text-slate-700">Waktu Indent</Label>
+                <p className="text-[9px] text-slate-400 font-medium leading-relaxed">Kosongkan jika produk ready stock, atau isi dengan estimasi waktu (misal: "2 - 3 Minggu" atau "1 Bulan")</p>
+                <Input
+                    type="text"
+                    placeholder="Contoh: 12 - 16 Minggu"
+                    value={indentTime}
+                    onChange={(e) => setIndentTime(e.target.value)}
+                    disabled={isPending}
+                    className="h-11 rounded-xl border-slate-200 bg-white text-xs font-bold"
+                />
             </div>
 
             {/* Specifications */}
