@@ -533,7 +533,7 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-xl font-bold text-gray-900">Produk Terkait</h2>
                         <div className="flex items-center gap-2">
-                            <Link href="/pencarian" className="text-sm text-teal-600 hover:underline mr-2">
+                            <Link href={`/pencarian?category=${encodeURIComponent(product.category || '')}`} className="text-sm text-teal-600 hover:underline mr-2">
                                 Lihat Semua
                             </Link>
                             <button
