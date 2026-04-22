@@ -32,6 +32,11 @@ export async function generateMetadata(): Promise<Metadata> {
   const siteTitle = companyDetails?.siteTitle || companyDetails?.name || "Hokiindoshop";
   const tagline = companyDetails?.siteTagline || "Distributor Siemens Electrical Indonesia";
   
+  // Ambil verifikasi SEO
+  const seoVerification = await getSiteSetting("seo_verification") as Record<string, string> | null;
+  const googleVerification = seoVerification?.google || undefined;
+  const bingVerification = seoVerification?.bing || undefined;
+  
   return {
     metadataBase: new URL('https://shop.hokiindo.co.id'),
     title: {
@@ -57,6 +62,10 @@ export async function generateMetadata(): Promise<Metadata> {
         { url: "/apple-icon.png" },
       ],
     },
+    verification: {
+      google: googleVerification,
+      other: bingVerification ? { 'msvalidate.01': bingVerification } : undefined,
+    },
   };
 }
 
@@ -67,9 +76,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <head>
-        <HeadScripts />
-      </head>
       <body
         className={`${inter.variable} ${geistMono.variable} font-sans antialiased`}
         suppressHydrationWarning
@@ -81,6 +87,7 @@ export default function RootLayout({
         <Toaster position="top-right" richColors />
         <AuthProvider>
           <CartProvider>
+            <HeadScripts />
             {children}
             <ChatWidget />
             <CookieConsent />

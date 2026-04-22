@@ -11,24 +11,12 @@ export default async function HeadScripts() {
         getSiteSetting("analytics_config") as Promise<Record<string, string> | null>,
     ]);
 
-    const googleVerification = seoVerification?.google || "";
-    const bingVerification = seoVerification?.bing || "";
     const gaId = analyticsConfig?.gaId || "";
     const gtmId = analyticsConfig?.gtmId || "";
     const customHeadScript = analyticsConfig?.customHeadScript || "";
 
     return (
         <>
-            {/* Google Site Verification */}
-            {googleVerification && (
-                <meta name="google-site-verification" content={googleVerification} />
-            )}
-
-            {/* Bing Webmaster Verification */}
-            {bingVerification && (
-                <meta name="msvalidate.01" content={bingVerification} />
-            )}
-
             {/* Google Analytics 4 */}
             {gaId && (
                 <>
