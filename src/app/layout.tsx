@@ -9,6 +9,7 @@ const inter = Inter({
 import { Toaster } from "sonner";
 import NextTopLoader from "nextjs-toploader";
 import ChatWidget from "@/components/chat/ChatWidget";
+import CookieConsent from "@/components/layout/CookieConsent";
 
 import "./globals.css";
 import "@/styles/nprogress.css";
@@ -78,6 +79,7 @@ export default function RootLayout({
           <CartProvider>
             {children}
             <ChatWidget />
+            <CookieConsent />
           </CartProvider>
         </AuthProvider>
       </body>

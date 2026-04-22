@@ -41,48 +41,37 @@ export default async function proxy(request: NextRequest) {
     const pathname = request.nextUrl.pathname;
     const userAgent = request.headers.get("user-agent") || "";
 
-    // === BOT PROTECTION (public product pages only) ===
+    // === BOT PROTECTION (public product & search pages) ===
     if (pathname.startsWith("/produk/") || pathname.startsWith("/pencarian")) {
-        // Allow legitimate bots (Google, Bing, social media)
         const isAllowedBot = ALLOWED_BOTS.some(pattern => pattern.test(userAgent));
         
         if (!isAllowedBot) {
-            // Block known scraper bots
+            // Block known scraper bots immediately
             const isBlockedBot = BLOCKED_BOT_PATTERNS.some(pattern => pattern.test(userAgent));
             if (isBlockedBot) {
                 return new NextResponse("Access Denied", { status: 403 });
             }
 
-            // Cookie challenge: real browsers get a cookie on first visit
-            // Bots without JavaScript won't have this cookie
+            // Check cookie consent - bots without JS can't set this cookie
+            // The CookieConsent modal handles setting this for real users
             const hasAccessCookie = request.cookies.get("_hki_acc")?.value;
-            
             if (!hasAccessCookie) {
-                // First visit: set the cookie via a tiny HTML page that JS redirects
-                // Use relative URL to work correctly in both dev and production
-                const redirectUrl = request.nextUrl.pathname + request.nextUrl.search;
-                const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-                    <title>Memuat...</title>
-                    <script>
-                        document.cookie="_hki_acc=1;path=/;max-age=86400;SameSite=Lax";
-                        window.location.replace("${redirectUrl}");
-                    </script>
-                    <noscript><meta http-equiv="refresh" content="0;url=${redirectUrl}"></noscript>
-                </head><body><p>Memuat halaman...</p></body></html>`;
+                // No cookie = likely a bot or first-time visitor
+                // First-time visitors will see the cookie consent modal
+                // Bots making API-style requests without cookies get blocked
+                const acceptHeader = request.headers.get("accept") || "";
+                const isHtmlRequest = acceptHeader.includes("text/html");
                 
-                return new NextResponse(html, {
-                    status: 200,
-                    headers: { 
-                        "Content-Type": "text/html; charset=utf-8",
-                        "Cache-Control": "no-store, no-cache",
-                    },
-                });
+                if (!isHtmlRequest) {
+                    // Non-HTML requests without cookie = programmatic access = block
+                    return new NextResponse("Cookie consent required", { status: 403 });
+                }
+                // HTML requests pass through - the CookieConsent modal will appear
             }
         }
     }
 
     // === SESSION UPDATE ===
-    // 1. Update session and get the response object
     let res = await updateSession(request) || NextResponse.next();
 
     // === ADMIN/VENDOR ROUTE PROTECTION ===
@@ -95,12 +84,10 @@ export default async function proxy(request: NextRequest) {
         const publicLoginPath = "/masuk";
         const currentLoginPath = isAdminRoute ? adminLoginPath : vendorLoginPath;
 
-        // Skip middleware logic for login pages themselves to avoid loops
         if (pathname === adminLoginPath || pathname === vendorLoginPath || pathname === publicLoginPath) {
             return res;
         }
 
-        // Get session from request cookies
         const sessionValue = request.cookies.get("session")?.value;
 
         if (!sessionValue) {
@@ -109,7 +96,6 @@ export default async function proxy(request: NextRequest) {
             return NextResponse.redirect(loginUrl);
         }
 
-        // Session exists, check role
         try {
             const session = await decrypt(sessionValue);
             const user = session?.user;
