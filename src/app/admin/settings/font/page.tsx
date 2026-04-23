@@ -3,20 +3,25 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
     Loader2,
     Save,
     Type,
     Check,
     RotateCcw,
-    ExternalLink
+    ExternalLink,
+    Search
 } from "lucide-react";
 import { getSiteSetting, updateSiteSetting } from "@/app/actions/settings";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-// Daftar font yang populer dan cocok untuk e-commerce - semuanya sudah dioptimalkan Google Fonts
+// Daftar font lengkap dari Google Fonts - dikurasi untuk e-commerce & website profesional
+// Catatan: "Google Sans" (Product Sans) adalah font proprietary Google, tidak tersedia di Google Fonts.
+// Alternatif terdekatnya: Rubik, Lexend, atau Outfit.
 const FONT_OPTIONS = [
+    // ── Sans-serif (Paling Populer) ──────────────────────────────────────
     { name: "Inter", category: "Sans-serif", description: "Modern, bersih, sangat terbaca. Default web profesional.", weights: "400;500;600;700;800;900" },
     { name: "Plus Jakarta Sans", category: "Sans-serif", description: "Font Indonesia modern, elegan untuk brand premium.", weights: "400;500;600;700;800" },
     { name: "Poppins", category: "Sans-serif", description: "Geometris, ramah, cocok untuk e-commerce.", weights: "400;500;600;700;800;900" },
@@ -33,6 +38,50 @@ const FONT_OPTIONS = [
     { name: "Manrope", category: "Sans-serif", description: "Modern semi-geometris, sangat bersih.", weights: "400;500;600;700;800" },
     { name: "Space Grotesk", category: "Sans-serif", description: "Teknis, cocok untuk brand teknologi.", weights: "400;500;600;700" },
     { name: "Figtree", category: "Sans-serif", description: "Baru dan segar, ringan tapi berkarakter.", weights: "400;500;600;700;800;900" },
+    { name: "Rubik", category: "Sans-serif", description: "Mirip Google Sans, bulat dan modern. Alternatif terbaik.", weights: "400;500;600;700;800;900" },
+    { name: "Lexend", category: "Sans-serif", description: "Dirancang untuk keterbacaan maksimal.", weights: "400;500;600;700;800;900" },
+    { name: "Urbanist", category: "Sans-serif", description: "Geometris modern, sangat estetik.", weights: "400;500;600;700;800;900" },
+    { name: "Sora", category: "Sans-serif", description: "Futuristik dan premium, cocok untuk tech.", weights: "400;500;600;700;800" },
+    { name: "Albert Sans", category: "Sans-serif", description: "Geometris dengan sentuhan humanis.", weights: "400;500;600;700;800;900" },
+    { name: "Red Hat Display", category: "Sans-serif", description: "Tegas dan berani, cocok untuk heading.", weights: "400;500;600;700;800;900" },
+    { name: "Barlow", category: "Sans-serif", description: "Sedikit condensed, cocok untuk industri.", weights: "400;500;600;700;800;900" },
+    { name: "Mulish", category: "Sans-serif", description: "Minimalis dan elegan, sangat fleksibel.", weights: "400;500;600;700;800;900" },
+    { name: "Quicksand", category: "Sans-serif", description: "Bulat dan friendly, karakter ceria.", weights: "400;500;600;700" },
+    { name: "Archivo", category: "Sans-serif", description: "Grotesque modern, sangat terbaca.", weights: "400;500;600;700;800;900" },
+    { name: "Jost", category: "Sans-serif", description: "Terinspirasi Futura, geometris sempurna.", weights: "400;500;600;700;800;900" },
+    { name: "Exo 2", category: "Sans-serif", description: "Geometris futuristik, cocok untuk teknologi.", weights: "400;500;600;700;800;900" },
+    { name: "Kanit", category: "Sans-serif", description: "Thai-Latin, unik dan modern.", weights: "400;500;600;700;800;900" },
+    { name: "Cabin", category: "Sans-serif", description: "Humanis, hangat, dan profesional.", weights: "400;500;600;700" },
+    { name: "Karla", category: "Sans-serif", description: "Grotesque simpel, sangat terbaca.", weights: "400;500;600;700;800" },
+    { name: "Josefin Sans", category: "Sans-serif", description: "Vintage geometris, elegan dan unik.", weights: "400;500;600;700" },
+    { name: "Comfortaa", category: "Sans-serif", description: "Bulat futuristik, karakter sangat unik.", weights: "400;500;600;700" },
+    { name: "IBM Plex Sans", category: "Sans-serif", description: "Korporat modern, presisi tinggi dari IBM.", weights: "400;500;600;700" },
+    { name: "Source Sans 3", category: "Sans-serif", description: "Bersih dari Adobe, profesional dan netral.", weights: "400;500;600;700;800;900" },
+    { name: "Noto Sans", category: "Sans-serif", description: "Universal dari Google, mendukung semua bahasa.", weights: "400;500;600;700;800;900" },
+    { name: "Titillium Web", category: "Sans-serif", description: "Akademis, cocok untuk sains & engineering.", weights: "400;600;700;900" },
+    { name: "Yantramanav", category: "Sans-serif", description: "Industri, tebal dan kuat.", weights: "400;500;700;900" },
+    { name: "Overpass", category: "Sans-serif", description: "Terinspirasi Highway Gothic, jelas dan tegas.", weights: "400;500;600;700;800;900" },
+    { name: "Asap", category: "Sans-serif", description: "Bulat kontemporer, hangat dan ramah.", weights: "400;500;600;700;800" },
+
+    // ── Serif (Elegan & Klasik) ───────────────────────────────────────────
+    { name: "Playfair Display", category: "Serif", description: "Klasik mewah, cocok untuk brand fashion.", weights: "400;500;600;700;800;900" },
+    { name: "Merriweather", category: "Serif", description: "Dirancang untuk layar, sangat terbaca.", weights: "400;700;900" },
+    { name: "Lora", category: "Serif", description: "Kontemporer elegan, baik untuk body text.", weights: "400;500;600;700" },
+    { name: "PT Serif", category: "Serif", description: "Klasik Rusia, formal dan elegan.", weights: "400;700" },
+    { name: "Libre Baskerville", category: "Serif", description: "Klasik web, sangat terbaca di layar.", weights: "400;700" },
+    { name: "Source Serif 4", category: "Serif", description: "Serif dari Adobe, cocok untuk editorial.", weights: "400;500;600;700;800;900" },
+    { name: "Cormorant Garamond", category: "Serif", description: "Sangat elegan, cocok untuk luxury brand.", weights: "400;500;600;700" },
+    { name: "EB Garamond", category: "Serif", description: "Klasik Garamond untuk era digital.", weights: "400;500;600;700;800" },
+    { name: "Crimson Text", category: "Serif", description: "Elegan untuk bacaan panjang.", weights: "400;600;700" },
+    { name: "DM Serif Display", category: "Serif", description: "Serif display modern, tebal dan berkelas.", weights: "400" },
+
+    // ── Display & Monospace ──────────────────────────────────────────────
+    { name: "Bebas Neue", category: "Display", description: "All-caps, sangat bold, cocok untuk judul besar.", weights: "400" },
+    { name: "Oswald", category: "Display", description: "Condensed tegas, cocok untuk header.", weights: "400;500;600;700" },
+    { name: "Russo One", category: "Display", description: "Bold industrial, karakter sangat kuat.", weights: "400" },
+    { name: "JetBrains Mono", category: "Monospace", description: "Font kode terbaik, cocok untuk harga/SKU.", weights: "400;500;600;700;800" },
+    { name: "Fira Code", category: "Monospace", description: "Monospace modern dengan ligature.", weights: "400;500;600;700" },
+    { name: "Space Mono", category: "Monospace", description: "Monospace retro-futuristik.", weights: "400;700" },
 ];
 
 export default function AdminFontPage() {
@@ -41,6 +90,8 @@ export default function AdminFontPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [loadedFonts, setLoadedFonts] = useState<Set<string>>(new Set(["Inter"]));
+    const [searchQuery, setSearchQuery] = useState("");
+    const [activeCategory, setActiveCategory] = useState("Semua");
 
     useEffect(() => {
         loadSettings();
@@ -197,8 +248,45 @@ export default function AdminFontPage() {
                     <Type className="w-5 h-5 text-red-600" />
                     Pilih Font
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {FONT_OPTIONS.map((font) => {
+                {(() => {
+                    const categories = ["Semua", ...Array.from(new Set(FONT_OPTIONS.map(f => f.category)))];
+                    const filteredFonts = FONT_OPTIONS.filter(font => {
+                        const matchesSearch = font.name.toLowerCase().includes(searchQuery.toLowerCase()) || font.description.toLowerCase().includes(searchQuery.toLowerCase());
+                        const matchesCategory = activeCategory === "Semua" || font.category === activeCategory;
+                        return matchesSearch && matchesCategory;
+                    });
+                    return (
+                        <>
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6">
+                                <div className="relative flex-1 w-full sm:max-w-sm">
+                                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    <Input
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        placeholder="Cari font..."
+                                        className="pl-10 h-11 rounded-xl border-slate-100 bg-slate-50/50 text-sm"
+                                    />
+                                </div>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                    {categories.map(cat => (
+                                        <button
+                                            key={cat}
+                                            onClick={() => setActiveCategory(cat)}
+                                            className={cn(
+                                                "px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all",
+                                                activeCategory === cat
+                                                    ? "bg-red-600 text-white shadow-sm"
+                                                    : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                                            )}
+                                        >
+                                            {cat}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">{filteredFonts.length} font ditemukan</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {filteredFonts.map((font) => {
                         const isSelected = selectedFont === font.name;
                         const isSaved = savedFont === font.name;
                         return (
@@ -249,6 +337,9 @@ export default function AdminFontPage() {
                         );
                     })}
                 </div>
+                        </>
+                    );
+                })()}
             </div>
 
             {/* Info */}
