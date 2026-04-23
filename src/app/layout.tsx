@@ -11,6 +11,7 @@ import NextTopLoader from "nextjs-toploader";
 import ChatWidget from "@/components/chat/ChatWidget";
 import CookieConsent from "@/components/layout/CookieConsent";
 import HeadScripts from "@/components/layout/HeadScripts";
+import DynamicFont from "@/components/layout/DynamicFont";
 
 import "./globals.css";
 import "@/styles/nprogress.css";
@@ -88,6 +89,7 @@ export default function RootLayout({
         <AuthProvider>
           <CartProvider>
             <HeadScripts />
+            <DynamicFont />
             {children}
             <ChatWidget />
             <CookieConsent />

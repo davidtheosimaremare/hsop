@@ -101,9 +101,6 @@ export function useNotifications(userId?: string): UseNotificationsReturn {
         let eventSource: EventSource | null = null;
 
         const setupSSE = () => {
-            // Only setup if tab is visible
-            if (document.visibilityState !== "visible") return;
-
             // Close existing connection if any
             if (eventSource) {
                 eventSource.close();
@@ -120,9 +117,9 @@ export function useNotifications(userId?: string): UseNotificationsReturn {
             eventSource.onerror = (error) => {
                 console.error("SSE connection error:", error);
                 if (eventSource) eventSource.close();
-                // Try to reconnect after 10 seconds (increased from 5)
+                // Try to reconnect after 10 seconds
                 setTimeout(() => {
-                    if (document.visibilityState === "visible") setupSSE();
+                    setupSSE();
                 }, 10000);
             };
 
@@ -154,27 +151,13 @@ export function useNotifications(userId?: string): UseNotificationsReturn {
             });
         };
 
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === "visible") {
-                setupSSE();
-            } else {
-                if (eventSource) {
-                    console.log("Closing SSE connection due to tab hidden");
-                    eventSource.close();
-                    eventSource = null;
-                    eventSourceRef.current = null;
-                }
-            }
-        };
-
         setupSSE();
-        document.addEventListener("visibilitychange", handleVisibilityChange);
 
         return () => {
             if (eventSource) {
                 eventSource.close();
+                eventSourceRef.current = null;
             }
-            document.removeEventListener("visibilitychange", handleVisibilityChange);
         };
     }, [userId]);
 

@@ -471,6 +471,7 @@ export const sidebarMenuItems = [
     children: [
       { title: "Profil Perusahaan", href: "/admin/settings/company", icon: "Briefcase", requiredPermission: "settings:edit" },
       { title: "SEO & Analytics", href: "/admin/settings/seo", icon: "Activity", requiredPermission: "settings:edit" },
+      { title: "Font Huruf", href: "/admin/settings/font", icon: "FileText", requiredPermission: "settings:edit" },
       { title: "Tampilan Email", href: "/admin/settings/email-template", icon: "FileText", requiredPermission: "settings:edit" },
       { title: "Notifikasi", href: "/admin/settings", icon: "Bell", requiredPermission: "settings:view" },
     ],
