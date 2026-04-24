@@ -61,12 +61,16 @@ export default async function proxy(request: NextRequest) {
                 // Bots making API-style requests without cookies get blocked
                 const acceptHeader = request.headers.get("accept") || "";
                 const isHtmlRequest = acceptHeader.includes("text/html");
-                
-                if (!isHtmlRequest) {
-                    // Non-HTML requests without cookie = programmatic access = block
+                const isNextInternalRequest = request.headers.has("rsc") || 
+                                             request.headers.has("next-router-prefetch") ||
+                                             request.headers.has("next-action");
+
+                if (!isHtmlRequest && !isNextInternalRequest) {
+                    // Only block if it's NOT a browser page request AND NOT a Next.js internal request
+                    // This allows the app to function while still blocking direct API-style scraping
                     return new NextResponse("Cookie consent required", { status: 403 });
                 }
-                // HTML requests pass through - the CookieConsent modal will appear
+                // HTML requests and Next.js internal requests pass through - the CookieConsent modal will handle the rest
             }
         }
     }
