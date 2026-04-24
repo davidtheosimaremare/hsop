@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Search, X, Clock, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,22 @@ export default function SearchBox({ isMobile = false, onFocusChange }: SearchBox
     const [isLoading, setIsLoading] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const debounceRef = useRef<NodeJS.Timeout | null>(null);
+    const searchParams = useSearchParams();
+    const pathname = usePathname();
+
+    // Sync query with URL search param 'q'
+    useEffect(() => {
+        const urlQuery = searchParams.get("q");
+        if (urlQuery) {
+            setQuery(urlQuery);
+        } else {
+            // Only clear search box if we are NOT on the search results page
+            // or if we are on the search page but 'q' is explicitly missing
+            if (pathname !== "/pencarian" || (pathname === "/pencarian" && !searchParams.has("q"))) {
+                setQuery("");
+            }
+        }
+    }, [searchParams, pathname]);
 
     // Load history from localStorage
     useEffect(() => {
