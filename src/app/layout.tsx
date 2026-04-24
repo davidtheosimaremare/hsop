@@ -17,7 +17,6 @@ import "./globals.css";
 import "@/styles/nprogress.css";
 import { CartProvider } from "@/lib/useCart";
 import { Suspense } from "react";
-import { NavigationProgress } from "@/components/layout/NavigationProgress";
 import { AuthProvider } from "@/components/auth/CanAccess";
 
 
@@ -81,9 +80,6 @@ export default function RootLayout({
         className={`${inter.variable} ${geistMono.variable} font-sans antialiased`}
         suppressHydrationWarning
       >
-        <Suspense fallback={null}>
-          <NavigationProgress />
-        </Suspense>
         <NextTopLoader color="#dc2626" showSpinner={false} />
         <Toaster position="top-right" richColors />
         <AuthProvider>

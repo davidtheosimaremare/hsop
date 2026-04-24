@@ -6,6 +6,10 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: '1024mb',
     },
+    staleTimes: {
+      dynamic: 0,
+      static: 180,
+    },
   },
   images: {
     formats: ['image/avif', 'image/webp'],
