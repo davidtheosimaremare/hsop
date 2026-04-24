@@ -3,8 +3,6 @@
 import { useState } from "react";
 import { ChevronRight, ChevronDown } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { startProgress } from "@/components/layout/NavigationProgress";
-
 interface Category {
     id: string;
     name: string;
@@ -48,7 +46,6 @@ export default function SidebarFilter({ categories, brands }: SidebarFilterProps
         }
         params.set("page", "1"); // Reset to page 1
 
-        startProgress();
         router.push(`/pencarian?${params.toString()}`);
     };
 

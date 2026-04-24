@@ -10,8 +10,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { quickSearch, QuickSearchResult } from "@/app/actions/search";
 import { getProductSlug } from "@/lib/utils";
-import { startProgress } from "@/components/layout/NavigationProgress";
-
 const SEARCH_HISTORY_KEY = "hsop-search-history";
 const MAX_HISTORY_ITEMS = 5;
 
@@ -122,7 +120,6 @@ export default function SearchBox({ isMobile = false, onFocusChange }: SearchBox
             addToHistory(query.trim());
         }
         setIsOpen(false);
-        startProgress();
         router.push(`/pencarian?q=${encodeURIComponent(query)}`);
     };
 
@@ -130,7 +127,6 @@ export default function SearchBox({ isMobile = false, onFocusChange }: SearchBox
         setQuery(term);
         addToHistory(term);
         setIsOpen(false);
-        startProgress();
         router.push(`/pencarian?q=${encodeURIComponent(term)}`);
     };
 
