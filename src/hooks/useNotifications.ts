@@ -94,7 +94,8 @@ export function useNotifications(userId?: string): UseNotificationsReturn {
         setUnreadCount(0);
     }, []);
 
-    // Setup SSE for real-time notifications
+    // Temporarily disabled SSE to investigate stability
+    /*
     useEffect(() => {
         if (!userId) return;
 
@@ -160,6 +161,7 @@ export function useNotifications(userId?: string): UseNotificationsReturn {
             }
         };
     }, [userId]);
+    */
 
     // Initial fetch
     useEffect(() => {
