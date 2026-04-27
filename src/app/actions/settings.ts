@@ -315,3 +315,23 @@ export async function getAllCategories() {
     }
 }
 
+
+export async function purgeSystemCache() {
+    try {
+        // 1. Revalidate all paths and layout
+        revalidatePath("/", "layout");
+        
+        // 2. Revalidate specific important tags
+        revalidateTag('settings');
+        revalidateTag('categories');
+        revalidateTag('products');
+        revalidateTag('search');
+        revalidateTag('brands');
+        
+        console.log("System cache purged successfully");
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to purge system cache:", error);
+        return { success: false, error: "Failed to purge cache" };
+    }
+}

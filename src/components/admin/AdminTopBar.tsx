@@ -17,10 +17,13 @@ import {
     User,
     Settings,
     ChevronDown,
+    Zap,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { useAuth } from "@/components/auth/CanAccess";
+import { purgeSystemCache } from "@/app/actions/settings";
+import { cn } from "@/lib/utils";
 
 interface Notification {
     id: string;
@@ -58,6 +61,9 @@ export default function AdminTopBar() {
     const profileRef = useRef<HTMLDivElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
     const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+    const [isPurging, setIsPurging] = useState(false);
+    const [purgeSuccess, setPurgeSuccess] = useState(false);
 
     // Close dropdowns on outside click
     useEffect(() => {
@@ -132,6 +138,18 @@ export default function AdminTopBar() {
     const handleLogout = async () => {
         const { logoutAction } = await import("@/app/actions/auth");
         await logoutAction();
+    };
+
+    const handlePurgeCache = async () => {
+        if (isPurging) return;
+        setIsPurging(true);
+        try {
+            await purgeSystemCache();
+            setPurgeSuccess(true);
+            setTimeout(() => setPurgeSuccess(false), 3000);
+            router.refresh();
+        } catch { /* silent */ }
+        setIsPurging(false);
     };
 
     const iconMap: Record<string, React.ReactNode> = {
@@ -229,6 +247,26 @@ export default function AdminTopBar() {
 
             {/* Right side actions */}
             <div className="flex items-center gap-2 ml-auto">
+                {/* Clear Cache Button */}
+                <button
+                    onClick={handlePurgeCache}
+                    title="Hapus Cache Sistem"
+                    disabled={isPurging}
+                    className={cn(
+                        "relative w-9 h-9 flex items-center justify-center rounded-lg transition-all",
+                        purgeSuccess 
+                            ? "bg-green-100 text-green-600" 
+                            : "hover:bg-slate-100 text-slate-500"
+                    )}
+                >
+                    {isPurging ? (
+                        <Loader2 className="w-[18px] h-[18px] animate-spin" />
+                    ) : purgeSuccess ? (
+                        <CheckCheck className="w-[18px] h-[18px]" />
+                    ) : (
+                        <Zap className="w-[18px] h-[18px]" />
+                    )}
+                </button>
 
                 {/* Notification Bell */}
                 <div ref={notifRef} className="relative">
