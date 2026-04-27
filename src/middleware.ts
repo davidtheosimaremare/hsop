@@ -43,34 +43,40 @@ export default async function proxy(request: NextRequest) {
 
     // === BOT PROTECTION (public product & search pages) ===
     if (pathname.startsWith("/produk/") || pathname.startsWith("/pencarian")) {
+        // 1. Bypass if user is logged in (session exists)
+        const hasSession = request.cookies.has("session");
+        if (hasSession) return res;
+
         const isAllowedBot = ALLOWED_BOTS.some(pattern => pattern.test(userAgent));
         
         if (!isAllowedBot) {
-            // Block known scraper bots immediately
+            // 2. Check if it's a confirmed BAD bot pattern
             const isBlockedBot = BLOCKED_BOT_PATTERNS.some(pattern => pattern.test(userAgent));
+            
+            // 3. Check if it looks like a real browser (Mozilla/5.0 pattern)
+            const isBrowser = userAgent.includes("Mozilla/5.0");
+
             if (isBlockedBot) {
                 return new NextResponse("Access Denied", { status: 403 });
             }
 
-            // Check cookie consent - bots without JS can't set this cookie
-            // The CookieConsent modal handles setting this for real users
+            // 4. Check for cookie consent only if it's NOT a browser or NOT a page request
             const hasAccessCookie = request.cookies.get("_hki_acc")?.value;
+            
             if (!hasAccessCookie) {
-                // No cookie = likely a bot or first-time visitor
-                // First-time visitors will see the cookie consent modal
-                // Bots making API-style requests without cookies get blocked
                 const acceptHeader = request.headers.get("accept") || "";
                 const isHtmlRequest = acceptHeader.includes("text/html");
                 const isNextInternalRequest = request.headers.has("rsc") || 
                                              request.headers.has("next-router-prefetch") ||
                                              request.headers.has("next-action");
 
-                if (!isHtmlRequest && !isNextInternalRequest) {
-                    // Only block if it's NOT a browser page request AND NOT a Next.js internal request
-                    // This allows the app to function while still blocking direct API-style scraping
-                    return new NextResponse("Cookie consent required", { status: 403 });
+                // Sophisticated check: Only block if it's:
+                // - NOT an HTML page request
+                // - AND NOT an internal Next.js request
+                // - AND (NOT a browser OR looks like a headless scraper)
+                if (!isHtmlRequest && !isNextInternalRequest && !isBrowser) {
+                    return new NextResponse("Access Denied (Bot detected)", { status: 403 });
                 }
-                // HTML requests and Next.js internal requests pass through - the CookieConsent modal will handle the rest
             }
         }
     }
