@@ -556,54 +556,74 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                         ref={sliderRef}
                         className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide"
                     >
-                        {relatedProducts.map((relProduct, index) => (
-                            <motion.div
-                                key={relProduct.id}
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ duration: 0.3, delay: index * 0.05 }}
-                                className="group flex-shrink-0 w-52 bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
-                            >
-                                <Link href={`/produk/${getProductSlug(relProduct)}`} className="block h-full flex flex-col">
-                                    {/* Product Image */}
-                                    <div className="aspect-square bg-gray-100 relative">
-                                        {relProduct.image ? (
-                                            <Image
-                                                src={relProduct.image}
-                                                alt={relProduct.name}
-                                                fill
-                                                className="object-contain p-2"
-                                            />
-                                        ) : (
-                                            <div className="absolute inset-0 flex items-center justify-center">
-                                                <div className="w-3/4 h-3/4 bg-gray-200 rounded-lg" />
-                                            </div>
-                                        )}
-                                    </div>
+                        {relatedProducts.map((relProduct, index) => {
+                            const relPriceInfo = getPriceInfo(relProduct.price, relProduct.category || null, relProduct.availableToSell);
 
-                                    {/* Product Info */}
-                                    <div className="p-3 flex-1 flex flex-col">
-                                        <p className="text-xs text-gray-500 mb-1">{relProduct.brand}</p>
-                                        <h3 className="text-sm font-medium text-gray-900 line-clamp-2 mb-2 group-hover:text-teal-600 transition-colors">
-                                            {relProduct.name}
-                                        </h3>
-                                        <p className="text-sm font-bold text-red-600 mb-2 mt-auto">
-                                            Rp {formatPrice(relProduct.price)}
-                                        </p>
-
-                                        {/* Badges */}
-                                        <div className="flex flex-wrap gap-1">
-                                            <span className={`text-[10px] px-2 py-0.5 rounded-full ${relProduct.availableToSell > 0
-                                                ? "bg-green-50 text-green-600 border border-green-200"
-                                                : "bg-orange-50 text-orange-600 border border-orange-200"
-                                                }`}>
-                                                {relProduct.availableToSell > 0 ? "Ready Stock" : `Indent (${relProduct.indentTime || '12-16 Minggu'})`}
-                                            </span>
+                            return (
+                                <motion.div
+                                    key={relProduct.id}
+                                    initial={{ opacity: 0, x: 20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ duration: 0.3, delay: index * 0.05 }}
+                                    className="group flex-shrink-0 w-52 bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
+                                >
+                                    <Link href={`/produk/${getProductSlug(relProduct)}`} className="block h-full flex flex-col">
+                                        {/* Product Image */}
+                                        <div className="aspect-square bg-white relative">
+                                            {relProduct.image ? (
+                                                <Image
+                                                    src={relProduct.image}
+                                                    alt={relProduct.name}
+                                                    fill
+                                                    className="object-contain p-2"
+                                                />
+                                            ) : (
+                                                <div className="absolute inset-0 flex items-center justify-center">
+                                                    <div className="w-3/4 h-3/4 bg-gray-200 rounded-lg" />
+                                                </div>
+                                            )}
                                         </div>
-                                    </div>
-                                </Link>
-                            </motion.div>
-                        ))}
+
+                                        {/* Product Info */}
+                                        <div className="p-3 flex-1 flex flex-col">
+                                            <p className="text-xs text-gray-500 mb-1">{relProduct.brand}</p>
+                                            <h3 className="text-sm font-medium text-gray-900 line-clamp-2 mb-2 group-hover:text-red-600 transition-colors uppercase">
+                                                {relProduct.name}
+                                            </h3>
+
+                                            <div className="mt-auto mb-2">
+                                                {relPriceInfo.hasDiscount ? (
+                                                    <div className="flex flex-col">
+                                                        {relPriceInfo.isCustomerDiscount && (
+                                                            <span className="text-[10px] text-gray-400 line-through">
+                                                                Rp {formatPrice(relPriceInfo.originalPriceWithPPN)}
+                                                            </span>
+                                                        )}
+                                                        <p className="text-sm font-bold text-red-600">
+                                                            Rp {formatPrice(relPriceInfo.discountedPriceWithPPN)}
+                                                        </p>
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-sm font-bold text-red-600">
+                                                        Rp {formatPrice(relPriceInfo.originalPriceWithPPN)}
+                                                    </p>
+                                                )}
+                                            </div>
+
+                                            {/* Badges */}
+                                            <div className="flex flex-wrap gap-1">
+                                                <span className={`text-[10px] px-2 py-0.5 rounded-full ${relProduct.availableToSell > 0
+                                                    ? "bg-green-50 text-green-600 border border-green-200"
+                                                    : "bg-orange-50 text-orange-600 border border-orange-200"
+                                                    }`}>
+                                                    {relProduct.availableToSell > 0 ? "Ready Stock" : `Indent (${relProduct.indentTime || '12-16 Minggu'})`}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </Link>
+                                </motion.div>
+                            );
+                        })}
                     </div>
                 </section>
             )}
