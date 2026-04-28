@@ -37,7 +37,7 @@ export async function generateMetadata(
     const firstImage = product.image || (product.sliderImages && product.sliderImages.length > 0 ? product.sliderImages[0] : null);
 
     return {
-        title: metaTitle,
+        title: { absolute: metaTitle },
         description: metaDesc.substring(0, 160),
         alternates: {
             canonical: `https://shop.hokiindo.co.id/produk/${encodeURIComponent(product.sku)}`

@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
     if (!news) {
         return {
-            title: "Berita Tidak Ditemukan | Hokiindo",
+            title: { absolute: "Berita Tidak Ditemukan | Hokiindo" },
         };
     }
 

@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
     if (!page) {
         return {
-            title: "Halaman Tidak Ditemukan | Hokiindo",
+            title: { absolute: "Halaman Tidak Ditemukan | Hokiindo" },
         };
     }
 
