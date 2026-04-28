@@ -1,55 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { updateSession, decrypt } from "@/lib/auth";
 
-// Known bot user-agent patterns to block (aggressive scrapers, not search engines)
-const BLOCKED_BOT_PATTERNS = [
-    /python-requests/i,
-    /python-urllib/i,
-    /scrapy/i,
-    /curl\//i,
-    /wget\//i,
-    /httpclient/i,
-    /java\//i,
-    /libwww/i,
-    /lwp-/i,
-    /go-http-client/i,
-    /node-fetch/i,
-    /axios/i,
-    /php\//i,
-    /okhttp/i,
-    /httpie/i,
-];
-
-// Allow legitimate bots (search engines, social media previews)
-const ALLOWED_BOTS = [
-    /googlebot/i,
-    /bingbot/i,
-    /yandexbot/i,
-    /duckduckbot/i,
-    /baiduspider/i,
-    /facebookexternalhit/i,
-    /twitterbot/i,
-    /linkedinbot/i,
-    /whatsapp/i,
-    /telegrambot/i,
-    /slackbot/i,
-    /discordbot/i,
-    /applebot/i,
-];
-
 export default async function proxy(request: NextRequest) {
     const pathname = request.nextUrl.pathname;
-    const userAgent = request.headers.get("user-agent") || "";
 
-    // === SESSION UPDATE ===
+    // === SESSION UPDATE (only for admin/vendor routes) ===
     let res = await updateSession(request) || NextResponse.next();
-
-    // Bot protection (Disabled per user request for stability)
-    /*
-    if (pathname.startsWith("/produk/") || pathname.startsWith("/pencarian")) {
-        ...
-    }
-    */
 
     // === ADMIN/VENDOR ROUTE PROTECTION ===
     if (pathname.startsWith("/admin") || pathname.startsWith("/vendor")) {
@@ -110,7 +66,6 @@ export const config = {
     matcher: [
         "/admin/:path*",
         "/vendor/:path*",
-        "/produk/:path*",
-        "/pencarian",
     ],
 };
+

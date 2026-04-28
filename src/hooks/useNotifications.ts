@@ -163,22 +163,33 @@ export function useNotifications(userId?: string): UseNotificationsReturn {
     }, [userId]);
     */
 
-    // Initial fetch
-    useEffect(() => {
-        refresh();
+    // Throttle: prevent rapid-fire fetches during fast refresh/tab-switch
+    const lastFetchRef = useRef<number>(0);
+    const FETCH_COOLDOWN_MS = 30000; // 30 seconds between fetches
+
+    const throttledRefresh = useCallback(async () => {
+        const now = Date.now();
+        if (now - lastFetchRef.current < FETCH_COOLDOWN_MS) return;
+        lastFetchRef.current = now;
+        await refresh();
     }, [refresh]);
 
-    // Focus event - refresh when user comes back to tab
+    // Initial fetch (once)
+    useEffect(() => {
+        throttledRefresh();
+    }, [throttledRefresh]);
+
+    // Focus event - refresh when user comes back to tab (throttled)
     useEffect(() => {
         const handleVisibilityChange = () => {
             if (document.visibilityState === "visible") {
-                refresh();
+                throttledRefresh();
             }
         };
 
         document.addEventListener("visibilitychange", handleVisibilityChange);
         return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-    }, [refresh]);
+    }, [throttledRefresh]);
 
     // Request notification permission
     useEffect(() => {
