@@ -29,7 +29,7 @@ export async function generateMetadata(
     const companyDetails = await getSiteSetting("company_details") as any;
     const siteTitle = companyDetails?.siteTitle || companyDetails?.name || "Hokiindo";
 
-    const metaTitle = product.metaTitle || `${product.name} ${product.sku} - ${product.category || 'Distributor Resmi'} | ${siteTitle}`;
+    const metaTitle = product.metaTitle || `${product.name} ${product.brand ? '- ' + product.brand : ''} | SKU: ${product.sku}`;
     
     const defaultDesc = `Katalog ${product.brand || 'Siemens'} ${product.name} (${product.sku}). Beli online produk ${product.category || 'Electrical'} terpercaya hanya di ${siteTitle}.`;
     const metaDesc = product.metaDescription || defaultDesc;
