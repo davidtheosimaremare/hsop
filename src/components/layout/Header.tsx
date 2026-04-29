@@ -307,17 +307,31 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                                     href="/dashboard"
                                                     className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 transition-colors"
                                                     onClick={() => setIsUserMenuOpen(false)}
+                                                    prefetch={false}
                                                 >
                                                     <LayoutDashboard className="w-4 h-4" />
                                                     Dashboard
                                                 </Link>
 
+                                                {user.role && ["SUPER_ADMIN", "ADMIN", "MANAGER", "STAFF"].includes(user.role) && (
+                                                    <Link
+                                                        href="/admin"
+                                                        className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 transition-colors font-medium"
+                                                        onClick={() => setIsUserMenuOpen(false)}
+                                                        prefetch={false}
+                                                    >
+                                                        <Settings className="w-4 h-4 text-red-600" />
+                                                        Dashboard Admin
+                                                    </Link>
+                                                )}
+
                                                 <Link
                                                     href="/dashboard/settings"
                                                     className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 transition-colors"
                                                     onClick={() => setIsUserMenuOpen(false)}
+                                                    prefetch={false}
                                                 >
-                                                    <Settings className="w-4 h-4" />
+                                                    <User className="w-4 h-4" />
                                                     Pengaturan
                                                 </Link>
 
@@ -336,7 +350,7 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                 </div>
                             ) : (
                                 <>
-                                    <Link href="/daftar">
+                                    <Link href="/daftar" prefetch={false}>
                                         <Button
                                             variant="outline"
                                             className="h-10 px-6 rounded-xl font-medium transition-all duration-300"
@@ -344,7 +358,7 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                             Daftar
                                         </Button>
                                     </Link>
-                                    <Link href="/masuk">
+                                    <Link href="/masuk" prefetch={false}>
                                         <Button
                                             variant="red"
                                             className="h-10 px-6 rounded-xl font-medium transition-all duration-300"
@@ -405,7 +419,7 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                         <span className="text-[11px] text-gray-400 font-medium whitespace-nowrap">Saran Cepat :</span>
                                     </div>
                                     {searchSuggestions.map((term) => (
-                                        <Link key={term} href={`/pencarian?q=${encodeURIComponent(term)}&page=1`}>
+                                        <Link key={term} href={`/pencarian?q=${encodeURIComponent(term)}&page=1`} prefetch={false}>
                                             <motion.button
                                                 whileHover={{ y: -1 }}
                                                 className="flex items-center gap-1 px-3 py-1.5 rounded-lg font-medium transition-all duration-200 text-xs text-gray-600 hover:text-red-600 hover:bg-red-50"
@@ -422,6 +436,7 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                         <div className="flex items-center gap-6">
                             <Link
                                 href="/berita"
+                                prefetch={false}
                                 className="text-sm font-medium text-gray-600 hover:text-red-600 transition-colors"
                             >
                                 Berita
@@ -460,6 +475,7 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                                 href={`/pencarian?q=&category=${encodeURIComponent(cat.name)}&page=1`}
                                                 onMouseEnter={() => setActiveCategory(catIndex)}
                                                 onClick={() => setIsMegaMenuOpen(false)}
+                                                prefetch={false}
                                                 className={`
                                                 w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-medium transition-all duration-200
                                                 ${activeCategory === catIndex
@@ -477,6 +493,7 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                         <div className="px-4 pt-4 mt-2 border-t border-gray-200">
                                             <Link
                                                 href="/kategori"
+                                                prefetch={false}
                                                 className="flex items-center gap-2 text-sm font-medium text-red-600 hover:text-red-700 transition-colors"
                                                 onClick={() => setIsMegaMenuOpen(false)}
                                             >
@@ -497,6 +514,7 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                                     key={subcat.id || subcat.name}
                                                     href={`/pencarian?q=&category=${encodeURIComponent(subcat.alias || subcat.name)}&page=1`}
                                                     onClick={() => setIsMegaMenuOpen(false)}
+                                                    prefetch={false}
                                                     className="group flex items-center p-2 rounded-lg hover:bg-red-50 transition-all duration-200"
                                                 >
                                                     <span className="text-sm text-gray-700 group-hover:text-red-600 font-medium">{subcat.alias || subcat.name}</span>
@@ -533,6 +551,7 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                                 href={`/pencarian?q=&category=${encodeURIComponent(category.name)}&page=1`}
                                                 className="flex-1 px-2 py-1.5 text-gray-700 group-hover:text-red-600 transition-colors font-semibold text-sm"
                                                 onClick={() => setIsMobileMenuOpen(false)}
+                                                prefetch={false}
                                             >
                                                 {category.alias || category.name}
                                             </Link>
@@ -564,6 +583,7 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                                                 href={`/pencarian?q=&category=${encodeURIComponent(subcat.alias || subcat.name)}&page=1`}
                                                                 className="px-4 py-2 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 transition-colors rounded-lg flex items-center gap-2"
                                                                 onClick={() => setIsMobileMenuOpen(false)}
+                                                                prefetch={false}
                                                             >
                                                                 <span className="w-1 h-1 rounded-full bg-gray-400" />
                                                                 {subcat.alias || subcat.name}
@@ -580,6 +600,7 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                     href="/kategori"
                                     className="flex items-center justify-center gap-2 px-4 py-4 rounded-xl bg-gray-50 text-gray-900 hover:bg-red-600 hover:text-white transition-all duration-200 font-bold text-sm"
                                     onClick={() => setIsMobileMenuOpen(false)}
+                                    prefetch={false}
                                 >
                                     <LayoutGrid className="h-4 w-4" />
                                     Lihat Semua Kategori
