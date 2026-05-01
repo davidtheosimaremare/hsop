@@ -7,6 +7,14 @@ export default async function proxy(request: NextRequest) {
     // === SESSION UPDATE (only for admin/vendor routes) ===
     let res = await updateSession(request) || NextResponse.next();
 
+    // === CACHE-CONTROL HEADERS ===
+    // Prevent browser from serving stale cached HTML pages.
+    // This fixes the "spinning forever" issue when users return after idle time.
+    // Static assets (_next/static) are NOT affected - they use immutable caching.
+    res.headers.set("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.headers.set("Pragma", "no-cache");
+    res.headers.set("Expires", "0");
+
     // === ADMIN/VENDOR ROUTE PROTECTION ===
     if (pathname.startsWith("/admin") || pathname.startsWith("/vendor")) {
         const isAdminRoute = pathname.startsWith("/admin");
@@ -64,8 +72,15 @@ export default async function proxy(request: NextRequest) {
 
 export const config = {
     matcher: [
-        "/admin/:path*",
-        "/vendor/:path*",
+        /*
+         * Match all request paths except:
+         * - _next/static (static files)
+         * - _next/image (image optimization files)
+         * - favicon.ico, logo files, etc.
+         * This ensures cache headers are set for ALL page navigations
+         * while static assets retain their long-lived cache.
+         */
+        "/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp|avif)).*)",
     ],
 };
 

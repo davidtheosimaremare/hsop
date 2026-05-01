@@ -31,10 +31,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const fetchUser = async () => {
         setIsLoading(true);
         try {
+            // Timeout to prevent indefinite hanging if server is slow
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
             const [userRes, permRes] = await Promise.all([
-                fetch("/api/auth/me"),
-                fetch("/api/admin/roles/permissions").catch(() => null)
+                fetch("/api/auth/me", { 
+                    signal: controller.signal,
+                    cache: "no-store",
+                }),
+                fetch("/api/admin/roles/permissions", { 
+                    signal: controller.signal,
+                    cache: "no-store",
+                }).catch(() => null)
             ]);
+
+            clearTimeout(timeoutId);
 
             if (userRes.ok) {
                 const userData = await userRes.json();
@@ -58,6 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setUser(null);
             }
         } catch (error) {
+            // AbortError = timeout, network error, etc. — gracefully handle
             setUser(null);
         } finally {
             setIsLoading(false);

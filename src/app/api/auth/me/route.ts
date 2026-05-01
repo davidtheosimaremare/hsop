@@ -8,7 +8,10 @@ export async function GET() {
         if (!session?.user) {
             return NextResponse.json(
                 { error: "Not authenticated" },
-                { status: 401 }
+                { 
+                    status: 401,
+                    headers: { "Cache-Control": "no-store, must-revalidate" }
+                }
             );
         }
 
@@ -29,24 +32,35 @@ export async function GET() {
             console.log("API Auth Me: User not found in DB for ID:", session.user.id);
             return NextResponse.json(
                 { error: "User not found" },
-                { status: 401 }
+                { 
+                    status: 401,
+                    headers: { "Cache-Control": "no-store, must-revalidate" }
+                }
             );
         }
 
-        return NextResponse.json({
-            user: {
-                id: user.id,
-                email: user.email,
-                role: user.role,
-                name: user.name,
-                phone: user.phone,
-                customerId: user.customerId
+        return NextResponse.json(
+            {
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    role: user.role,
+                    name: user.name,
+                    phone: user.phone,
+                    customerId: user.customerId
+                },
             },
-        });
+            {
+                headers: { "Cache-Control": "no-store, must-revalidate" }
+            }
+        );
     } catch (error) {
         return NextResponse.json(
             { error: "Failed to get session" },
-            { status: 500 }
+            { 
+                status: 500,
+                headers: { "Cache-Control": "no-store, must-revalidate" }
+            }
         );
     }
 }
