@@ -64,11 +64,21 @@ export default function SidebarFilter({ categories, brands, specFilters }: Sideb
     };
 
     const handleCategoryClick = (categoryName: string) => {
+        const params = new URLSearchParams(searchParams.toString());
         if (currentCategory === categoryName) {
-            updateParams("category", null);
+            params.delete("category");
         } else {
-            updateParams("category", categoryName);
+            params.set("category", categoryName);
         }
+        
+        // Reset spec filters when category changes to prevent "no data found"
+        // when switching between categories with different specs (e.g., MCB to ACB)
+        params.delete("pole");
+        params.delete("ampere");
+        params.delete("breakingCapacity");
+        
+        params.set("page", "1"); // Reset to page 1
+        router.push(`/pencarian?${params.toString()}`);
     };
 
     const handleBrandClick = (brandName: string) => {
@@ -228,11 +238,10 @@ export default function SidebarFilter({ categories, brands, specFilters }: Sideb
                     <>
                         <hr className="border-gray-100" />
                         <div>
-                            <h2 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                            <h2 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
                                 <Zap className="w-4 h-4 text-amber-500" />
                                 Spesifikasi
                             </h2>
-                            <p className="text-[11px] text-gray-400 mb-3">Diambil dari nama produk</p>
 
                             {/* Pole Filter */}
                             {specFilters!.poles.length > 0 && (
