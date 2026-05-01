@@ -1,26 +1,25 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { revalidatePath, unstable_cache, revalidateTag } from "next/cache";
-
-const getSiteSettingCached = unstable_cache(
-    async (key: string) => {
-        try {
-            const setting = await db.siteSetting.findUnique({
-                where: { key },
-            });
-            return setting?.value || null;
-        } catch (error) {
-            console.error("Error fetching site setting:", error);
-            return null;
-        }
-    },
-    ['site-settings'],
-    { revalidate: 300, tags: ['settings'] }
-);
+import { revalidatePath, revalidateTag } from "next/cache";
+import { memoryCache } from "@/lib/cache";
 
 export async function getSiteSetting(key: string) {
-    return getSiteSettingCached(key);
+    return memoryCache.getOrFetch(
+        `setting:${key}`,
+        async () => {
+            try {
+                const setting = await db.siteSetting.findUnique({
+                    where: { key },
+                });
+                return setting?.value || null;
+            } catch (error) {
+                console.error("Error fetching site setting:", error);
+                return null;
+            }
+        },
+        300 // 5 minutes TTL
+    );
 }
 
 export async function updateSiteSetting(key: string, value: any) {
@@ -30,6 +29,9 @@ export async function updateSiteSetting(key: string, value: any) {
             update: { value },
             create: { key, value },
         });
+        // Clear memory cache for this setting AND the menu config
+        memoryCache.invalidate(`setting:${key}`);
+        memoryCache.invalidate('menu-config');
         revalidatePath("/", "layout"); // Target the layout specifically
         revalidatePath("/admin/settings/footer");
         revalidateTag('settings');
@@ -45,6 +47,7 @@ export async function addSearchSuggestion(term: string) {
         await db.searchSuggestion.create({
             data: { term },
         });
+        memoryCache.invalidate('search-suggestions');
         revalidatePath("/admin/settings/search");
         revalidateTag('search');
         return { success: true };
@@ -59,6 +62,7 @@ export async function deleteSearchSuggestion(id: string) {
         await db.searchSuggestion.delete({
             where: { id },
         });
+        memoryCache.invalidate('search-suggestions');
         revalidatePath("/admin/settings/search");
         revalidateTag('search');
         return { success: true };
@@ -68,25 +72,23 @@ export async function deleteSearchSuggestion(id: string) {
     }
 }
 
-const getSearchSuggestionsCached = unstable_cache(
-    async (limit: number = 10) => {
-        try {
-            const suggestions = await db.searchSuggestion.findMany({
-                orderBy: { count: 'desc' },
-                take: limit,
-            });
-            return suggestions.map(s => s.term);
-        } catch (error) {
-            console.error("Failed to fetch search suggestions:", error);
-            return [];
-        }
-    },
-    ['search-suggestions'],
-    { revalidate: 3600, tags: ['search'] }
-);
-
-export async function getSearchSuggestions(limit?: number) {
-    return getSearchSuggestionsCached(limit);
+export async function getSearchSuggestions(limit: number = 10) {
+    return memoryCache.getOrFetch(
+        `search-suggestions:${limit}`,
+        async () => {
+            try {
+                const suggestions = await db.searchSuggestion.findMany({
+                    orderBy: { count: 'desc' },
+                    take: limit,
+                });
+                return suggestions.map(s => s.term);
+            } catch (error) {
+                console.error("Failed to fetch search suggestions:", error);
+                return [];
+            }
+        },
+        3600 // 1 hour TTL
+    );
 }
 
 export async function createCategorySection(title: string) {
@@ -263,24 +265,22 @@ export async function deleteClientProject(id: string) {
 
 // --- Menu Category Actions ---
 
-const getCategoryMenuConfigCached = unstable_cache(
-    async () => {
-        try {
-            const setting = await db.siteSetting.findUnique({
-                where: { key: "category_menu_config" },
-            });
-            return setting?.value || [];
-        } catch (error) {
-            console.error("Failed to load menu config:", error);
-            return [];
-        }
-    },
-    ['category-menu-config'],
-    { revalidate: 3600, tags: ['settings', 'categories'] }
-);
-
 export async function getCategoryMenuConfig() {
-    return getCategoryMenuConfigCached();
+    return memoryCache.getOrFetch(
+        'menu-config',
+        async () => {
+            try {
+                const setting = await db.siteSetting.findUnique({
+                    where: { key: "category_menu_config" },
+                });
+                return setting?.value || [];
+            } catch (error) {
+                console.error("Failed to load menu config:", error);
+                return [];
+            }
+        },
+        3600 // 1 hour TTL
+    );
 }
 
 export async function updateCategoryMenuConfig(config: any) {
@@ -290,6 +290,8 @@ export async function updateCategoryMenuConfig(config: any) {
             update: { value: config },
             create: { key: 'category_menu_config', value: config }
         });
+        memoryCache.invalidate('menu-config');
+        memoryCache.invalidate('setting:category_menu_config');
         revalidatePath("/", "layout");
         revalidateTag('settings');
         revalidateTag('categories');
@@ -318,17 +320,20 @@ export async function getAllCategories() {
 
 export async function purgeSystemCache() {
     try {
-        // 1. Revalidate all paths and layout
+        // 1. Clear in-memory cache completely
+        memoryCache.clear();
+        
+        // 2. Revalidate all paths and layout
         revalidatePath("/", "layout");
         
-        // 2. Revalidate specific important tags
+        // 3. Revalidate specific important tags
         revalidateTag('settings');
         revalidateTag('categories');
         revalidateTag('products');
         revalidateTag('search');
         revalidateTag('brands');
         
-        console.log("System cache purged successfully");
+        console.log("System cache purged successfully (memory + Next.js)");
         return { success: true };
     } catch (error) {
         console.error("Failed to purge system cache:", error);

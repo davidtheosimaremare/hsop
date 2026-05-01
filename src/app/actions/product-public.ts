@@ -3,29 +3,25 @@
 import { db } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 import { cache } from "react";
-import { unstable_cache } from "next/cache";
+import { memoryCache } from "@/lib/cache";
 
 // Cached lookups for hidden categories/brands (rarely change, safe to cache 1h)
-const getHiddenCategoryNames = unstable_cache(
-    async () => {
+async function getHiddenCategoryNames() {
+    return memoryCache.getOrFetch('hidden-categories', async () => {
         const cats = await db.category.findMany({ where: { isVisible: false }, select: { name: true } });
         return cats.map(c => c.name);
-    },
-    ['hidden-categories'],
-    { revalidate: 3600, tags: ['categories'] }
-);
+    }, 3600);
+}
 
-const getHiddenBrandNames = unstable_cache(
-    async () => {
+async function getHiddenBrandNames() {
+    return memoryCache.getOrFetch('hidden-brands', async () => {
         const brands = await db.brand.findMany({ where: { isVisible: false }, select: { name: true } });
         return brands.map(b => b.name);
-    },
-    ['hidden-brands'],
-    { revalidate: 3600, tags: ['brands'] }
-);
+    }, 3600);
+}
 
-const getCategoriesTreeCached = unstable_cache(
-    async () => {
+async function getCategoriesTreeCached() {
+    return memoryCache.getOrFetch('categories-tree', async () => {
         const categories = await db.category.findMany({
             where: { isVisible: true },
             orderBy: { order: 'asc' },
@@ -39,17 +35,15 @@ const getCategoriesTreeCached = unstable_cache(
 
         const rootCategories = categories.filter(c => !c.parentId);
         return rootCategories;
-    },
-    ['categories-tree'],
-    { revalidate: 3600, tags: ['categories'] }
-);
+    }, 3600);
+}
 
 export async function getCategoriesTree() {
     return getCategoriesTreeCached();
 }
 
-const getBrandsCached = unstable_cache(
-    async () => {
+async function getBrandsCached() {
+    return memoryCache.getOrFetch('brands-list', async () => {
         const brands = await db.brand.findMany({
             where: { isVisible: true },
             orderBy: { name: 'asc' }
@@ -75,10 +69,8 @@ const getBrandsCached = unstable_cache(
             displayName: b.alias || b.name,
             count: brandCounts[b.name.toUpperCase()] || 0
         })).filter(b => b.count > 0);
-    },
-    ['brands-list'],
-    { revalidate: 3600, tags: ['brands'] }
-);
+    }, 3600);
+}
 
 export async function getBrands() {
     return getBrandsCached();
@@ -297,8 +289,9 @@ export async function getPublicProductBySlug(slug: string) {
     return getPublicProductBySlugCached(slug);
 }
 
-const getRelatedProductsCached = unstable_cache(
-    async (category: string, excludeId: string, name: string = "") => {
+async function getRelatedProductsCached(category: string, excludeId: string, name: string = "") {
+    const cacheKey = `related:${category}:${excludeId}:${name.slice(0, 20)}`;
+    return memoryCache.getOrFetch(cacheKey, async () => {
         // Clean name for better matching
         const nameWords = name.split(/[\s-]+/).filter(w => w.length >= 3).slice(0, 2);
 
@@ -335,10 +328,8 @@ const getRelatedProductsCached = unstable_cache(
         }
 
         return finalProducts.slice(0, 8);
-    },
-    ['related-products'],
-    { revalidate: 600, tags: ['products'] }
-);
+    }, 600); // 10 min TTL
+}
 
 export async function getRelatedProducts(category: string, excludeId: string, name: string = "") {
     return getRelatedProductsCached(category, excludeId, name);

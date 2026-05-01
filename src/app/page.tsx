@@ -19,28 +19,28 @@ const NewsSection = dynamic(() => import("@/components/home/NewsSection"), {
 import { getSiteSetting } from "@/app/actions/settings";
 import { getLatestNews } from "@/app/actions/news";
 import { db } from "@/lib/db";
-import { unstable_cache } from "next/cache";
+import { memoryCache } from "@/lib/cache";
 
-export const revalidate = 3600;
+// Cache homepage data via in-memory cache
+function getClientProjects() {
+    return memoryCache.getOrFetch('client-projects', () =>
+        db.clientProject.findMany({
+            orderBy: [{ order: "asc" }, { createdAt: "desc" }],
+            where: { isVisible: true }
+        }),
+        3600
+    );
+}
 
-// Cache homepage data
-const getClientProjects = unstable_cache(
-  async () => db.clientProject.findMany({
-    orderBy: [{ order: "asc" }, { createdAt: "desc" }],
-    where: { isVisible: true }
-  }),
-  ['client-projects'],
-  { revalidate: 3600, tags: ['settings'] }
-);
-
-const getActiveBanners = unstable_cache(
-  async () => db.banner.findMany({
-    where: { isActive: true },
-    orderBy: { order: "asc" }
-  }),
-  ['active-banners'],
-  { revalidate: 3600, tags: ['settings'] }
-);
+function getActiveBanners() {
+    return memoryCache.getOrFetch('active-banners', () =>
+        db.banner.findMany({
+            where: { isActive: true },
+            orderBy: { order: "asc" }
+        }),
+        3600
+    );
+}
 
 export default async function Home() {
   // Fetch everything in one go
