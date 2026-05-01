@@ -1,7 +1,7 @@
 import SiteHeader from "@/components/layout/SiteHeader";
 import Footer from "@/components/layout/Footer";
 import Link from "next/link";
-import { getCategoriesTree, getPublicProducts, getBrands } from "@/app/actions/product-public";
+import { getCategoriesTree, getPublicProducts, getBrands, getProductSpecFilters } from "@/app/actions/product-public";
 import SidebarFilter from "@/components/public/SidebarFilter";
 import ProductSort from "@/components/public/ProductSort";
 import StockFilter from "@/components/public/StockFilter";
@@ -26,8 +26,11 @@ export default async function SearchPage({
     const stockStatus = resolvedParams.stockStatus as string;
     const brand = resolvedParams.brand as string;
     const sortBy = (resolvedParams.sort as string) || "name-asc"; // Default to alphabetical
+    const pole = resolvedParams.pole as string;
+    const ampere = resolvedParams.ampere as string;
+    const breakingCapacity = resolvedParams.breakingCapacity as string;
 
-    const [categories, brands, { products, pagination }, pricingData] = await Promise.all([
+    const [categories, brands, { products, pagination }, pricingData, specFilters] = await Promise.all([
         getCategoriesTree(),
         getBrands(),
         getPublicProducts({
@@ -38,8 +41,12 @@ export default async function SearchPage({
             sort: sortBy,
             page,
             pageSize,
+            pole,
+            ampere,
+            breakingCapacity,
         }),
         getCustomerPricingData(),
+        getProductSpecFilters({ query, category, brand }),
     ]);
 
     let categoryDisplayName = category;
@@ -90,7 +97,7 @@ export default async function SearchPage({
 
                     <div className="flex gap-6 relative">
                         {/* Sidebar Filter */}
-                        <SidebarFilter categories={categories as any} brands={brands} />
+                        <SidebarFilter categories={categories as any} brands={brands} specFilters={specFilters} />
 
                         {/* Products Grid */}
                         <div className="flex-1">

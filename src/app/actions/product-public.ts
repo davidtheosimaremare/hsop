@@ -84,6 +84,9 @@ export interface ProductFilterParams {
     page?: number;
     pageSize?: number;
     brand?: string;
+    pole?: string;    // e.g. '3P', '4P'
+    ampere?: string;  // e.g. '1000A', '63A'
+    breakingCapacity?: string; // e.g. '55kA', '36kA'
 }
 
 export async function getPublicProducts({
@@ -93,7 +96,10 @@ export async function getPublicProducts({
     sort = "abjad",
     page = 1,
     pageSize = 20,
-    brand
+    brand,
+    pole,
+    ampere,
+    breakingCapacity
 }: ProductFilterParams) {
     const skip = (page - 1) * pageSize;
 
@@ -154,6 +160,39 @@ export async function getPublicProducts({
         where.availableToSell = { gt: 0 };
     } else if (availability === "indent") {
         where.availableToSell = { lte: 0 };
+    }
+
+    // === ELECTRICAL SPEC FILTERS (extracted from product name) ===
+    // These filter by matching patterns in the product name
+    const specConditions: Prisma.ProductWhereInput[] = [];
+
+    if (pole) {
+        // Match patterns like "3P," or "3P " or ", 3P," in product name
+        // Using contains with the pole value surrounded by delimiters
+        specConditions.push({
+            name: { contains: `, ${pole},`, mode: "insensitive" }
+        });
+    }
+
+    if (ampere) {
+        // Match patterns like "1000A" or "1000A," in product name
+        specConditions.push({
+            name: { contains: ampere, mode: "insensitive" }
+        });
+    }
+
+    if (breakingCapacity) {
+        // Match patterns like "55kA" in product name
+        specConditions.push({
+            name: { contains: breakingCapacity, mode: "insensitive" }
+        });
+    }
+
+    if (specConditions.length > 0) {
+        where.AND = [
+            ...(Array.isArray(where.AND) ? where.AND : (where.AND ? [where.AND as any] : [])),
+            ...specConditions
+        ];
     }
 
     let orderBy: Prisma.ProductOrderByWithRelationInput = { createdAt: "desc" };
@@ -335,3 +374,134 @@ export async function getRelatedProducts(category: string, excludeId: string, na
     return getRelatedProductsCached(category, excludeId, name);
 }
 
+
+/**
+ * Extract electrical spec filter options from product names.
+ * Scans product names in the current search context to find unique:
+ * - Pole values (1P, 2P, 3P, 4P)
+ * - Ampere ratings (e.g. 63A, 100A, 1000A)
+ * - Breaking capacity (e.g. 36kA, 55kA)
+ * 
+ * Example product name: "SIEMENS ACB, 3WA, 3P, 1000A, 55kA, D/O, ETU300-LSI"
+ */
+export async function getProductSpecFilters(params: {
+    query?: string;
+    category?: string;
+    brand?: string;
+}) {
+    const cacheKey = `specs:${params.query || ''}:${params.category || ''}:${params.brand || ''}`;
+    
+    return memoryCache.getOrFetch(cacheKey, async () => {
+        // Build a base where clause matching the current search context
+        const [hiddenCategoryNames, hiddenBrandNames] = await Promise.all([
+            getHiddenCategoryNames(),
+            getHiddenBrandNames()
+        ]);
+
+        const where: Prisma.ProductWhereInput = {
+            isVisible: true,
+            category: hiddenCategoryNames.length > 0 ? { notIn: hiddenCategoryNames } : undefined,
+            brand: hiddenBrandNames.length > 0 ? { notIn: hiddenBrandNames } : undefined,
+        };
+
+        if (params.query) {
+            const terms = params.query.trim().split(/\s+/).filter(Boolean);
+            if (terms.length > 0) {
+                where.AND = terms.map(term => ({
+                    OR: [
+                        { name: { contains: term, mode: "insensitive" as const } },
+                        { sku: { contains: term, mode: "insensitive" as const } },
+                        { description: { contains: term, mode: "insensitive" as const } },
+                    ]
+                }));
+            }
+        }
+
+        if (params.category && params.category !== "all") {
+            const catNode = await db.category.findFirst({
+                where: { name: { equals: params.category, mode: "insensitive" } },
+                include: { children: true }
+            });
+
+            if (catNode && catNode.children.length > 0) {
+                const categoryNames = [catNode.name, ...catNode.children.map(c => c.name)];
+                const categoryConditions = categoryNames.map(name => ({
+                    category: { contains: name, mode: "insensitive" as const }
+                }));
+                where.AND = [
+                    ...(Array.isArray(where.AND) ? where.AND : (where.AND ? [where.AND as any] : [])),
+                    { OR: categoryConditions }
+                ];
+            } else {
+                where.category = { contains: params.category, mode: "insensitive" };
+            }
+        }
+
+        if (params.brand && params.brand !== "all") {
+            where.brand = { equals: params.brand, mode: "insensitive" };
+        }
+
+        // Default Siemens filter if no context
+        if (!params.query && (!params.category || params.category === "all") && (!params.brand || params.brand === "all")) {
+            where.OR = [
+                { name: { contains: "Siemens", mode: "insensitive" } },
+                { brand: { contains: "Siemens", mode: "insensitive" } },
+            ];
+        }
+
+        // Fetch only names for extraction (lightweight query)
+        const productNames = await db.product.findMany({
+            where,
+            select: { name: true },
+            take: 5000, // Reasonable limit
+        });
+
+        // Extract specs from names using regex
+        const poles = new Set<string>();
+        const amperes = new Set<string>();
+        const breakingCapacities = new Set<string>();
+
+        // Regex patterns:
+        // Pole: standalone "1P", "2P", "3P", "4P" (preceded/followed by comma, space, or boundary)
+        const poleRegex = /(?:^|[\s,])(1P|2P|3P|4P)(?:[\s,]|$)/gi;
+        // Ampere: number followed by "A" (e.g., 63A, 1000A, 1.6A)  
+        const ampereRegex = /(?:^|[\s,])(\d+(?:\.\d+)?A)(?:[\s,]|$)/gi;
+        // Breaking capacity: number followed by "kA" (e.g., 36kA, 55kA)
+        const kaRegex = /(?:^|[\s,])(\d+(?:\.\d+)?kA)(?:[\s,]|$)/gi;
+
+        for (const { name } of productNames) {
+            let match;
+
+            // Extract poles
+            poleRegex.lastIndex = 0;
+            while ((match = poleRegex.exec(name)) !== null) {
+                poles.add(match[1].toUpperCase());
+            }
+
+            // Extract ampere
+            ampereRegex.lastIndex = 0;
+            while ((match = ampereRegex.exec(name)) !== null) {
+                amperes.add(match[1].toUpperCase());
+            }
+
+            // Extract kA
+            kaRegex.lastIndex = 0;
+            while ((match = kaRegex.exec(name)) !== null) {
+                breakingCapacities.add(match[1].toLowerCase().replace('ka', 'kA'));
+            }
+        }
+
+        // Sort numerically
+        const sortNumeric = (a: string, b: string) => {
+            const numA = parseFloat(a);
+            const numB = parseFloat(b);
+            return numA - numB;
+        };
+
+        return {
+            poles: Array.from(poles).sort(sortNumeric),
+            amperes: Array.from(amperes).sort(sortNumeric),
+            breakingCapacities: Array.from(breakingCapacities).sort(sortNumeric),
+        };
+    }, 600); // 10 minutes TTL
+}
