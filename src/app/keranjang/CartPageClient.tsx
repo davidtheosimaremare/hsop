@@ -191,7 +191,7 @@ export default function CartPageClient() {
                                             {/* Price & Quantity */}
                                             <div className="flex items-center justify-between mt-3">
                                                 <div className="flex flex-col">
-                                                    {item.originalPrice && item.originalPrice > item.price && (
+                                                    {item.isCustomerDiscount && item.originalPrice && item.originalPrice > item.price && (
                                                         <span className="text-xs text-gray-400 line-through">
                                                             Rp {formatPrice(item.originalPrice)}
                                                         </span>

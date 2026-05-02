@@ -47,7 +47,8 @@ export default function ProductCard({ product }: ProductCardProps) {
             originalPrice: priceInfo.originalPriceWithPPN,
             image: product.image,
             availableToSell: product.availableToSell,
-            discountStr: priceInfo.discountStr
+            discountStr: priceInfo.discountStr,
+            isCustomerDiscount: priceInfo.isCustomerDiscount
         }, 1);
 
         setIsAdded(true);

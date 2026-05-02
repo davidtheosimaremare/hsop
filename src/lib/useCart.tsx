@@ -15,6 +15,7 @@ export interface CartItem {
     stockStatus?: 'READY' | 'INDENT';
     originalId?: string | number;
     discountStr?: string;
+    isCustomerDiscount?: boolean;
 }
 
 interface CartContextType {

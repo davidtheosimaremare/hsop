@@ -97,7 +97,8 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                 image: product.image,
                 availableToSell: stock,
                 stockStatus: undefined, // No split status
-                discountStr: readyPriceInfo.discountStr
+                discountStr: readyPriceInfo.discountStr,
+                isCustomerDiscount: readyPriceInfo.isCustomerDiscount
             }, quantity);
         }
         // Scenario 1: Fully Ready (Non-equal prices or just logic)
@@ -113,7 +114,8 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                 image: product.image,
                 availableToSell: stock,
                 stockStatus: 'READY',
-                discountStr: readyPriceInfo.discountStr
+                discountStr: readyPriceInfo.discountStr,
+                isCustomerDiscount: readyPriceInfo.isCustomerDiscount
             }, quantity);
         }
         // Scenario 2: Fully Indent
@@ -129,7 +131,8 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                 image: product.image,
                 availableToSell: 0,
                 stockStatus: 'INDENT',
-                discountStr: indentPriceInfo.discountStr
+                discountStr: indentPriceInfo.discountStr,
+                isCustomerDiscount: indentPriceInfo.isCustomerDiscount
             }, quantity);
         }
         // Scenario 3: Mixed (Split)
@@ -149,7 +152,8 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                 image: product.image,
                 availableToSell: stock,
                 stockStatus: 'READY',
-                discountStr: readyPriceInfo.discountStr
+                discountStr: readyPriceInfo.discountStr,
+                isCustomerDiscount: readyPriceInfo.isCustomerDiscount
             }, readyQty);
 
             // Add Indent Bundle
@@ -164,7 +168,8 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                 image: product.image,
                 availableToSell: 0,
                 stockStatus: 'INDENT',
-                discountStr: indentPriceInfo.discountStr
+                discountStr: indentPriceInfo.discountStr,
+                isCustomerDiscount: indentPriceInfo.isCustomerDiscount
             }, indentQty);
         }
 
