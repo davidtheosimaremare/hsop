@@ -12,7 +12,7 @@ function createPrismaClient() {
     // Add pool limits if not already configured in the URL
     if (!url.includes("connection_limit")) {
         const separator = url.includes("?") ? "&" : "?";
-        url = `${url}${separator}connection_limit=10&pool_timeout=10`;
+        url = `${url}${separator}connection_limit=15&pool_timeout=20&connect_timeout=10`;
     }
 
     return new PrismaClient({

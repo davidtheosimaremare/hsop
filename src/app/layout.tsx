@@ -69,11 +69,14 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Fetch WA config server-side so ChatWidget doesn't need a client-side server action call
+  const waConfig = await getSiteSetting("whatsapp_config") as Record<string, string> | null;
+
   return (
     <html lang="en">
       <body
@@ -87,7 +90,7 @@ export default function RootLayout({
             <HeadScripts />
             <DynamicFont />
             {children}
-            <ChatWidget />
+            <ChatWidget phoneNumber={waConfig?.number} message={waConfig?.message} />
             <CookieConsent />
           </CartProvider>
         </AuthProvider>
@@ -95,3 +98,4 @@ export default function RootLayout({
     </html>
   );
 }
+

@@ -2,6 +2,7 @@
 
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { memoryCache } from "@/lib/cache";
 
 import { DiscountRule } from "@prisma/client";
 
@@ -76,19 +77,25 @@ export async function getCustomerPricingData(): Promise<CustomerPricingData> {
 
         }
 
-        // Get category mappings (always fetch, needed for checking)
-        const mappings = await db.categoryMapping.findMany({
-            select: {
-                id: true,
-                categoryName: true,
-                discountType: true,
-                createdAt: true,
-                updatedAt: true,
-            },
-        });
+        // Get category mappings (cached - rarely changes)
+        const mappings = await memoryCache.getOrFetch('category-mappings', () =>
+            db.categoryMapping.findMany({
+                select: {
+                    id: true,
+                    categoryName: true,
+                    discountType: true,
+                    createdAt: true,
+                    updatedAt: true,
+                },
+            }),
+            600 // 10 minutes
+        );
 
-        // Get discount rules
-        const discountRules = await db.discountRule.findMany();
+        // Get discount rules (cached - rarely changes)
+        const discountRules = await memoryCache.getOrFetch('discount-rules', () =>
+            db.discountRule.findMany(),
+            600 // 10 minutes
+        );
 
 
         return {

@@ -1,29 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getSiteSetting } from "@/app/actions/settings";
 import { usePathname } from "next/navigation";
 
-export default function ChatWidget() {
+interface ChatWidgetProps {
+    phoneNumber?: string;
+    message?: string;
+}
+
+export default function ChatWidget({ phoneNumber = "6281234567890", message = "Halo Admin Hokiindo, saya mau tanya tentang produk..." }: ChatWidgetProps) {
     const pathname = usePathname();
-    // Default config
-    const [phoneNumber, setPhoneNumber] = useState("6281234567890");
-    const [message, setMessage] = useState("Halo Admin Hokiindo, saya mau tanya tentang produk...");
 
-    useEffect(() => {
-        const loadConfig = async () => {
-            try {
-                const config = await getSiteSetting("whatsapp_config") as Record<string, string> | null;
-                if (config?.number) setPhoneNumber(config.number);
-                if (config?.message) setMessage(config.message);
-            } catch (error) {
-                console.error("Failed to load WA config:", error);
-            }
-        };
-        loadConfig();
-    }, []);
-
-    // Hide on admin pages - move below hooks
+    // Hide on admin pages
     if (pathname?.startsWith("/admin")) {
         return null;
     }
