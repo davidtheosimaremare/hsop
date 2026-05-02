@@ -44,11 +44,12 @@ function getActiveBanners() {
 
 export default async function Home() {
   // Fetch everything in one go
-  const [savedGridSettings, clientProjects, latestNews, activeBanners] = await Promise.all([
+  const [savedGridSettings, clientProjects, latestNews, activeBanners, companyDetails] = await Promise.all([
     getSiteSetting("homepage_grid_categories"),
     getClientProjects(),
     getLatestNews(4),
-    getActiveBanners()
+    getActiveBanners(),
+    getSiteSetting("company_details") as Promise<any>,
   ]);
 
   let gridCategories: any[] = [];
@@ -80,8 +81,64 @@ export default async function Home() {
     }
   }
 
+  // === JSON-LD Structured Data for Google ===
+  const siteName = companyDetails?.siteTitle || companyDetails?.name || "Hokiindoshop";
+  const siteDescription = companyDetails?.description || "Distributor resmi produk Siemens Electrical Indonesia. Jual MCB, MCCB, ACB, Contactor, VSD dan peralatan listrik berkualitas tinggi.";
+  
+  const organizationLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: siteName,
+    url: 'https://shop.hokiindo.co.id',
+    logo: 'https://shop.hokiindo.co.id/logo-H.png',
+    description: siteDescription,
+    contactPoint: {
+      '@type': 'ContactPoint',
+      telephone: companyDetails?.phone || '+62-21-385-7057',
+      contactType: 'sales',
+      areaServed: 'ID',
+      availableLanguage: 'Indonesian',
+    },
+    address: {
+      '@type': 'PostalAddress',
+      streetAddress: companyDetails?.address || 'Jl. Cideng Timur No. 66',
+      addressLocality: 'Jakarta Pusat',
+      addressRegion: 'DKI Jakarta',
+      addressCountry: 'ID',
+    },
+    sameAs: [
+      companyDetails?.instagram ? `https://instagram.com/${companyDetails.instagram.replace('@', '')}` : null,
+      companyDetails?.facebook || null,
+      companyDetails?.linkedin || null,
+    ].filter(Boolean),
+  };
+
+  const websiteLd = {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: siteName,
+    url: 'https://shop.hokiindo.co.id',
+    description: siteDescription,
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: {
+        '@type': 'EntryPoint',
+        urlTemplate: 'https://shop.hokiindo.co.id/pencarian?q={search_term_string}',
+      },
+      'query-input': 'required name=search_term_string',
+    },
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteLd) }}
+      />
       <SiteHeader />
       <HeroSlider banners={activeBanners} />
       <Suspense fallback={<div className="h-64 flex items-center justify-center"><div className="w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin" /></div>}>
@@ -94,3 +151,4 @@ export default async function Home() {
     </div>
   );
 }
+
