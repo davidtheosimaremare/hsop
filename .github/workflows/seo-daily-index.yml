@@ -1,0 +1,18 @@
+name: Daily SEO Indexing
+
+on:
+  schedule:
+    # Berjalan setiap hari pada pukul 00:00 UTC (07:00 WIB)
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    # Memungkinkan kita menjalankan ini secara manual lewat tombol di GitHub jika diperlukan
+
+jobs:
+  ping-seo-api:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hit Daily Index API
+        run: |
+          echo "Memulai pengiriman batch URL ke Search Engines..."
+          curl -X POST "https://shop.hokiindo.co.id/api/seo/daily-index?secret=hokiindo-seo-2026" -H "Content-Type: application/json"
+          echo "Selesai!"
