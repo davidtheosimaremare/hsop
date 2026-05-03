@@ -27,6 +27,7 @@ export async function scrapeSiemensProduct(sku: string): Promise<ScrapedData> {
     try {
         browser = await puppeteer.launch({
             headless: true, // "new" is deprecated, true is current standard
+            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -277,6 +278,7 @@ export async function scrapeSieportalImage(productId: string, sku: string) {
 
         browser = await puppeteer.launch({
             headless: true,
+            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
             args: ['--no-sandbox', '--disable-setuid-sandbox']
         });
 
