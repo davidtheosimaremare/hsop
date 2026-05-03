@@ -55,13 +55,13 @@ export default function PromoBannersClient({ leftCTA, rightCTA }: PromoBannersCl
                             asChild
                             className={`bg-white ${cta.image ? 'text-gray-900' : 'text-teal-700'} border-white hover:bg-white/90 hover:text-teal-800 rounded-full px-6 h-10 font-medium`}
                         >
-                            <Link href={cta.primaryButtonLink || "#"}>
+                            <Link prefetch={false}  href={cta.primaryButtonLink || "#"}>
                                 {cta.primaryButtonText}
                             </Link>
                         </Button>
                     )}
                     {cta.secondaryButtonText && (
-                        <Link
+                        <Link prefetch={false} 
                             href={cta.secondaryButtonLink || "#"}
                             className={`flex items-center gap-1 ${cta.image ? 'text-white' : (index === 0 ? 'text-white' : 'text-gray-900')} text-sm font-medium hover:underline`}
                         >

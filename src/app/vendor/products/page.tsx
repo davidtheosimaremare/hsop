@@ -241,7 +241,7 @@ export default function VendorProductsPage() {
                         </Button>
                     </div>
                     <Button asChild className="bg-teal-600 hover:bg-teal-700 text-white rounded-2xl h-11 px-6 font-black text-xs uppercase tracking-widest shadow-lg shadow-teal-600/20 transition-all active:scale-95">
-                        <Link href="/vendor/products/new">
+                        <Link prefetch={false}  href="/vendor/products/new">
                             <Plus className="w-4 h-4 mr-2" />
                             Produk Baru
                         </Link>
@@ -380,7 +380,7 @@ export default function VendorProductsPage() {
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end" className="w-48 rounded-2xl shadow-2xl border-slate-100 p-2 animate-in slide-in-from-top-2 duration-200">
                                                         <DropdownMenuItem asChild className="cursor-pointer py-3 px-4 rounded-xl focus:bg-teal-50 focus:text-teal-700 transition-colors">
-                                                            <Link href={`/vendor/products/${product.id}/edit`} className="flex items-center w-full">
+                                                            <Link prefetch={false}  href={`/vendor/products/${product.id}/edit`} className="flex items-center w-full">
                                                                 <Edit className="w-4 h-4 mr-3" />
                                                                 <span className="font-black text-xs uppercase tracking-widest">Edit Produk</span>
                                                             </Link>

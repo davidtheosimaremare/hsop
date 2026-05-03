@@ -90,7 +90,7 @@ export default function AdminProductFloatingBar({
                     <div className="w-px h-6 bg-gray-200" />
 
                     {/* Edit Link */}
-                    <Link
+                    <Link prefetch={false} 
                         href={`/admin/products/${productId}`}
                         className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200 transition-all"
                     >

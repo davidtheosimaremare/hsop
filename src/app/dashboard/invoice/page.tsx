@@ -18,7 +18,7 @@ export default function InvoicePage() {
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Belum Ada DO / Invoice</h3>
                 <p className="text-sm text-gray-500 text-center max-w-md mb-6">Anda belum memiliki Delivery Order atau Invoice. Dokumen akan muncul setelah Sales Order diproses.</p>
-                <Link href="/pencarian">
+                <Link prefetch={false}  href="/pencarian">
                     <Button className="bg-red-600 hover:bg-red-700 text-white px-6">
                         Mulai Belanja
                     </Button>

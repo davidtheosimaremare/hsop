@@ -57,7 +57,7 @@ export default async function ReturnDetailsPage({ params }: { params: Promise<{ 
             {/* Header */}
             <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">
-                    <Link href="/admin/sales/returns" className="hover:text-red-600 transition-colors">Daftar Retur</Link>
+                    <Link prefetch={false}  href="/admin/sales/returns" className="hover:text-red-600 transition-colors">Daftar Retur</Link>
                     <span>/</span>
                     <span className="text-slate-600">Detail Retur</span>
                 </div>
@@ -68,7 +68,7 @@ export default async function ReturnDetailsPage({ params }: { params: Promise<{ 
                         asChild
                         className="rounded-xl border-slate-200 bg-white hover:bg-slate-50 shadow-sm"
                     >
-                        <Link href="/admin/sales/returns">
+                        <Link prefetch={false}  href="/admin/sales/returns">
                             <ArrowLeft className="w-5 h-5" />
                         </Link>
                     </Button>
@@ -154,7 +154,7 @@ export default async function ReturnDetailsPage({ params }: { params: Promise<{ 
                             </div>
                             <div className="pt-4 border-t border-slate-100 flex justify-end">
                                 <Button variant="outline" size="sm" asChild className="text-xs font-bold w-full rounded-xl">
-                                    <Link href={`/admin/sales/quotations/${quotation.quotationNo.replace(/\//g, "-")}`}>
+                                    <Link prefetch={false}  href={`/admin/sales/quotations/${quotation.quotationNo.replace(/\//g, "-")}`}>
                                         <ExternalLink className="w-3.5 h-3.5 mr-2" />
                                         Lihat Detail Pesanan Asli
                                     </Link>

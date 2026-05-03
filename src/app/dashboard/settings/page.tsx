@@ -83,7 +83,7 @@ export default function SettingsPage() {
                                 </div>
                             </div>
                             <div className="flex-shrink-0">
-                                <Link href="/dashboard/upgrade">
+                                <Link prefetch={false}  href="/dashboard/upgrade">
                                     <Button className="bg-white text-[#D80000] hover:bg-white/90 font-bold px-8 h-12 shadow-xl transition-transform hover:scale-105 text-base">
                                         Upgrade Sekarang
                                     </Button>
@@ -99,7 +99,7 @@ export default function SettingsPage() {
                     Akses Cepat Pengaturan
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Link href="/dashboard/profil" className="block p-4 rounded-xl border border-gray-200 hover:border-red-200 hover:bg-red-50 transition-all">
+                    <Link prefetch={false}  href="/dashboard/profil" className="block p-4 rounded-xl border border-gray-200 hover:border-red-200 hover:bg-red-50 transition-all">
                         <div className="flex justify-between items-start">
                             <div>
                                 <h4 className="font-semibold text-gray-900 mb-1">Profil Pengguna</h4>
@@ -110,11 +110,11 @@ export default function SettingsPage() {
                             )}
                         </div>
                     </Link>
-                    <Link href="/dashboard/password" className="block p-4 rounded-xl border border-gray-200 hover:border-red-200 hover:bg-red-50 transition-all">
+                    <Link prefetch={false}  href="/dashboard/password" className="block p-4 rounded-xl border border-gray-200 hover:border-red-200 hover:bg-red-50 transition-all">
                         <h4 className="font-semibold text-gray-900 mb-1">Keamanan Akun</h4>
                         <p className="text-sm text-gray-500">Ubah kata sandi untuk menjaga keamanan akun.</p>
                     </Link>
-                    <Link href="/dashboard/alamat" className="block p-4 rounded-xl border border-gray-200 hover:border-red-200 hover:bg-red-50 transition-all">
+                    <Link prefetch={false}  href="/dashboard/alamat" className="block p-4 rounded-xl border border-gray-200 hover:border-red-200 hover:bg-red-50 transition-all">
                         <h4 className="font-semibold text-gray-900 mb-1">Buku Alamat</h4>
                         <p className="text-sm text-gray-500">Kelola daftar alamat pengiriman pesanan.</p>
                     </Link>

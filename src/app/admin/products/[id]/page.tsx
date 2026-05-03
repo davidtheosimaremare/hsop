@@ -44,7 +44,7 @@ export default async function AdminProductDetailPage({ params }: { params: { id:
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div className="flex items-start gap-4">
                     <Button variant="outline" size="icon" asChild className="h-10 w-10 mt-1 rounded-xl border-slate-200 bg-white hover:bg-slate-50 shadow-sm">
-                        <Link href="/admin/products">
+                        <Link prefetch={false}  href="/admin/products">
                             <ArrowLeft className="h-4 w-4 text-slate-500" />
                         </Link>
                     </Button>
@@ -60,7 +60,7 @@ export default async function AdminProductDetailPage({ params }: { params: { id:
                 </div>
                 <div className="flex items-center justify-end gap-2 text-white">
                     <Button variant="outline" size="sm" asChild className="h-10 border-slate-200 bg-white hover:bg-slate-50 shadow-sm text-slate-600 font-bold text-xs px-4 rounded-xl transition-all hover:text-red-600 border-dashed">
-                        <Link href={`/produk/${product.sku}`} target="_blank">
+                        <Link prefetch={false}  href={`/produk/${product.sku}`} target="_blank">
                             <Eye className="w-4 h-4 mr-2" />
                             Lihat Produk
                         </Link>

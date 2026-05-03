@@ -163,7 +163,7 @@ export default async function ManageTeamPage() {
                                     <p className="text-sm text-gray-600 mb-4 leading-relaxed">
                                         Nikmati berbagai fitur eksklusif untuk perusahaan dan reseller dengan melakukan upgrade akun Anda sekarang.
                                     </p>
-                                    <Link
+                                    <Link prefetch={false} 
                                         href="/dashboard/upgrade"
                                         className="inline-flex items-center gap-2 text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors group"
                                     >

@@ -20,7 +20,7 @@ export default async function AdminPagesPage() {
                     <p className="text-sm text-gray-500">Kelola halaman statis (Tentang Kami, FAQ, dll)</p>
                 </div>
                 <Button className="bg-red-600 hover:bg-red-700" asChild>
-                    <Link href="/admin/pages/new">
+                    <Link prefetch={false}  href="/admin/pages/new">
                         <Plus className="h-4 w-4 mr-2" />
                         Buat Halaman
                     </Link>
@@ -38,7 +38,7 @@ export default async function AdminPagesPage() {
                             <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
                             <p className="text-lg font-medium">Belum ada halaman</p>
                             <Button className="mt-4 bg-red-600 hover:bg-red-700" asChild>
-                                <Link href="/admin/pages/new">
+                                <Link prefetch={false}  href="/admin/pages/new">
                                     <Plus className="h-4 w-4 mr-2" />
                                     Buat Halaman
                                 </Link>
@@ -61,7 +61,7 @@ export default async function AdminPagesPage() {
                                         <tr key={page.id} className="border-b hover:bg-gray-50">
                                             <td className="py-3 font-medium">{page.title}</td>
                                             <td className="py-3 text-sm text-gray-500 font-mono">
-                                                <Link href={`/${page.slug}`} target="_blank" className="flex items-center hover:text-blue-600 hover:underline">
+                                                <Link prefetch={false}  href={`/${page.slug}`} target="_blank" className="flex items-center hover:text-blue-600 hover:underline">
                                                     /{page.slug}
                                                     <ExternalLink className="h-3 w-3 ml-1" />
                                                 </Link>
@@ -79,7 +79,7 @@ export default async function AdminPagesPage() {
                                             </td>
                                             <td className="py-3">
                                                 <div className="flex gap-1">
-                                                    <Link href={`/admin/pages/${page.id}`}>
+                                                    <Link prefetch={false}  href={`/admin/pages/${page.id}`}>
                                                         <Button variant="ghost" size="sm">
                                                             <Edit className="h-4 w-4" />
                                                         </Button>

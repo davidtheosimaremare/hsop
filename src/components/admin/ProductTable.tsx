@@ -274,7 +274,7 @@ export default function ProductTable({
                                     col.align === "center" ? "text-center" : ""
                                 )}>
                                     {col.sortable ? (
-                                        <Link href={getSortLink(col.id)} className="hover:text-red-600 transition-colors flex items-center">
+                                        <Link prefetch={false}  href={getSortLink(col.id)} className="hover:text-red-600 transition-colors flex items-center">
                                             {col.label} <SortIcon field={col.id} />
                                         </Link>
                                     ) : (

@@ -25,7 +25,7 @@ export default async function AdminNewsPage() {
                     <p className="text-sm text-gray-500">Kelola berita dan artikel</p>
                 </div>
                 <Button className="bg-red-600 hover:bg-red-700" asChild>
-                    <Link href="/admin/news/new">
+                    <Link prefetch={false}  href="/admin/news/new">
                         <Plus className="h-4 w-4 mr-2" />
                         Tulis Berita
                     </Link>
@@ -82,7 +82,7 @@ export default async function AdminNewsPage() {
                             <p className="text-lg font-medium">Belum ada berita</p>
                             <p className="text-sm">Tulis berita pertama Anda</p>
                             <Button className="mt-4 bg-red-600 hover:bg-red-700" asChild>
-                                <Link href="/admin/news/new">
+                                <Link prefetch={false}  href="/admin/news/new">
                                     <Plus className="h-4 w-4 mr-2" />
                                     Tulis Berita
                                 </Link>
@@ -157,7 +157,7 @@ export default async function AdminNewsPage() {
                                                         </Button>
                                                     </form>
                                                     <Button variant="ghost" size="sm" asChild>
-                                                        <Link href={`/admin/news/${item.id}/edit`}>
+                                                        <Link prefetch={false}  href={`/admin/news/${item.id}/edit`}>
                                                             <Edit className="h-4 w-4" />
                                                         </Link>
                                                     </Button>

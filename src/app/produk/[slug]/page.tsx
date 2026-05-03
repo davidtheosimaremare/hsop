@@ -128,14 +128,14 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                     {/* Breadcrumb - instant */}
                     <nav className="text-sm mb-4">
                         <ol className="flex items-center gap-2 flex-wrap">
-                            <li><Link href="/" className="text-gray-500 hover:text-red-600">Beranda</Link></li>
+                            <li><Link prefetch={false}  href="/" className="text-gray-500 hover:text-red-600">Beranda</Link></li>
                             <li className="text-gray-400">›</li>
-                            <li><Link href="/pencarian" className="text-gray-500 hover:text-red-600">Produk</Link></li>
+                            <li><Link prefetch={false}  href="/pencarian" className="text-gray-500 hover:text-red-600">Produk</Link></li>
                             {product.category && (
                                 <>
                                     <li className="text-gray-400">›</li>
                                     <li>
-                                        <Link href={`/pencarian?category=${encodeURIComponent(product.category)}`} className="text-gray-500 hover:text-red-600">
+                                        <Link prefetch={false}  href={`/pencarian?category=${encodeURIComponent(product.category)}`} className="text-gray-500 hover:text-red-600">
                                             {product.category}
                                         </Link>
                                     </li>

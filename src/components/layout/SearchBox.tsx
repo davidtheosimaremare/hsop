@@ -257,7 +257,7 @@ export default function SearchBox({ isMobile = false, onFocusChange }: SearchBox
                             {!isLoading && results.length > 0 && (
                                 <div className="p-2">
                                     {results.map((product) => (
-                                        <Link
+                                        <Link prefetch={false} 
                                             key={product.id}
                                             href={`/produk/${getProductSlug(product)}`}
                                             onClick={() => {
@@ -286,7 +286,7 @@ export default function SearchBox({ isMobile = false, onFocusChange }: SearchBox
                                             </div>
                                         </Link>
                                     ))}
-                                    <Link
+                                    <Link prefetch={false} 
                                         href={`/pencarian?q=${encodeURIComponent(query)}`}
                                         onClick={() => addToHistory(query)}
                                         className="block mt-2 p-2 text-center text-sm text-red-600 hover:bg-red-50 rounded-lg font-medium"
@@ -390,7 +390,7 @@ export default function SearchBox({ isMobile = false, onFocusChange }: SearchBox
                             <div className="p-3">
                                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-2 mb-2">Hasil Pencarian</p>
                                 {results.map((product) => (
-                                    <Link
+                                    <Link prefetch={false} 
                                         key={product.id}
                                         href={`/produk/${getProductSlug(product)}`}
                                         onClick={() => {
@@ -419,7 +419,7 @@ export default function SearchBox({ isMobile = false, onFocusChange }: SearchBox
                                         </div>
                                     </Link>
                                 ))}
-                                <Link
+                                <Link prefetch={false} 
                                     href={`/pencarian?q=${encodeURIComponent(query)}`}
                                     onClick={() => addToHistory(query)}
                                     className="block mt-2 p-2.5 text-center text-sm text-red-600 hover:bg-red-50 rounded-lg font-medium border border-red-100"

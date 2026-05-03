@@ -60,7 +60,7 @@ function EmptyState() {
             <p className="text-xs text-gray-500 text-center max-w-xs mb-4">
                 Simpan produk di keranjang sebagai estimasi untuk memudahkan penawaran di kemudian hari.
             </p>
-            <Link href="/pencarian">
+            <Link prefetch={false}  href="/pencarian">
                 <Button variant="red" size="sm">
                     Cari Produk
                 </Button>

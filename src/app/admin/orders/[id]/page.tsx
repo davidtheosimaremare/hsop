@@ -38,7 +38,7 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
         <div className="space-y-6">
             <div className="flex items-center gap-4">
                 <Button variant="outline" size="icon" asChild>
-                    <Link href="/admin/orders">
+                    <Link prefetch={false}  href="/admin/orders">
                         <ArrowLeft className="h-4 w-4" />
                     </Link>
                 </Button>
@@ -161,7 +161,7 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
                                 <span className="text-sm font-medium">Penawaran (Quote)</span>
                                 {order.attachmentQuote ? (
                                     <Button variant="link" size="sm" asChild>
-                                        <Link href={order.attachmentQuote} target="_blank">Lihat</Link>
+                                        <Link prefetch={false}  href={order.attachmentQuote} target="_blank">Lihat</Link>
                                     </Button>
                                 ) : <span className="text-xs text-gray-400">Tidak ada</span>}
                             </div>
@@ -169,7 +169,7 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
                                 <span className="text-sm font-medium">Purchase Order (PO)</span>
                                 {order.attachmentPO ? (
                                     <Button variant="link" size="sm" asChild>
-                                        <Link href={order.attachmentPO} target="_blank">Lihat</Link>
+                                        <Link prefetch={false}  href={order.attachmentPO} target="_blank">Lihat</Link>
                                     </Button>
                                 ) : <span className="text-xs text-gray-400">Tidak ada</span>}
                             </div>
@@ -177,7 +177,7 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
                                 <span className="text-sm font-medium">Invoice</span>
                                 {order.attachmentInvoice ? (
                                     <Button variant="link" size="sm" asChild>
-                                        <Link href={order.attachmentInvoice} target="_blank">Lihat</Link>
+                                        <Link prefetch={false}  href={order.attachmentInvoice} target="_blank">Lihat</Link>
                                     </Button>
                                 ) : <span className="text-xs text-gray-400">Tidak ada</span>}
                             </div>

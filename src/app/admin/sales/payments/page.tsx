@@ -168,7 +168,7 @@ export default async function SalesPaymentsPage({
                                                             </a>
                                                         </Button>
                                                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors" asChild>
-                                                            <Link href={`/admin/sales/quotations/${q.quotationNo.replace(/\//g, "-")}`} title="Detail Pesanan">
+                                                            <Link prefetch={false}  href={`/admin/sales/quotations/${q.quotationNo.replace(/\//g, "-")}`} title="Detail Pesanan">
                                                                 <Eye className="h-4 w-4" />
                                                             </Link>
                                                         </Button>
@@ -196,7 +196,7 @@ export default async function SalesPaymentsPage({
                                     className="rounded-xl h-9 px-4 font-bold border-slate-200"
                                     asChild
                                 >
-                                    <Link href={`?page=${page - 1}&q=${query}`}>Sebelumnya</Link>
+                                    <Link prefetch={false}  href={`?page=${page - 1}&q=${query}`}>Sebelumnya</Link>
                                 </Button>
                                 <Button
                                     variant="outline"
@@ -205,7 +205,7 @@ export default async function SalesPaymentsPage({
                                     className="rounded-xl h-9 px-4 font-bold border-slate-200"
                                     asChild
                                 >
-                                    <Link href={`?page=${page + 1}&q=${query}`}>Berikutnya</Link>
+                                    <Link prefetch={false}  href={`?page=${page + 1}&q=${query}`}>Berikutnya</Link>
                                 </Button>
                             </div>
                         </div>

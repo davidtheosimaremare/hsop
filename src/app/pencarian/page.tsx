@@ -132,7 +132,7 @@ export default async function SearchPage({
                                 <div className="flex items-center justify-center gap-2 mt-8">
                                     {/* Simple pagination: Previous */}
                                     {page > 1 ? (
-                                        <Link
+                                        <Link prefetch={false} 
                                             href={createPageUrl(page - 1)}
                                             className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50"
                                         >
@@ -148,7 +148,7 @@ export default async function SearchPage({
 
                                     {/* Next */}
                                     {page < pagination.totalPages ? (
-                                        <Link
+                                        <Link prefetch={false} 
                                             href={createPageUrl(page + 1)}
                                             className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50"
                                         >

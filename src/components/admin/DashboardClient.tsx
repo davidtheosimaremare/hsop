@@ -160,7 +160,7 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
                     </CardHeader>
                     <CardContent className="space-y-4">
                         {stats.recentCustomers.map((customer) => (
-                            <Link
+                            <Link prefetch={false} 
                                 key={customer.id}
                                 href={`/admin/customers/${customer.id}`}
                                 className="flex items-center gap-3 group hover:bg-gray-50 p-2 -mx-2 rounded-xl transition-colors"
@@ -191,7 +191,7 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
                         <CardDescription className="text-xs">Data pesanan terbaru dalam sistem</CardDescription>
                     </div>
                     <Button variant="ghost" asChild className="text-xs font-bold text-red-600 hover:text-red-700 hover:bg-red-50 h-8">
-                        <Link href="/admin/sales/orders" className="flex items-center gap-1">
+                        <Link prefetch={false}  href="/admin/sales/orders" className="flex items-center gap-1">
                             Semua Pesanan <ArrowRight className="w-3 h-3" />
                         </Link>
                     </Button>
@@ -241,7 +241,7 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
                                         </td>
                                         <td className="px-6 py-3 text-right">
                                             <Button variant="ghost" size="icon" asChild className="w-7 h-7 rounded-lg hover:bg-red-50 hover:text-red-600">
-                                                <Link href={detailHref}>
+                                                <Link prefetch={false}  href={detailHref}>
                                                     <Eye className="w-3.5 h-3.5" />
                                                 </Link>
                                             </Button>
@@ -287,7 +287,7 @@ function MetricCard({ title, value, subValue, icon: Icon, color, isCurrency, hre
     return (
         <Card className="border border-gray-100 shadow-sm rounded-2xl bg-white hover:border-gray-200 transition-all group overflow-hidden">
             {href ? (
-                <Link href={href}>
+                <Link prefetch={false}  href={href}>
                     {content}
                 </Link>
             ) : content}

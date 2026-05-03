@@ -38,7 +38,7 @@ export default function LupaPasswordPage() {
                         <p className="font-semibold mb-1">Permintaan Terkirim!</p>
                         <p>{state.message}</p>
                         <div className="mt-3">
-                            <Link href={state.redirect || "/reset-password"} className="text-green-800 underline font-bold">
+                            <Link prefetch={false}  href={state.redirect || "/reset-password"} className="text-green-800 underline font-bold">
                                 Masukkan Kode OTP
                             </Link>
                         </div>
@@ -85,7 +85,7 @@ export default function LupaPasswordPage() {
 
                 {/* Footer */}
                 <div className="mt-8 text-center border-t border-gray-100 pt-6">
-                    <Link
+                    <Link prefetch={false} 
                         href="/masuk"
                         className="inline-flex items-center text-sm font-medium text-gray-500 hover:text-red-600 transition-colors"
                     >

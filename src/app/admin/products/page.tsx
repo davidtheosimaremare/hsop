@@ -219,7 +219,7 @@ export default async function AdminProductsPage({
                         </div>
                     </div>
                     {zeroPriceCount > 0 && (
-                        <Link
+                        <Link prefetch={false} 
                             href="/admin/products?priceFilter=zero_price"
                             className="flex-shrink-0 text-[10px] font-bold text-amber-600 hover:text-amber-700 hover:underline"
                         >
@@ -241,7 +241,7 @@ export default async function AdminProductsPage({
                         </div>
                         {isFiltered && (
                             <Button variant="ghost" size="sm" asChild className="text-red-600 hover:text-red-700 hover:bg-red-50 font-bold rounded-lg h-8 px-3 transition-all">
-                                <Link href="/admin/products">
+                                <Link prefetch={false}  href="/admin/products">
                                     Reset Filter
                                     <X className="ml-2 h-4 w-4" />
                                 </Link>
@@ -352,7 +352,7 @@ export default async function AdminProductsPage({
                             asChild={page > 1}
                         >
                             {page > 1 ? (
-                                <Link href={`?page=${page - 1}&q=${query}&brand=${brandFilter}&category=${categoryFilter}&stockStatus=${stockStatus}&priceFilter=${priceFilter}&sort=${sortField}&order=${sortOrder}&pageSize=${pageSize}`}>Sebelumnya</Link>
+                                <Link prefetch={false}  href={`?page=${page - 1}&q=${query}&brand=${brandFilter}&category=${categoryFilter}&stockStatus=${stockStatus}&priceFilter=${priceFilter}&sort=${sortField}&order=${sortOrder}&pageSize=${pageSize}`}>Sebelumnya</Link>
                             ) : (
                                 <span>Sebelumnya</span>
                             )}
@@ -372,7 +372,7 @@ export default async function AdminProductsPage({
                             asChild={page < totalPages}
                         >
                             {page < totalPages ? (
-                                <Link href={`?page=${page + 1}&q=${query}&brand=${brandFilter}&category=${categoryFilter}&stockStatus=${stockStatus}&priceFilter=${priceFilter}&sort=${sortField}&order=${sortOrder}&pageSize=${pageSize}`}>Selanjutnya</Link>
+                                <Link prefetch={false}  href={`?page=${page + 1}&q=${query}&brand=${brandFilter}&category=${categoryFilter}&stockStatus=${stockStatus}&priceFilter=${priceFilter}&sort=${sortField}&order=${sortOrder}&pageSize=${pageSize}`}>Selanjutnya</Link>
                             ) : (
                                 <span>Selanjutnya</span>
                             )}

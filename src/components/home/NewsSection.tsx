@@ -24,7 +24,7 @@ export default function NewsSection({ news }: NewsSectionProps) {
                     <h2 className="text-xl md:text-2xl font-bold text-gray-900">
                         Berita
                     </h2>
-                    <Link
+                    <Link prefetch={false} 
                         href="/berita"
                         className="flex items-center gap-1 text-sm font-medium text-teal-600 hover:text-teal-700 transition-colors"
                     >
@@ -45,7 +45,7 @@ export default function NewsSection({ news }: NewsSectionProps) {
                             whileHover={{ y: -4 }}
                             className="group block h-full flex flex-col"
                         >
-                            <Link href={`/berita/${item.slug}`} className="block h-full flex flex-col">
+                            <Link prefetch={false}  href={`/berita/${item.slug}`} className="block h-full flex flex-col">
                                 {/* Image */}
                                 <div className="relative aspect-[4/3] rounded-xl md:rounded-2xl overflow-hidden mb-3 bg-gray-100">
                                     {item.image ? (

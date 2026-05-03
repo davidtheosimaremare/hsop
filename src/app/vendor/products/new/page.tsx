@@ -91,7 +91,7 @@ export default function NewVendorProductPage() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                     <Button variant="outline" size="icon" asChild className="rounded-xl border-slate-200 bg-white hover:bg-slate-50 shadow-sm">
-                        <Link href="/vendor/products">
+                        <Link prefetch={false}  href="/vendor/products">
                             <ChevronLeft className="w-5 h-5 text-slate-600" />
                         </Link>
                     </Button>
@@ -337,7 +337,7 @@ export default function NewVendorProductPage() {
                                 Simpan Produk
                             </Button>
                             <Button variant="ghost" asChild className="w-full rounded-2xl h-12 text-slate-400 font-bold hover:text-slate-600 hover:bg-slate-100 transition-colors">
-                                <Link href="/vendor/products">Batalkan Perubahan</Link>
+                                <Link prefetch={false}  href="/vendor/products">Batalkan Perubahan</Link>
                             </Button>
                         </div>
                     </div>

@@ -75,7 +75,7 @@ export default async function CategoryMappingPage() {
             <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div className="flex items-center gap-3">
                     <Button variant="outline" size="icon" asChild className="h-9 w-9 rounded-xl border-gray-200 shadow-sm shrink-0">
-                        <Link href="/admin/products">
+                        <Link prefetch={false}  href="/admin/products">
                             <ArrowLeft className="h-4 w-4" />
                         </Link>
                     </Button>

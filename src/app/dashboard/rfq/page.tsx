@@ -18,7 +18,7 @@ export default function RFQPage() {
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Belum Ada Pengajuan Sales Quotation</h3>
                 <p className="text-sm text-gray-500 text-center max-w-md mb-6">Cari Produk Siemens Electrical dan Barang Electrical lainnya, lalu ajukan Sales Quotation untuk mendapatkan penawaran terbaik.</p>
-                <Link href="/pencarian">
+                <Link prefetch={false}  href="/pencarian">
                     <Button className="bg-red-600 hover:bg-red-700 text-white px-6">
                         Mulai Belanja
                     </Button>

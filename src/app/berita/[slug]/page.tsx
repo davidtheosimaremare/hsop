@@ -96,9 +96,9 @@ export default async function NewsDetailPage({ params }: PageProps) {
             <div className="bg-white border-b">
                 <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
                     <nav className="flex items-center gap-2 text-sm text-gray-500">
-                        <Link href="/" className="hover:text-red-600">Beranda</Link>
+                        <Link prefetch={false}  href="/" className="hover:text-red-600">Beranda</Link>
                         <ChevronRight className="h-4 w-4" />
-                        <Link href="/berita" className="hover:text-red-600">Berita</Link>
+                        <Link prefetch={false}  href="/berita" className="hover:text-red-600">Berita</Link>
                         <ChevronRight className="h-4 w-4" />
                         <span className="text-gray-900 line-clamp-1">{news.title}</span>
                     </nav>
@@ -156,7 +156,7 @@ export default async function NewsDetailPage({ params }: PageProps) {
                         <h2 className="text-xl font-bold text-gray-900 mb-6">Produk Terkait</h2>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             {relatedProducts.map((product) => (
-                                <Link
+                                <Link prefetch={false} 
                                     key={product.id}
                                     href={`/produk/${product.sku}`}
                                     className="group bg-white rounded-xl border overflow-hidden hover:shadow-md transition-shadow"
@@ -191,7 +191,7 @@ export default async function NewsDetailPage({ params }: PageProps) {
 
                 {/* Back Link */}
                 <div className="mt-12 pt-8 border-t">
-                    <Link
+                    <Link prefetch={false} 
                         href="/berita"
                         className="inline-flex items-center gap-2 text-red-600 hover:text-red-700"
                     >
@@ -208,7 +208,7 @@ export default async function NewsDetailPage({ params }: PageProps) {
                         <h2 className="text-xl font-bold text-gray-900 mb-6">Berita Lainnya</h2>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             {relatedNews.map((item) => (
-                                <Link
+                                <Link prefetch={false} 
                                     key={item.id}
                                     href={`/berita/${item.slug}`}
                                     className="group"

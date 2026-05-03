@@ -183,7 +183,7 @@ export default async function SalesQuotationsPage({
                                                     <div className="flex justify-end gap-1">
                                                         <DeleteQuotationButton id={q.id} quotationNo={q.quotationNo} />
                                                         <Button variant="ghost" size="icon" asChild>
-                                                            <Link href={`/admin/sales/quotations/${q.quotationNo.replace(/\//g, "-")}`}>
+                                                            <Link prefetch={false}  href={`/admin/sales/quotations/${q.quotationNo.replace(/\//g, "-")}`}>
                                                                 <Eye className="h-4 w-4" />
                                                             </Link>
                                                         </Button>
@@ -205,12 +205,12 @@ export default async function SalesQuotationsPage({
                         <div className="flex gap-2">
                             {page > 1 && (
                                 <Button variant="outline" size="sm" asChild>
-                                    <Link href={`?page=${page - 1}&q=${query}&status=${statusFilter}`}>Previous</Link>
+                                    <Link prefetch={false}  href={`?page=${page - 1}&q=${query}&status=${statusFilter}`}>Previous</Link>
                                 </Button>
                             )}
                             {page < totalPages && (
                                 <Button variant="outline" size="sm" asChild>
-                                    <Link href={`?page=${page + 1}&q=${query}&status=${statusFilter}`}>Next</Link>
+                                    <Link prefetch={false}  href={`?page=${page + 1}&q=${query}&status=${statusFilter}`}>Next</Link>
                                 </Button>
                             )}
                         </div>

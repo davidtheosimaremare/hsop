@@ -193,7 +193,7 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                         }`}
                         whileHover={!isSearchFocused ? { scale: 1.02 } : {}}
                     >
-                        <Link href="/" className="flex items-center">
+                        <Link prefetch={false}  href="/" className="flex items-center">
                             {/* Desktop Logo */}
                             {companyDetails?.logo ? (
                                 <img
@@ -246,7 +246,7 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                             )}
 
                             {/* Cart/Bag */}
-                            <Link href="/keranjang">
+                            <Link prefetch={false}  href="/keranjang">
                                 <motion.button
                                     whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}
@@ -303,7 +303,7 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                                     <p className="text-sm font-semibold text-gray-900">Akun Saya</p>
                                                 </div>
 
-                                                <Link
+                                                <Link prefetch={false} 
                                                     href="/dashboard"
                                                     className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 transition-colors"
                                                     onClick={() => setIsUserMenuOpen(false)}
@@ -314,7 +314,7 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                                 </Link>
 
                                                 {user.role && ["SUPER_ADMIN", "ADMIN", "MANAGER", "STAFF"].includes(user.role) && (
-                                                    <Link
+                                                    <Link prefetch={false} 
                                                         href="/admin"
                                                         className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 transition-colors font-medium"
                                                         onClick={() => setIsUserMenuOpen(false)}
@@ -325,7 +325,7 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                                     </Link>
                                                 )}
 
-                                                <Link
+                                                <Link prefetch={false} 
                                                     href="/dashboard/settings"
                                                     className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 transition-colors"
                                                     onClick={() => setIsUserMenuOpen(false)}
@@ -470,7 +470,7 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Kategori Produk</h3>
                                         </div>
                                         {categoriesToDisplay.map((cat, catIndex) => (
-                                            <Link
+                                            <Link prefetch={false} 
                                                 key={cat.id || cat.name}
                                                 href={`/pencarian?q=&category=${encodeURIComponent(cat.name)}&page=1`}
                                                 onMouseEnter={() => setActiveCategory(catIndex)}
@@ -510,7 +510,7 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                         </div>
                                         <div className="grid grid-cols-2 gap-2">
                                             {categoriesToDisplay[activeCategory]?.subcategories.map((subcat: any) => (
-                                                <Link
+                                                <Link prefetch={false} 
                                                     key={subcat.id || subcat.name}
                                                     href={`/pencarian?q=&category=${encodeURIComponent(subcat.alias || subcat.name)}&page=1`}
                                                     onClick={() => setIsMegaMenuOpen(false)}
@@ -547,7 +547,7 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                     return (
                                     <div key={category.name} className="flex flex-col">
                                         <div className="flex items-center justify-between px-2 py-1.5 rounded-xl group hover:bg-red-50 transition-colors">
-                                            <Link
+                                            <Link prefetch={false} 
                                                 href={`/pencarian?q=&category=${encodeURIComponent(category.name)}&page=1`}
                                                 className="flex-1 px-2 py-1.5 text-gray-700 group-hover:text-red-600 transition-colors font-semibold text-sm"
                                                 onClick={() => setIsMobileMenuOpen(false)}
@@ -578,7 +578,7 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                                 >
                                                     <div className="py-2 px-3 flex flex-col gap-1">
                                                         {category.subcategories.map((subcat: any) => (
-                                                            <Link
+                                                            <Link prefetch={false} 
                                                                 key={subcat.name}
                                                                 href={`/pencarian?q=&category=${encodeURIComponent(subcat.alias || subcat.name)}&page=1`}
                                                                 className="px-4 py-2 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 transition-colors rounded-lg flex items-center gap-2"
@@ -596,7 +596,7 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                     </div>
                                 )})}
                                 <div className="border-t border-gray-100 my-4" />
-                                <Link
+                                <Link prefetch={false} 
                                     href="/kategori"
                                     className="flex items-center justify-center gap-2 px-4 py-4 rounded-xl bg-gray-50 text-gray-900 hover:bg-red-600 hover:text-white transition-all duration-200 font-bold text-sm"
                                     onClick={() => setIsMobileMenuOpen(false)}

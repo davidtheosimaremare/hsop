@@ -146,7 +146,7 @@ export default async function SalesOrdersPage() {
                                                 {new Date(order.createdAt).toLocaleDateString("id-ID")}
                                             </td>
                                             <td className="py-3">
-                                                <Link href={`/admin/sales/orders/${order.id}`}>
+                                                <Link prefetch={false}  href={`/admin/sales/orders/${order.id}`}>
                                                     <Button variant="ghost" size="sm">Detail</Button>
                                                 </Link>
                                             </td>

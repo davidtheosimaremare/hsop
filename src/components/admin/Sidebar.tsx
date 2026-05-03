@@ -233,7 +233,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                                         const ChildIcon = iconMap[child.icon] || FileText;
                                         const isChildActive = pathname === child.href;
                                         return (
-                                            <Link
+                                            <Link prefetch={false} 
                                                 key={child.href}
                                                 href={child.href}
                                                 className={cn(
@@ -259,7 +259,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                     }
 
                     return (
-                        <Link
+                        <Link prefetch={false} 
                             key={item.href}
                             href={item.href}
                             className={cn(

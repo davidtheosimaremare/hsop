@@ -52,9 +52,9 @@ export default async function AdminCustomerDetailPage({ params }: { params: { id
             {/* Breadcrumbs & Header */}
             <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                    <Link href="/admin" className="hover:text-red-600 transition-colors">Admin</Link>
+                    <Link prefetch={false}  href="/admin" className="hover:text-red-600 transition-colors">Admin</Link>
                     <ChevronRight className="h-3 w-3" />
-                    <Link href="/admin/customers" className="hover:text-red-600 transition-colors">Pelanggan</Link>
+                    <Link prefetch={false}  href="/admin/customers" className="hover:text-red-600 transition-colors">Pelanggan</Link>
                     <ChevronRight className="h-3 w-3" />
                     <span className="text-gray-600">Detail</span>
                 </div>
@@ -62,7 +62,7 @@ export default async function AdminCustomerDetailPage({ params }: { params: { id
                 <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                         <Button variant="outline" size="icon" asChild className="h-9 w-9 rounded-xl border-gray-200 hover:bg-red-50 hover:text-red-600 hover:border-red-100 shrink-0">
-                            <Link href="/admin/customers">
+                            <Link prefetch={false}  href="/admin/customers">
                                 <ArrowLeft className="h-4 w-4" />
                             </Link>
                         </Button>
@@ -89,7 +89,7 @@ export default async function AdminCustomerDetailPage({ params }: { params: { id
 
                     <div className="flex items-center gap-2">
                         <Button variant="outline" className="bg-white border-gray-200 hover:bg-gray-50 text-gray-600 h-9 px-4 rounded-xl font-black text-[10px] uppercase tracking-widest" asChild>
-                            <Link href={`/admin/customers/${id}/edit`}>
+                            <Link prefetch={false}  href={`/admin/customers/${id}/edit`}>
                                 <Settings className="w-3.5 h-3.5 mr-1.5" /> Edit Profil
                             </Link>
                         </Button>
@@ -162,7 +162,7 @@ export default async function AdminCustomerDetailPage({ params }: { params: { id
                                                     {order.items.length} item &bull; <span className="text-red-600 font-black">Rp {(order.totalAmount ?? 0).toLocaleString("id-ID")}</span>
                                                 </div>
                                                 <Button variant="ghost" size="sm" asChild className="h-7 px-3 rounded-lg font-black text-[9px] uppercase tracking-widest text-gray-400 hover:text-red-600">
-                                                    <Link href={`/admin/orders/${order.id}`}>
+                                                    <Link prefetch={false}  href={`/admin/orders/${order.id}`}>
                                                         Detail <ChevronRight className="h-3 w-3 ml-0.5" />
                                                     </Link>
                                                 </Button>

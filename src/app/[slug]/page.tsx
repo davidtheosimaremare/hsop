@@ -58,7 +58,7 @@ export default async function DynamicPage({ params }: PageProps) {
             <div className="bg-white border-b">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
                     <nav className="flex items-center gap-2 text-sm text-gray-500">
-                        <Link href="/" className="hover:text-red-600">Beranda</Link>
+                        <Link prefetch={false}  href="/" className="hover:text-red-600">Beranda</Link>
                         <ChevronRight className="h-4 w-4" />
                         <span className="text-gray-900 line-clamp-1">{page.title}</span>
                     </nav>

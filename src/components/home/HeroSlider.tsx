@@ -98,7 +98,7 @@ export default function HeroSlider({ banners }: HeroSliderProps) {
                                 className="absolute inset-0"
                             >
                                 {slides[currentSlide].link ? (
-                                    <Link href={slides[currentSlide].link || "#"}>
+                                    <Link prefetch={false}  href={slides[currentSlide].link || "#"}>
                                         <div className="relative w-full h-full cursor-pointer overflow-hidden">
                                             <img
                                                 src={slides[currentSlide].image}

@@ -36,7 +36,7 @@ export default async function SalesOrderDetailPage({ params }: PageProps) {
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                     <Button variant="outline" size="icon" asChild>
-                        <Link href="/admin/sales/orders">
+                        <Link prefetch={false}  href="/admin/sales/orders">
                             <ArrowLeft className="h-4 w-4" />
                         </Link>
                     </Button>

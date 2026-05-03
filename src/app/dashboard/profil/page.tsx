@@ -590,7 +590,7 @@ export default function ProfilPage() {
                                 <p className="text-gray-400 text-sm">Belum ada alamat terdaftar</p>
                             )}
                         </div>
-                        <Link href="/dashboard/alamat">
+                        <Link prefetch={false}  href="/dashboard/alamat">
                             <Button variant="outline" size="sm" className="w-full sm:w-auto mt-2">
                                 <Edit2 className="w-4 h-4 mr-2" />
                                 Lihat & Kelola Alamat Terdaftar

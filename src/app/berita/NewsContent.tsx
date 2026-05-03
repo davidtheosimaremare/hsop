@@ -127,7 +127,7 @@ function NewsContent() {
             <div className="border-b bg-gray-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
                     <nav className="flex items-center gap-2 text-sm text-gray-500">
-                        <Link href="/" className="hover:text-red-600 transition-colors">Beranda</Link>
+                        <Link prefetch={false}  href="/" className="hover:text-red-600 transition-colors">Beranda</Link>
                         <ChevronRight className="h-4 w-4" />
                         <span className="text-gray-900 font-medium">Berita</span>
                     </nav>
@@ -209,7 +209,7 @@ function NewsContent() {
                                     className="group bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-xl hover:border-red-100 transition-all duration-300"
                                 >
                                     {/* Image */}
-                                    <Link href={`/berita/${item.slug}`} className="block">
+                                    <Link prefetch={false}  href={`/berita/${item.slug}`} className="block">
                                         <div className="aspect-video bg-gray-100 overflow-hidden">
                                             {item.image ? (
                                                 <img
@@ -230,7 +230,7 @@ function NewsContent() {
 
                                     {/* Content */}
                                     <div className="p-5">
-                                        <Link href={`/berita/${item.slug}`}>
+                                        <Link prefetch={false}  href={`/berita/${item.slug}`}>
                                             <h2 className="font-bold text-lg text-gray-900 line-clamp-2 group-hover:text-red-600 transition-colors">
                                                 {item.title}
                                             </h2>
@@ -258,7 +258,7 @@ function NewsContent() {
                                                     </span>
                                                 )}
                                             </div>
-                                            <Link
+                                            <Link prefetch={false} 
                                                 href={`/berita/${item.slug}`}
                                                 className="flex items-center gap-1 text-red-600 font-medium group-hover:gap-2 transition-all"
                                             >

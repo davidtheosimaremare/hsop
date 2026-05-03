@@ -538,7 +538,7 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-xl font-bold text-gray-900">Produk Terkait</h2>
                         <div className="flex items-center gap-2">
-                            <Link href={`/pencarian?category=${encodeURIComponent(product.category || '')}`} className="text-sm text-teal-600 hover:underline mr-2">
+                            <Link prefetch={false}  href={`/pencarian?category=${encodeURIComponent(product.category || '')}`} className="text-sm text-teal-600 hover:underline mr-2">
                                 Lihat Semua
                             </Link>
                             <button
@@ -572,7 +572,7 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                                     transition={{ duration: 0.3, delay: index * 0.05 }}
                                     className="group flex-shrink-0 w-52 bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
                                 >
-                                    <Link href={`/produk/${getProductSlug(relProduct)}`} className="block h-full flex flex-col">
+                                    <Link prefetch={false}  href={`/produk/${getProductSlug(relProduct)}`} className="block h-full flex flex-col">
                                         {/* Product Image */}
                                         <div className="aspect-square bg-white relative">
                                             {relProduct.image ? (

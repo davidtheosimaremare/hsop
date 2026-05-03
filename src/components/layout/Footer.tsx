@@ -142,7 +142,7 @@ export default async function Footer() {
                         <ul className="space-y-2.5">
                             {config.links.umum.map((link: any, idx: number) => (
                                 <li key={idx}>
-                                    <Link href={link.href} className="text-sm text-gray-600 hover:text-teal-600 transition-colors">
+                                    <Link prefetch={false}  href={link.href} className="text-sm text-gray-600 hover:text-teal-600 transition-colors">
                                         {link.name}
                                     </Link>
                                 </li>
@@ -156,7 +156,7 @@ export default async function Footer() {
                         <ul className="space-y-2.5">
                             {config.links.informasi.map((link: any, idx: number) => (
                                 <li key={idx}>
-                                    <Link href={link.href} className="text-sm text-gray-600 hover:text-teal-600 transition-colors">
+                                    <Link prefetch={false}  href={link.href} className="text-sm text-gray-600 hover:text-teal-600 transition-colors">
                                         {link.name}
                                     </Link>
                                 </li>
@@ -170,7 +170,7 @@ export default async function Footer() {
                         <ul className="space-y-2.5">
                             {config.links.ketentuan.map((link: any, idx: number) => (
                                 <li key={idx}>
-                                    <Link href={link.href} className="text-sm text-gray-600 hover:text-teal-600 transition-colors">
+                                    <Link prefetch={false}  href={link.href} className="text-sm text-gray-600 hover:text-teal-600 transition-colors">
                                         {link.name}
                                     </Link>
                                 </li>

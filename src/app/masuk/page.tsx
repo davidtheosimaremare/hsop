@@ -77,7 +77,7 @@ function LoginForm() {
                         <p>{state.error}</p>
                         {state.unverified && (
                             <div className="mt-2">
-                                <Link
+                                <Link prefetch={false} 
                                     href={`/verifikasi?email=${encodeURIComponent(state.email || '')}`}
                                     className="text-red-800 underline font-bold"
                                 >
@@ -138,7 +138,7 @@ function LoginForm() {
                         />
                         <span className="text-xs text-gray-600">Tetap Masuk</span>
                     </label>
-                    <Link href="/lupa-password" className="text-xs text-red-600 hover:underline">
+                    <Link prefetch={false}  href="/lupa-password" className="text-xs text-red-600 hover:underline">
                         Lupa Kata Sandi?
                     </Link>
                 </div>
@@ -155,7 +155,7 @@ function LoginForm() {
                 {/* Register Link */}
                 <p className="text-center text-xs text-gray-600">
                     Belum punya akun?{" "}
-                    <Link href="/daftar" className="text-red-600 font-semibold hover:underline">
+                    <Link prefetch={false}  href="/daftar" className="text-red-600 font-semibold hover:underline">
                         Daftar Sekarang
                     </Link>
                 </p>

@@ -17,10 +17,10 @@ export default function UnauthorizedPage() {
                 </p>
                 <div className="flex gap-4 justify-center">
                     <Button asChild className="bg-red-600 hover:bg-red-700">
-                        <Link href="/admin">Kembali ke Dashboard</Link>
+                        <Link prefetch={false}  href="/admin">Kembali ke Dashboard</Link>
                     </Button>
                     <Button asChild variant="outline">
-                        <Link href="javascript:history.back()">Kembali</Link>
+                        <Link prefetch={false}  href="javascript:history.back()">Kembali</Link>
                     </Button>
                 </div>
             </div>

@@ -109,7 +109,7 @@ export function CustomerTransactionSection({ orders, quotations }: CustomerTrans
                                         : (item as any).total;
 
                                     return (
-                                        <Link
+                                        <Link prefetch={false} 
                                             key={item.id}
                                             href={link}
                                             className={cn(

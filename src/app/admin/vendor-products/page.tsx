@@ -283,7 +283,7 @@ export default function AdminVendorProductsPage() {
                                                         </>
                                                     )}
                                                     <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-white" asChild>
-                                                        <Link href={`/admin/products/${product.id}/edit`}>
+                                                        <Link prefetch={false}  href={`/admin/products/${product.id}/edit`}>
                                                             <Eye className="w-3.5 h-3.5 text-slate-400" />
                                                         </Link>
                                                     </Button>

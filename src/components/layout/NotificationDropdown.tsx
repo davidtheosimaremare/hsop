@@ -151,7 +151,7 @@ export default function NotificationDropdown({ userId }: { userId?: string }) {
                                             const link = notif.link || config.defaultLink;
 
                                             return (
-                                                <Link
+                                                <Link prefetch={false} 
                                                     key={notif.id}
                                                     href={link}
                                                     className={`block transition-all duration-200 cursor-pointer ${
@@ -204,7 +204,7 @@ export default function NotificationDropdown({ userId }: { userId?: string }) {
                                     {/* Footer */}
                                     {notifications.length > 5 && (
                                         <div className="border-t border-gray-100 p-3 bg-gradient-to-r from-gray-50 to-white">
-                                            <Link
+                                            <Link prefetch={false} 
                                                 href="/dashboard/notifikasi"
                                                 className="block w-full py-2.5 px-3 text-center text-xs font-bold text-gray-700 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                                 onClick={() => setIsOpen(false)}

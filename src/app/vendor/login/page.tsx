@@ -89,7 +89,7 @@ function VendorLoginForm() {
                         <label className="block text-sm font-medium text-gray-700">
                             Kata Sandi
                         </label>
-                        <Link href="/lupa-password" title="Vendor Forgot Password" className="text-xs text-blue-600 hover:underline">
+                        <Link prefetch={false}  href="/lupa-password" title="Vendor Forgot Password" className="text-xs text-blue-600 hover:underline">
                             Lupa sandi?
                         </Link>
                     </div>
@@ -138,7 +138,7 @@ function VendorLoginForm() {
                 </Button>
 
                 <div className="pt-2 text-center">
-                    <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition-colors group">
+                    <Link prefetch={false}  href="/" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition-colors group">
                         <Home className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
                         Kembali ke Beranda Utama
                     </Link>

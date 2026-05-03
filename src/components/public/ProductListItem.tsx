@@ -51,7 +51,7 @@ export default function ProductListItem({ product }: ProductListItemProps) {
         <div className="group bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
             <div className="flex items-center gap-4 p-3">
                 {/* Product Image */}
-                <Link href={`/produk/${getProductSlug(product as any)}`} className="flex-shrink-0">
+                <Link prefetch={false}  href={`/produk/${getProductSlug(product as any)}`} className="flex-shrink-0">
                     <div className="w-20 h-20 bg-white rounded-lg relative overflow-hidden border border-gray-100 p-1">
                         {product.image ? (
                             <Image
@@ -71,7 +71,7 @@ export default function ProductListItem({ product }: ProductListItemProps) {
 
                 {/* Product Info */}
                 <div className="flex-1 min-w-0">
-                    <Link href={`/produk/${getProductSlug(product as any)}`} className="block">
+                    <Link prefetch={false}  href={`/produk/${getProductSlug(product as any)}`} className="block">
                         <h3 className="text-sm font-medium text-gray-900 line-clamp-1 group-hover:text-red-600 transition-colors" title={product.name}>
                             {product.name}
                         </h3>

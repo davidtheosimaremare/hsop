@@ -102,7 +102,7 @@ export default function DashboardSidebar({ user }: { user: any }) {
                         {menuItems.map((item) => {
                             const active = isActive(item.href);
                             return (
-                                <Link
+                                <Link prefetch={false} 
                                     key={item.href}
                                     href={item.href}
                                     className={`group w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm transition-all duration-200 ${active

@@ -230,7 +230,7 @@ export default function DashboardPage() {
 // ─── Modern Summary Card Component ───
 function ModernSummaryCard({ label, count, icon: Icon, gradient, bgColor, iconBg, href }: any) {
     return (
-        <Link href={href} className="group relative overflow-hidden rounded-2xl bg-white border border-gray-100 p-5 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-gray-200">
+        <Link prefetch={false}  href={href} className="group relative overflow-hidden rounded-2xl bg-white border border-gray-100 p-5 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-gray-200">
             {/* Background glow effect */}
             <div className={`absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br ${gradient} opacity-10 rounded-full blur-2xl group-hover:opacity-20 group-hover:scale-110 transition-all duration-300`} />
 
@@ -262,7 +262,7 @@ function ModernSummaryCard({ label, count, icon: Icon, gradient, bgColor, iconBg
 // ─── Quick Action Card Component ───
 function QuickActionCard({ icon: Icon, title, desc, href }: any) {
     return (
-        <Link href={href} className="group p-6 bg-white rounded-2xl border border-gray-100 transition-all duration-300 hover:shadow-xl hover:border-red-100 hover:-translate-y-1">
+        <Link prefetch={false}  href={href} className="group p-6 bg-white rounded-2xl border border-gray-100 transition-all duration-300 hover:shadow-xl hover:border-red-100 hover:-translate-y-1">
             <div className="flex items-start gap-4">
                 <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center group-hover:bg-red-100 group-hover:scale-110 transition-all duration-300">
                     <Icon className="w-6 h-6 text-red-600" />
@@ -284,7 +284,7 @@ function QuickActionCard({ icon: Icon, title, desc, href }: any) {
 // ─── Reseller Card Component ───
 function ResellerCard({ showRejected = false }: { showRejected?: boolean }) {
     return (
-        <Link href="/dashboard/upgrade" className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-red-600 via-red-600 to-red-700 p-6 text-white shadow-lg hover:shadow-2xl hover:shadow-red-500/30 hover:-translate-y-1 transition-all duration-300">
+        <Link prefetch={false}  href="/dashboard/upgrade" className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-red-600 via-red-600 to-red-700 p-6 text-white shadow-lg hover:shadow-2xl hover:shadow-red-500/30 hover:-translate-y-1 transition-all duration-300">
             <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
             <div className="absolute bottom-0 left-0 w-32 h-32 bg-red-900/20 rounded-full blur-2xl translate-y-1/3 -translate-x-1/4" />
 

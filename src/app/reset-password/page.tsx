@@ -45,7 +45,7 @@ function ResetPasswordForm() {
                         <p className="font-semibold mb-1">Berhasil!</p>
                         <p>{state.message}</p>
                         <div className="mt-3">
-                            <Link href="/masuk" className="w-full block text-center bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium">
+                            <Link prefetch={false}  href="/masuk" className="w-full block text-center bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium">
                                 Masuk Sekarang
                             </Link>
                         </div>
@@ -135,7 +135,7 @@ function ResetPasswordForm() {
 
                 {/* Footer */}
                 <div className="mt-8 text-center border-t border-gray-100 pt-6">
-                    <Link
+                    <Link prefetch={false} 
                         href="/masuk"
                         className="inline-flex items-center text-sm font-medium text-gray-500 hover:text-red-600 transition-colors"
                     >

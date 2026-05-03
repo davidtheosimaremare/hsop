@@ -109,7 +109,7 @@ export default async function AdminCustomersPage({
                 <div className="flex items-center gap-2">
                     <CustomerSyncButton />
                     <Button asChild className="bg-red-600 hover:bg-red-700 rounded-xl shadow-lg shadow-red-100 font-bold h-10 px-6">
-                        <Link href="/admin/customers/new" className="flex items-center gap-2">
+                        <Link prefetch={false}  href="/admin/customers/new" className="flex items-center gap-2">
                             <Plus className="w-4 h-4" /> Tambah Manual
                         </Link>
                     </Button>
@@ -172,14 +172,14 @@ export default async function AdminCustomersPage({
                                     <tr key={customer.id} className="hover:bg-gray-50/70 transition-colors group">
                                         {/* ID Column */}
                                         <td className="px-5 py-2.5">
-                                            <Link href={`/admin/customers/${customer.id}`} className="inline-flex items-center px-2 py-0.5 rounded-md bg-gray-100 group-hover:bg-red-50 text-[10px] font-black text-gray-900 font-mono transition-colors">
+                                            <Link prefetch={false}  href={`/admin/customers/${customer.id}`} className="inline-flex items-center px-2 py-0.5 rounded-md bg-gray-100 group-hover:bg-red-50 text-[10px] font-black text-gray-900 font-mono transition-colors">
                                                 {customer.id}
                                             </Link>
                                         </td>
 
                                         {/* Name Column */}
                                         <td className="px-5 py-2.5">
-                                            <Link href={`/admin/customers/${customer.id}`} className="flex items-center gap-3 group/link">
+                                            <Link prefetch={false}  href={`/admin/customers/${customer.id}`} className="flex items-center gap-3 group/link">
                                                 <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center font-black text-gray-600 text-[10px] uppercase shrink-0 border border-gray-200/50 overflow-hidden transition-all group-hover/link:ring-2 group-hover/link:ring-red-100">
                                                     {customer.image ? (
                                                         <img src={customer.image} alt="" className="w-full h-full object-cover" />
@@ -236,7 +236,7 @@ export default async function AdminCustomersPage({
                                         <td className="px-5 py-2.5 text-right">
                                             <div className="flex items-center justify-end gap-1.5 opacity-50 group-hover:opacity-100 transition-all">
                                                 <Button asChild variant="ghost" className="h-7 w-7 p-0 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100">
-                                                    <Link href={`/admin/customers/${customer.id}`}>
+                                                    <Link prefetch={false}  href={`/admin/customers/${customer.id}`}>
                                                         <Eye className="w-3.5 h-3.5" />
                                                     </Link>
                                                 </Button>
@@ -268,7 +268,7 @@ export default async function AdminCustomersPage({
                             asChild={page > 1}
                             className="h-8 w-8 rounded-lg border-gray-100 bg-white hover:bg-red-50 hover:text-red-600 transition-colors"
                         >
-                            <Link href={`?page=${page - 1}&q=${query}&sort=${sortField}&order=${sortOrder}&pageSize=${pageSize}`}>
+                            <Link prefetch={false}  href={`?page=${page - 1}&q=${query}&sort=${sortField}&order=${sortOrder}&pageSize=${pageSize}`}>
                                 <ChevronLeft className="w-4 h-4" />
                             </Link>
                         </Button>
@@ -290,7 +290,7 @@ export default async function AdminCustomersPage({
                                         {page === p ? (
                                             <span>{p}</span>
                                         ) : (
-                                            <Link href={`?page=${p}&q=${query}&sort=${sortField}&order=${sortOrder}&pageSize=${pageSize}`}>
+                                            <Link prefetch={false}  href={`?page=${p}&q=${query}&sort=${sortField}&order=${sortOrder}&pageSize=${pageSize}`}>
                                                 {p}
                                             </Link>
                                         )}
@@ -308,7 +308,7 @@ export default async function AdminCustomersPage({
                             asChild={page < totalPages}
                             className="h-8 w-8 rounded-lg border-gray-100 bg-white hover:bg-red-50 hover:text-red-600 transition-colors"
                         >
-                            <Link href={`?page=${page + 1}&q=${query}&sort=${sortField}&order=${sortOrder}&pageSize=${pageSize}`}>
+                            <Link prefetch={false}  href={`?page=${page + 1}&q=${query}&sort=${sortField}&order=${sortOrder}&pageSize=${pageSize}`}>
                                 <ChevronRight className="w-4 h-4" />
                             </Link>
                         </Button>

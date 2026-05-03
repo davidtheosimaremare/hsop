@@ -276,7 +276,7 @@ export default function NotificationsPage() {
 
                             {selectedNotification.link && (
                                 <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                                    <Link
+                                    <Link prefetch={false} 
                                         href={selectedNotification.link}
                                         className="flex items-center justify-between text-sm text-blue-700 hover:text-blue-800"
                                     >

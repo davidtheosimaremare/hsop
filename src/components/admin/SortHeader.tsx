@@ -25,7 +25,7 @@ export default function SortHeader({ title, field, className }: SortHeaderProps)
     params.set("order", nextOrder);
 
     return (
-        <Link
+        <Link prefetch={false} 
             href={`?${params.toString()}`}
             className={cn("flex items-center gap-1 group transition-colors", className)}
         >

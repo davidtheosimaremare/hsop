@@ -117,7 +117,7 @@ export default function CartPageClient() {
             {cartItems.length === 0 ? (
                 <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
                     <p className="text-gray-500 mb-4">Keranjang Anda kosong</p>
-                    <Link href="/pencarian">
+                    <Link prefetch={false}  href="/pencarian">
                         <Button className="bg-red-600 hover:bg-red-700 text-white">
                             Mulai Belanja
                         </Button>

@@ -58,7 +58,7 @@ export default function ProductCard({ product }: ProductCardProps) {
     return (
         <div className="group bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow flex flex-col">
             {/* Product Image */}
-            <Link href={`/produk/${getProductSlug(product as any)}`} className="block relative">
+            <Link prefetch={false}  href={`/produk/${getProductSlug(product as any)}`} className="block relative">
                 <div className="aspect-square bg-white relative p-2">
                     {product.image ? (
                         <Image
@@ -80,7 +80,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
             {/* Product Info */}
             <div className="p-3 flex-1 flex flex-col">
-                <Link href={`/produk/${getProductSlug(product as any)}`} className="block mb-1">
+                <Link prefetch={false}  href={`/produk/${getProductSlug(product as any)}`} className="block mb-1">
                     <h3 className="text-sm font-medium text-gray-900 line-clamp-2 group-hover:text-red-600 transition-colors" title={product.name}>
                         {product.name}
                     </h3>

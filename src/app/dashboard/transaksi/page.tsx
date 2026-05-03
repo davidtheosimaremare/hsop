@@ -56,7 +56,7 @@ function EmptyState({
             <p className="text-sm text-gray-500 text-center max-w-md mb-6">
                 {description}
             </p>
-            <Link href="/pencarian">
+            <Link prefetch={false}  href="/pencarian">
                 <Button className="bg-red-600 hover:bg-red-700 text-white px-6">
                     Mulai Belanja
                 </Button>
@@ -382,7 +382,7 @@ export default function TransaksiPage() {
                                                     </Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end" className="w-40 rounded-xl shadow-xl border-gray-100">
-                                                    <Link href={`/dashboard/transaksi/${getTransactionSlug(q)}`}>
+                                                    <Link prefetch={false}  href={`/dashboard/transaksi/${getTransactionSlug(q)}`}>
                                                         <DropdownMenuItem className="gap-2 cursor-pointer font-medium py-2">
                                                             <Eye className="w-4 h-4" /> Detail
                                                         </DropdownMenuItem>

@@ -82,12 +82,12 @@ export default function VendorDashboard() {
                 
                 <div className="flex gap-2">
                     <Button variant="outline" size="sm" className="h-9 rounded-xl border-slate-200 font-bold text-[11px] uppercase tracking-wider" asChild>
-                        <Link href="/vendor/products">
+                        <Link prefetch={false}  href="/vendor/products">
                            <Search className="h-3.5 w-3.5 mr-2" /> Cari
                         </Link>
                     </Button>
                     <Button size="sm" className="h-9 rounded-xl bg-teal-600 hover:bg-teal-700 font-bold text-[11px] uppercase tracking-wider shadow-lg shadow-teal-600/10" asChild>
-                        <Link href="/vendor/products/new">
+                        <Link prefetch={false}  href="/vendor/products/new">
                            <Plus className="h-3.5 w-3.5 mr-2" /> Tambah Produk
                         </Link>
                     </Button>
@@ -124,7 +124,7 @@ export default function VendorDashboard() {
                                 <ShoppingBag className="h-4 w-4 text-teal-600" />
                                 Update Produk Terakhir
                             </h2>
-                            <Link href="/vendor/products" className="text-[10px] font-black text-teal-600 uppercase hover:underline flex items-center">
+                            <Link prefetch={false}  href="/vendor/products" className="text-[10px] font-black text-teal-600 uppercase hover:underline flex items-center">
                                 Semua <ArrowRight className="ml-1 h-3 w-3" />
                             </Link>
                         </div>
