@@ -98,25 +98,25 @@ export default function CategorySection({ categories = [], title = "Apa yang And
                                 className="group flex flex-col items-center text-center"
                             >
                                 {/* Icon/Image Container */}
-                                <div className="w-full aspect-square bg-white rounded-xl md:rounded-2xl flex items-center justify-center mb-2 transition-colors duration-200 overflow-hidden border border-gray-100 group-hover:border-red-100 relative shadow-sm">
+                                <div className="w-[85%] sm:w-[80%] md:w-[75%] aspect-square bg-white rounded-2xl md:rounded-[1.25rem] flex items-center justify-center mb-2 md:mb-3 transition-all duration-300 overflow-hidden border border-gray-100 group-hover:border-red-200 group-hover:shadow-md relative shadow-sm">
                                     {isImageUrl ? (
                                         <div className="relative w-full h-full flex items-center justify-center">
                                             <Image
                                                 src={category.image!}
                                                 alt={category.name}
                                                 fill
-                                                className="object-contain"
-                                                sizes="(max-width: 768px) 48px, 64px"
+                                                className="object-contain p-3 md:p-4"
+                                                sizes="(max-width: 768px) 64px, 96px"
                                             />
                                         </div>
                                     ) : (
-                                        <div className="relative w-12 h-12 md:w-14 md:h-14 flex items-center justify-center">
-                                            <IconComponent className="w-8 h-8 md:w-10 md:h-10 text-gray-400 group-hover:text-red-600 transition-colors duration-200" />
+                                        <div className="relative w-full h-full flex items-center justify-center">
+                                            <IconComponent className="w-7 h-7 md:w-10 md:h-10 text-gray-400 group-hover:text-red-600 transition-colors duration-200" />
                                         </div>
                                     )}
                                 </div>
                                 {/* Label */}
-                                <span className="text-[10px] md:text-xs text-gray-600 group-hover:text-red-600 font-medium transition-colors duration-200 leading-tight line-clamp-2">
+                                <span className="text-[11px] md:text-xs text-gray-700 group-hover:text-red-600 font-semibold transition-colors duration-200 leading-tight line-clamp-2 px-1">
                                     {category.name}
                                 </span>
                             </motion.a>
