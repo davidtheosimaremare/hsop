@@ -145,6 +145,40 @@ export async function fetchAllProducts(): Promise<AccurateProduct[]> {
     return allProducts;
 }
 
+export async function fetchSingleProduct(itemNo: string): Promise<AccurateProduct | null> {
+    const host = process.env.ACCURATE_API_HOST || "https://zeus.accurate.id";
+    const endpoint = `${host}/accurate/api/item/list.do`;
+    const url = new URL(endpoint);
+
+    const fields = [
+        'id', 'no', 'name', 'itemType',
+        'unitPrice', 'availableToSell', 'itemCategory', 'itemBrand'
+    ].join(',');
+
+    url.searchParams.append('fields', fields);
+    url.searchParams.append('filter.keywords', itemNo);
+
+    try {
+        const headers = await generateAccurateAuthHeaders();
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: headers as HeadersInit,
+            cache: 'no-store' // Bypass cache for real-time single fetch
+        });
+
+        if (!response.ok) return null;
+        const result = await response.json();
+        if (!result.s || !result.d || result.d.length === 0) return null;
+
+        // Find the exact match
+        const product = result.d.find((p: any) => p.no === itemNo);
+        return product || null;
+    } catch (err) {
+        console.error(`Failed to fetch single product ${itemNo}`, err);
+        return null;
+    }
+}
+
 // --- Customer Logic ---
 
 export interface AccurateCustomer {

@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { fetchAllProducts } from "@/lib/accurate";
+import { fetchAllProducts, fetchSingleProduct } from "@/lib/accurate";
 import { revalidatePath } from "next/cache";
 
 export async function syncProductsAction() {
@@ -134,8 +134,7 @@ export async function syncProductsAction() {
 export async function syncSingleProductAction(itemNo: string) {
     try {
         console.log(`Syncing single product: ${itemNo}`);
-        const accurateProducts = await fetchAllProducts(); // Still fetching all for now, but will filter
-        const ap = accurateProducts.find(p => p.no === itemNo);
+        const ap = await fetchSingleProduct(itemNo);
 
         if (!ap) {
             console.error(`Product ${itemNo} not found in Accurate during sync.`);
