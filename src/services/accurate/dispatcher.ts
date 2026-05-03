@@ -1,6 +1,7 @@
 import { AccurateWebhookEvent, AccurateWebhookPayload } from "./types";
 import { handleItemWebhook, handleCustomerWebhook, handleItemQuantityWebhook } from "./handlers/master-data";
 import { handleSalesOrderWebhook, handleDeliveryOrderWebhook } from "./handlers/sales";
+import { revalidatePath } from "next/cache";
 
 export async function dispatchWebhook(payload: AccurateWebhookPayload) {
     const results = [];
@@ -30,6 +31,13 @@ export async function dispatchWebhook(payload: AccurateWebhookPayload) {
                 result = { success: true, message: `No handler for ${event.type}` };
         }
         results.push(result);
+    }
+
+    // SAPU BERSIH SEMUA CACHE WEBSITE APAPUN TIPE WEBHOOKNYA!
+    try {
+        revalidatePath("/", "layout");
+    } catch (e) {
+        console.error("Gagal clear cache di dispatcher:", e);
     }
 
     return results;
