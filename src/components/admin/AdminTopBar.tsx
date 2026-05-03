@@ -18,6 +18,7 @@ import {
     Settings,
     ChevronDown,
     Zap,
+    Globe,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { id as localeId } from "date-fns/locale";
@@ -247,6 +248,17 @@ export default function AdminTopBar() {
 
             {/* Right side actions */}
             <div className="flex items-center gap-2 ml-auto">
+                {/* Ke Website Utama */}
+                <a
+                    href="https://shop.hokiindo.co.id"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Buka Website"
+                    className="relative w-9 h-9 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"
+                >
+                    <Globe className="w-[18px] h-[18px]" />
+                </a>
+
                 {/* Clear Cache Button */}
                 <button
                     onClick={handlePurgeCache}
