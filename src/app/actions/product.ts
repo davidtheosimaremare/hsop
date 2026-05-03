@@ -170,9 +170,7 @@ export async function syncSingleProductAction(itemNo: string) {
             }
         });
 
-        revalidatePath(`/produk/${ap.sku}`);
-        revalidatePath("/pencarian");
-        // revalidatePath moved to caller (processQueueAction)
+        revalidatePath("/", "layout"); // CLEAR SELURUH CACHE WEBSITE SEKETIKA
 
         return { success: true, message: `Synced ${itemNo}` };
     } catch (error: any) {
