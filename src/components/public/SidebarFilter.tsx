@@ -1,15 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronRight, ChevronDown, Zap, CircleDot, Activity } from "lucide-react";
+import { useState, useTransition } from "react";
+import { ChevronRight, ChevronDown, Zap, CircleDot, Activity, Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-interface Category {
-    id: string;
-    name: string;
-    alias: string | null;
-    children: Category[];
-}
-
 interface Category {
     id: string;
     name: string;
@@ -48,6 +41,7 @@ export default function SidebarFilter({ categories, brands, specFilters }: Sideb
     const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
     const [showAllAmperes, setShowAllAmperes] = useState(false);
     const [showAllKA, setShowAllKA] = useState(false);
+    const [isPending, startTransition] = useTransition();
 
     const hasActiveFilters = currentCategory || currentBrand || currentPole || currentAmpere || currentKA;
 
@@ -60,7 +54,9 @@ export default function SidebarFilter({ categories, brands, specFilters }: Sideb
         }
         params.set("page", "1"); // Reset to page 1
 
-        router.push(`/pencarian?${params.toString()}`);
+        startTransition(() => {
+            router.push(`/pencarian?${params.toString()}`);
+        });
     };
 
     const handleCategoryClick = (categoryName: string) => {
@@ -78,7 +74,9 @@ export default function SidebarFilter({ categories, brands, specFilters }: Sideb
         params.delete("breakingCapacity");
         
         params.set("page", "1"); // Reset to page 1
-        router.push(`/pencarian?${params.toString()}`);
+        startTransition(() => {
+            router.push(`/pencarian?${params.toString()}`);
+        });
     };
 
     const handleBrandClick = (brandName: string) => {
@@ -114,8 +112,13 @@ export default function SidebarFilter({ categories, brands, specFilters }: Sideb
         : [];
 
     return (
-        <aside className="hidden lg:block w-64 flex-shrink-0 sticky top-36 self-start max-h-[calc(100vh-10rem)] overflow-y-auto custom-scrollbar">
-            <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-6">
+        <aside className={`hidden lg:block w-64 flex-shrink-0 sticky top-36 self-start max-h-[calc(100vh-10rem)] overflow-y-auto custom-scrollbar transition-all duration-300 ${isPending ? 'opacity-50 pointer-events-none' : ''}`}>
+            <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-6 relative">
+                {isPending && (
+                    <div className="absolute top-4 right-4 z-10 bg-white/80 rounded-full p-1 shadow-sm">
+                        <Loader2 className="w-4 h-4 animate-spin text-red-600" />
+                    </div>
+                )}
 
                 {/* Categories Section */}
                 <div>
