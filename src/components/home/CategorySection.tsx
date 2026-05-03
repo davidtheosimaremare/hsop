@@ -30,6 +30,8 @@ interface CategoryGridItem {
 
 interface CategorySectionProps {
     categories?: CategoryGridItem[];
+    title?: string;
+    hideViewAll?: boolean;
 }
 
 // Icon mapping
@@ -49,26 +51,28 @@ const ICON_MAP: Record<string, any> = {
     "Battery": Battery,
 };
 
-export default function CategorySection({ categories = [] }: CategorySectionProps) {
+export default function CategorySection({ categories = [], title = "Apa yang Anda cari?", hideViewAll = false }: CategorySectionProps) {
     if (!categories || categories.length === 0) {
         return null;
     }
 
     return (
-        <section className="w-full bg-white py-6 md:py-8">
+        <section className="w-full bg-white py-6 md:py-8 border-b border-gray-100 last:border-0">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-6">
                     <h2 className="text-lg md:text-xl font-semibold text-gray-900">
-                        Apa yang Anda cari?
+                        {title}
                     </h2>
-                    <a
-                        href="/kategori"
-                        className="flex items-center gap-1 text-sm font-medium text-red-600 hover:text-red-700 transition-colors"
-                    >
-                        Lihat Semua Kategori
-                        <ChevronRight className="w-4 h-4" />
-                    </a>
+                    {!hideViewAll && (
+                        <a
+                            href="/kategori"
+                            className="flex items-center gap-1 text-sm font-medium text-red-600 hover:text-red-700 transition-colors"
+                        >
+                            Lihat Semua Kategori
+                            <ChevronRight className="w-4 h-4" />
+                        </a>
+                    )}
                 </div>
 
                 {/* Categories Grid */}

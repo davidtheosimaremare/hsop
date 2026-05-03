@@ -15,6 +15,9 @@ const PromoBanners = dynamic(() => import("@/components/home/PromoBanners"), {
 const NewsSection = dynamic(() => import("@/components/home/NewsSection"), {
   loading: () => <div className="h-96 animate-pulse bg-gray-100" />
 });
+const ReadyStockCarousel = dynamic(() => import("@/components/home/ReadyStockCarousel"), {
+  loading: () => <div className="h-64 animate-pulse bg-gray-100" />
+});
 
 import { getSiteSetting } from "@/app/actions/settings";
 import { getLatestNews } from "@/app/actions/news";
@@ -42,14 +45,57 @@ function getActiveBanners() {
     );
 }
 
+function getReadyStockProtection() {
+    return memoryCache.getOrFetch('ready-stock-protection', () =>
+        db.product.findMany({
+            where: { 
+                availableToSell: { gt: 0 },
+                isVisible: true,
+                OR: [
+                    { category: { contains: 'MCB', mode: 'insensitive' } },
+                    { category: { contains: 'MCCB', mode: 'insensitive' } },
+                    { category: { contains: 'Contactor', mode: 'insensitive' } },
+                    { category: { contains: 'Relay', mode: 'insensitive' } },
+                    { brand: { contains: 'Siemens', mode: 'insensitive' } }
+                ]
+            },
+            take: 12,
+            orderBy: { availableToSell: 'desc' }
+        }),
+        1800
+    );
+}
+
+function getReadyStockLighting() {
+    return memoryCache.getOrFetch('ready-stock-lighting', () =>
+        db.product.findMany({
+            where: { 
+                availableToSell: { gt: 0 },
+                isVisible: true,
+                OR: [
+                    { category: { contains: 'Lampu', mode: 'insensitive' } },
+                    { category: { contains: 'LED', mode: 'insensitive' } },
+                    { category: { contains: 'Lighting', mode: 'insensitive' } },
+                    { brand: { contains: 'Philips', mode: 'insensitive' } }
+                ]
+            },
+            take: 12,
+            orderBy: { availableToSell: 'desc' }
+        }),
+        1800
+    );
+}
+
 export default async function Home() {
   // Fetch everything in one go
-  const [savedGridSettings, clientProjects, latestNews, activeBanners, companyDetails] = await Promise.all([
+  const [savedGridSettings, clientProjects, latestNews, activeBanners, companyDetails, rsProtection, rsLighting] = await Promise.all([
     getSiteSetting("homepage_grid_categories"),
     getClientProjects(),
     getLatestNews(4),
     getActiveBanners(),
     getSiteSetting("company_details") as Promise<any>,
+    getReadyStockProtection(),
+    getReadyStockLighting()
   ]);
 
   let gridCategories: any[] = [];
@@ -80,6 +126,29 @@ export default async function Home() {
         .filter(Boolean);
     }
   }
+
+  // Split categories into logical groups
+  const siemensKeywords = ["mcb", "mccb", "acb", "rcbo", "contactor", "relay", "inverter", "vsd", "soft starter", "plc", "hmi", "saklar", "stop kontak", "siemens", "sirius", "sentron"];
+  const lightingKeywords = ["lampu", "led", "downlight", "tube", "bulb", "philips", "osram", "lighting", "sorot", "jalan", "armatur"];
+  const busbarKeywords = ["busbar", "aksesoris", "kabel", "konektor", "skun", "isolasi"];
+
+  const protectionCats: any[] = [];
+  const lightingCats: any[] = [];
+  const busbarCats: any[] = [];
+  const otherCats: any[] = [];
+
+  gridCategories.forEach(cat => {
+      const nameLower = cat.name.toLowerCase();
+      if (lightingKeywords.some(k => nameLower.includes(k))) {
+          lightingCats.push(cat);
+      } else if (busbarKeywords.some(k => nameLower.includes(k))) {
+          busbarCats.push(cat);
+      } else if (siemensKeywords.some(k => nameLower.includes(k))) {
+          protectionCats.push(cat);
+      } else {
+          otherCats.push(cat);
+      }
+  });
 
   // === JSON-LD Structured Data for Google ===
   const siteName = companyDetails?.siteTitle || companyDetails?.name || "Hokiindoshop";
@@ -142,9 +211,16 @@ export default async function Home() {
       <SiteHeader />
       <HeroSlider banners={activeBanners} />
       <Suspense fallback={<div className="h-64 flex items-center justify-center"><div className="w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin" /></div>}>
-        <CategorySection categories={gridCategories} />
-        <ClientPortfolioSection projects={clientProjects} />
+        <CategorySection categories={protectionCats} title="Electrical, Protection & Control" hideViewAll={false} />
+        <CategorySection categories={lightingCats} title="Lighting & Tata Cahaya" hideViewAll={true} />
+        <CategorySection categories={busbarCats} title="Busbar & Aksesoris Instalasi" hideViewAll={true} />
+        <CategorySection categories={otherCats} title="Kategori Lainnya" hideViewAll={true} />
+        
+        <ReadyStockCarousel title="Siemens Ready Stock" subtitle="Peralatan listrik dan kontrol industri siap kirim hari ini." products={rsProtection} />
+        <ReadyStockCarousel title="Lighting Ready Stock" subtitle="Koleksi lampu Philips dan lainnya, langsung tersedia." products={rsLighting} />
+        
         <PromoBanners />
+        <ClientPortfolioSection projects={clientProjects} />
         <NewsSection news={latestNews} />
       </Suspense>
       <Footer />
