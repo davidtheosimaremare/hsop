@@ -54,38 +54,39 @@ export default function ProductGridSection({
                     </Link>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 lg:gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 lg:gap-8 items-stretch">
                     {/* Featured Column (Banner or Larger Product) */}
-                    <div className="lg:col-span-5 xl:col-span-4 h-full">
+                    <div className="lg:col-span-5 xl:col-span-4 flex flex-col">
                         {bannerImage ? (
-                            /* Custom Banner Layout - Matching Grid Height */
-                            <div className="h-full min-h-[400px] lg:min-h-0">
+                            /* Custom Banner Layout - Focused on Image Quality and Alignment */
+                            <div className="flex-1 min-h-[450px] lg:min-h-0 relative group">
                                 <Link 
                                     href={bannerLink || viewAllLink}
-                                    className="group block relative h-full rounded-2xl md:rounded-3xl overflow-hidden border border-gray-100 shadow-xl hover:shadow-red-500/10 hover:border-red-100 transition-all duration-700"
+                                    className="block relative h-full rounded-2xl overflow-hidden border border-gray-100 shadow-xl hover:shadow-red-500/10 hover:border-red-100 transition-all duration-700 bg-white"
                                 >
                                     <Image
                                         src={bannerImage}
                                         alt={title}
                                         fill
-                                        className="object-cover group-hover:scale-110 transition-transform duration-1000 ease-out"
-                                        sizes="(max-width: 1024px) 100vw, 450px"
+                                        className="object-cover object-top group-hover:scale-105 transition-transform duration-1000 ease-out"
+                                        sizes="(max-width: 1024px) 100vw, 500px"
                                         priority
+                                        unoptimized={true} // Avoid pixelation from Next.js optimization on new assets
                                     />
-                                    {/* Sophisticated Overlay */}
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-70 group-hover:opacity-80 transition-opacity duration-500" />
+                                    {/* Subtle Bottom Overlay only for readability */}
+                                    <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-80 group-hover:opacity-90 transition-opacity duration-500" />
                                     
                                     <div className="absolute inset-0 flex flex-col justify-end p-6 md:p-8">
-                                        <div className="transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
+                                        <div className="transform translate-y-2 group-hover:translate-y-0 transition-transform duration-500">
                                             <div className="flex items-center gap-2 mb-2">
                                                 <span className="w-6 h-px bg-red-500"></span>
-                                                <span className="text-[9px] font-black uppercase tracking-[0.3em] text-red-500">Featured</span>
+                                                <span className="text-[9px] font-black uppercase tracking-[0.3em] text-red-500">Official Banner</span>
                                             </div>
-                                            <h3 className="text-2xl md:text-3xl font-black text-white leading-none uppercase tracking-tighter mb-4">
+                                            <h3 className="text-2xl md:text-3xl font-black text-white leading-none uppercase tracking-tighter mb-4 drop-shadow-md">
                                                 {title}
                                             </h3>
                                             <div className="flex items-center gap-3">
-                                                <span className="px-4 py-2 bg-white text-black text-[10px] font-black uppercase tracking-widest rounded-full group-hover:bg-red-600 group-hover:text-white transition-colors duration-300">
+                                                <span className="px-4 py-2 bg-white text-black text-[10px] font-black uppercase tracking-widest rounded-full group-hover:bg-red-600 group-hover:text-white transition-colors duration-300 shadow-lg">
                                                     Shop Collection
                                                 </span>
                                             </div>
@@ -95,7 +96,7 @@ export default function ProductGridSection({
                             </div>
                         ) : (
                             /* Default Featured Product Card */
-                            <div className="group h-full bg-white rounded-2xl md:rounded-3xl border border-gray-100 overflow-hidden hover:shadow-2xl hover:border-red-100 transition-all duration-700 flex flex-col relative shadow-sm h-full">
+                            <div className="group bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-2xl hover:border-red-100 transition-all duration-700 flex flex-col relative shadow-sm h-full">
                                 <div className="absolute top-6 left-6 z-10">
                                     <span className="bg-red-600 text-white text-[10px] font-black px-4 py-2 rounded-xl uppercase tracking-[0.2em] shadow-xl shadow-red-200">
                                         Hot Item
@@ -104,14 +105,14 @@ export default function ProductGridSection({
 
                                 <Link 
                                     href={`/produk/${getProductSlug(featuredProduct)}`} 
-                                    className="block relative aspect-square bg-white overflow-hidden p-6 md:p-8"
+                                    className="block relative aspect-square bg-white overflow-hidden p-6"
                                 >
                                     {featuredProduct.image ? (
                                         <Image
                                             src={featuredProduct.image}
                                             alt={featuredProduct.name}
                                             fill
-                                            className="object-contain p-8 md:p-12 group-hover:scale-110 transition-transform duration-700 ease-out"
+                                            className="object-contain p-8 group-hover:scale-110 transition-transform duration-700 ease-out"
                                             sizes="(max-width: 1024px) 100vw, 400px"
                                         />
                                     ) : (
