@@ -179,8 +179,29 @@ export default async function Home() {
     getSiteSetting("homepage_banner_lighting")
   ]);
 
-  // Mix products for better homepage variety
-  const mixedProtection = mixProducts(rsProtection, ['ACB', 'MCCB', 'MCB', 'RCBO']);
+  // 1. Fetch specific protection products requested by user
+  const protectionSkus = [
+    '3WA1106-3CE62-0AA0',
+    '5SL4110-7CC',
+    '3VA1116-6EE36-0AA0',
+    '5SV5342-0',
+    '5SU9356-1KK16',
+    '7KM3220-0BA01-1DA0'
+  ];
+
+  const specificProtection = await db.product.findMany({
+    where: { 
+        sku: { in: protectionSkus },
+        isVisible: true
+    }
+  });
+
+  // Sort them to match the user's requested order
+  const orderedProtection = protectionSkus
+    .map(sku => specificProtection.find(p => p.sku === sku))
+    .filter(Boolean);
+
+  // Mix products for other sections
   const mixedControl = mixProducts(rsControl, ['Contactor', 'PLC', 'Relay', 'VSD', 'Starter']);
   const mixedLighting = mixProducts(rsLighting, ['LED', 'Lampu', 'Philips', 'Downlight']);
 
@@ -281,7 +302,7 @@ export default async function Home() {
                 title="Proteksi" 
                 subtitle="Solusi proteksi kelistrikan Siemens untuk keamanan instalasi industri dan bangunan Anda."
                 viewAllLink="/pencarian?q=&category=Protection" 
-                products={mixedProtection} 
+                products={orderedProtection as any} 
                 bannerImage={protectionBanner}
             />
             <ProductGridSection 
