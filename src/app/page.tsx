@@ -118,11 +118,20 @@ function mixProducts(products: any[], keywordGroups: string[], limit: number = 7
 
   // 1. First Pass: Take at least one from each keyword group if available
   keywordGroups.forEach(keyword => {
-    const match = products.find(p => 
-      !usedIds.has(p.id) && 
-      (p.name?.toLowerCase().includes(keyword.toLowerCase()) || 
-       p.category?.toLowerCase().includes(keyword.toLowerCase()))
-    );
+    const match = products.find(p => {
+      if (usedIds.has(p.id)) return false;
+      
+      const name = p.name?.toLowerCase() || '';
+      const cat = p.category?.toLowerCase() || '';
+      const kw = keyword.toLowerCase();
+      
+      // Special logic for ACB: exclude ACC (Accessories)
+      if (kw === 'acb') {
+        return name.includes('acb') && !name.includes('acc') && !name.includes('accessory');
+      }
+      
+      return name.includes(kw) || cat.includes(kw);
+    });
     
     if (match) {
       result.push(match);

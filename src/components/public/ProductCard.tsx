@@ -59,15 +59,15 @@ export default function ProductCard({ product, variant = 'default' }: ProductCar
     if (variant === 'compact') {
         return (
             <div className="group bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-lg transition-all duration-300 flex flex-col h-full shadow-sm min-h-0">
-                {/* Product Image - Flexible */}
+                {/* Product Image - Flexible & Larger */}
                 <Link prefetch={false} href={`/produk/${getProductSlug(product as any)}`} className="block relative flex-1 min-h-0">
-                    <div className="h-full w-full bg-white relative p-3 md:p-4 group-hover:bg-gray-50/50 transition-colors">
+                    <div className="h-full w-full bg-white relative p-2 group-hover:bg-gray-50/50 transition-colors">
                         {product.image ? (
                             <Image
                                 src={product.image}
                                 alt={product.name}
                                 fill
-                                className="object-contain p-2 group-hover:scale-110 transition-transform duration-500"
+                                className="object-contain p-1 group-hover:scale-110 transition-transform duration-500"
                                 sizes="(max-width: 768px) 50vw, 200px"
                             />
                         ) : (
@@ -90,7 +90,7 @@ export default function ProductCard({ product, variant = 'default' }: ProductCar
                     <p className="text-[9px] text-gray-400 mb-2 font-medium tracking-tight">SKU: {product.sku}</p>
 
                     <div className="mt-auto">
-                        <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center justify-between">
                             <div className="flex flex-col">
                                 {priceInfo.hasDiscount ? (
                                     <>
@@ -120,22 +120,6 @@ export default function ProductCard({ product, variant = 'default' }: ProductCar
                                 {isAdded ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
                             </button>
                         </div>
-
-                        {/* Stock Badge - Extra Mini */}
-                        <div className="flex flex-wrap gap-1">
-                            {product.availableToSell > 0 ? (
-                                <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-tighter border ${product.availableToSell > 5
-                                    ? 'bg-green-50 text-green-600 border-green-100'
-                                    : 'bg-amber-50 text-amber-700 border-amber-100'
-                                    }`}>
-                                    Ready: {product.availableToSell}
-                                </span>
-                            ) : (
-                                <span className="text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-tighter bg-red-50 text-red-600 border border-red-100">
-                                    Indent
-                                </span>
-                            )}
-                        </div>
                     </div>
                 </div>
             </div>
@@ -144,16 +128,16 @@ export default function ProductCard({ product, variant = 'default' }: ProductCar
 
     // Default Variant (Normal Layout)
     return (
-        <div className="group bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow flex flex-col">
-            {/* Product Image */}
+        <div className="group bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow flex flex-col h-full">
+            {/* Product Image - Larger */}
             <Link prefetch={false} href={`/produk/${getProductSlug(product as any)}`} className="block relative">
-                <div className="aspect-square bg-white relative p-2">
+                <div className="aspect-square bg-white relative p-1">
                     {product.image ? (
                         <Image
                             src={product.image}
                             alt={product.name}
                             fill
-                            className="object-contain p-2"
+                            className="object-contain p-2 group-hover:scale-105 transition-transform duration-500"
                             sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
                         />
                     ) : (
@@ -176,7 +160,7 @@ export default function ProductCard({ product, variant = 'default' }: ProductCar
                 <p className="text-[10px] text-gray-400 mb-2">SKU: {product.sku}</p>
 
                 <div className="mt-auto">
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between">
                         <div className="flex flex-col">
                             {priceInfo.hasDiscount ? (
                                 <>
@@ -205,23 +189,6 @@ export default function ProductCard({ product, variant = 'default' }: ProductCar
                         >
                             {isAdded ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                         </button>
-                    </div>
-
-                    {/* Badges */}
-                    <div className="flex flex-wrap gap-1">
-                        {product.availableToSell > 5 ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-50 text-green-600 border border-green-200">
-                                Stock: {product.availableToSell} Unit
-                            </span>
-                        ) : product.availableToSell > 0 ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                                Stock: {product.availableToSell} Unit
-                            </span>
-                        ) : (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-200">
-                                Indent
-                            </span>
-                        )}
                     </div>
                 </div>
             </div>
