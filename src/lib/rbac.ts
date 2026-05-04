@@ -452,6 +452,7 @@ export const sidebarMenuItems = [
       { title: "Kategori Dropdown", href: "/admin/settings/categories-menu", icon: "ListTree", requiredPermission: "categories_menu:manage" },
       { title: "Home CTA", href: "/admin/settings/cta", icon: "LayoutTemplate", requiredPermission: "cta:manage" },
       { title: "Grid Kategori", href: "/admin/settings/grid-categories", icon: "LayoutDashboard", requiredPermission: "grid_categories:manage" },
+      { title: "Section Homepage", href: "/admin/settings/sections", icon: "LayoutTemplate", requiredPermission: "sections:manage" },
       { title: "Saran Pencarian", href: "/admin/settings/search", icon: "Search", requiredPermission: "search:manage" },
       { title: "Portfolio", href: "/admin/settings/portfolio", icon: "Briefcase", requiredPermission: "portfolio:manage" },
       { title: "Footer", href: "/admin/settings/footer", icon: "LayoutTemplate", requiredPermission: "footer:manage" },
