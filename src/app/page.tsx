@@ -59,7 +59,7 @@ function getReadyStockProtection() {
                     { category: { contains: 'Proteksi', mode: 'insensitive' } }
                 ]
             },
-            take: 10,
+            take: 50,
             orderBy: { availableToSell: 'desc' }
         }),
         1800
@@ -109,6 +109,39 @@ function getReadyStockLighting() {
     );
 }
 
+// Helper to mix products from different sub-categories to avoid one type dominating the list
+function mixProducts(products: any[], keywordGroups: string[], limit: number = 7) {
+  if (!products || products.length === 0) return [];
+  
+  const result: any[] = [];
+  const usedIds = new Set<string>();
+
+  // 1. First Pass: Take at least one from each keyword group if available
+  keywordGroups.forEach(keyword => {
+    const match = products.find(p => 
+      !usedIds.has(p.id) && 
+      (p.name?.toLowerCase().includes(keyword.toLowerCase()) || 
+       p.category?.toLowerCase().includes(keyword.toLowerCase()))
+    );
+    
+    if (match) {
+      result.push(match);
+      usedIds.add(match.id);
+    }
+  });
+
+  // 2. Second Pass: Fill the remaining slots with the highest stock items regardless of group
+  for (const p of products) {
+    if (result.length >= limit) break;
+    if (!usedIds.has(p.id)) {
+      result.push(p);
+      usedIds.add(p.id);
+    }
+  }
+
+  return result;
+}
+
 export default async function Home() {
   // Fetch everything in one go
   const [
@@ -136,6 +169,11 @@ export default async function Home() {
     getSiteSetting("homepage_banner_control"),
     getSiteSetting("homepage_banner_lighting")
   ]);
+
+  // Mix products for better homepage variety
+  const mixedProtection = mixProducts(rsProtection, ['ACB', 'MCCB', 'MCB', 'RCBO']);
+  const mixedControl = mixProducts(rsControl, ['Contactor', 'PLC', 'Relay', 'VSD', 'Starter']);
+  const mixedLighting = mixProducts(rsLighting, ['LED', 'Lampu', 'Philips', 'Downlight']);
 
   let gridCategories: any[] = [];
 
@@ -234,21 +272,21 @@ export default async function Home() {
                 title="Protection" 
                 subtitle="MCB, MCCB, ACB, RCBO & Electrical Protection"
                 viewAllLink="/pencarian?q=mcb" 
-                products={rsProtection} 
+                products={mixedProtection} 
                 bannerImage={protectionBanner}
             />
             <ProductGridSection 
                 title="Control Product" 
                 subtitle="Contactor, Relay, Inverter, VSD, Soft Starter & PLC"
                 viewAllLink="/pencarian?q=contactor" 
-                products={rsControl} 
+                products={mixedControl} 
                 bannerImage={controlBanner}
             />
             <ProductGridSection 
                 title="Lampu & Tata Cahaya" 
                 subtitle="Philips LED, Downlight, Tube & Industrial Lighting"
                 viewAllLink="/pencarian?q=lampu" 
-                products={rsLighting} 
+                products={mixedLighting} 
                 bannerImage={lightingBanner}
             />
         </div>
