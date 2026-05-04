@@ -147,8 +147,8 @@ export default function ProductGridSection({
 
                     {/* Secondary Grid Column - Matching Banner Height on LG */}
                     <div className="lg:col-span-7 xl:col-span-8">
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 lg:gap-6 lg:aspect-[2/3] lg:grid-rows-2">
-                            {(bannerImage ? products : otherProducts).slice(0, 6).map((product) => (
+                        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 lg:gap-5 lg:aspect-[2/3] lg:grid-rows-2 overflow-hidden">
+                            {(bannerImage ? products : otherProducts).slice(0, 8).map((product) => (
                                 <ProductCard key={product.id} product={product} />
                             ))}
                         </div>
