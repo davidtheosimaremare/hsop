@@ -49,7 +49,7 @@ export default function ProductGridSection({
                         href={viewAllLink}
                         className="inline-flex items-center gap-2 text-sm font-bold text-red-600 hover:text-red-700 transition-all group bg-red-50 px-4 py-2 rounded-full md:bg-transparent md:px-0"
                     >
-                        Explore More 
+                        Lihat Semua 
                         <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                     </Link>
                 </div>
@@ -80,7 +80,7 @@ export default function ProductGridSection({
                                     <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex flex-col justify-end p-8">
                                         <div className="flex items-center gap-3 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
                                             <span className="px-6 py-3 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-xl">
-                                                Explore Collection
+                                                Lihat Koleksi
                                             </span>
                                         </div>
                                     </div>

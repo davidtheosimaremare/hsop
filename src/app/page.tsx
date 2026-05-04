@@ -269,23 +269,23 @@ export default async function Home() {
         
         <div className="bg-gray-50 pb-12">
             <ProductGridSection 
-                title="Protection" 
-                subtitle="MCB, MCCB, ACB, RCBO & Electrical Protection"
-                viewAllLink="/pencarian?q=mcb" 
+                title="Proteksi" 
+                subtitle="Solusi proteksi kelistrikan Siemens untuk keamanan instalasi industri dan bangunan Anda."
+                viewAllLink="/pencarian?q=&category=Protection" 
                 products={mixedProtection} 
                 bannerImage={protectionBanner}
             />
             <ProductGridSection 
-                title="Control Product" 
-                subtitle="Contactor, Relay, Inverter, VSD, Soft Starter & PLC"
-                viewAllLink="/pencarian?q=contactor" 
+                title="Produk Kontrol" 
+                subtitle="Teknologi kontrol presisi untuk otomatisasi mesin dan sistem kelistrikan masa depan."
+                viewAllLink="/pencarian?q=&category=Control+Product" 
                 products={mixedControl} 
                 bannerImage={controlBanner}
             />
             <ProductGridSection 
-                title="Lampu & Tata Cahaya" 
-                subtitle="Philips LED, Downlight, Tube & Industrial Lighting"
-                viewAllLink="/pencarian?q=lampu" 
+                title="Lampu & Pencahayaan" 
+                subtitle="Sistem pencahayaan hemat energi dan estetis untuk kenyamanan ruangan Anda."
+                viewAllLink="/pencarian?q=&category=Lampu" 
                 products={mixedLighting} 
                 bannerImage={lightingBanner}
             />
