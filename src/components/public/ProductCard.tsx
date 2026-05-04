@@ -190,6 +190,23 @@ export default function ProductCard({ product, variant = 'default' }: ProductCar
                             {isAdded ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                         </button>
                     </div>
+
+                    {/* Restore Stock Badges for Default Variant */}
+                    <div className="flex flex-wrap gap-1 mt-2">
+                        {product.availableToSell > 5 ? (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-50 text-green-600 border border-green-200">
+                                Stock: {product.availableToSell} Unit
+                            </span>
+                        ) : product.availableToSell > 0 ? (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                                Stock: {product.availableToSell} Unit
+                            </span>
+                        ) : (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-200">
+                                Indent
+                            </span>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
