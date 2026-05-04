@@ -21,9 +21,10 @@ interface Product {
 
 interface ProductCardProps {
     product: Product;
+    variant?: 'default' | 'compact';
 }
 
-export default function ProductCard({ product }: ProductCardProps) {
+export default function ProductCard({ product, variant = 'default' }: ProductCardProps) {
     const { addItem } = useCart();
     const { getPriceInfo } = usePricing();
     const [isAdded, setIsAdded] = useState(false);
@@ -55,22 +56,109 @@ export default function ProductCard({ product }: ProductCardProps) {
         setTimeout(() => setIsAdded(false), 1500);
     };
 
+    if (variant === 'compact') {
+        return (
+            <div className="group bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-lg transition-all duration-300 flex flex-col h-full shadow-sm min-h-0">
+                {/* Product Image - Flexible */}
+                <Link prefetch={false} href={`/produk/${getProductSlug(product as any)}`} className="block relative flex-1 min-h-0">
+                    <div className="h-full w-full bg-white relative p-3 md:p-4 group-hover:bg-gray-50/50 transition-colors">
+                        {product.image ? (
+                            <Image
+                                src={product.image}
+                                alt={product.name}
+                                fill
+                                className="object-contain p-2 group-hover:scale-110 transition-transform duration-500"
+                                sizes="(max-width: 768px) 50vw, 200px"
+                            />
+                        ) : (
+                            <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
+                                <div className="w-3/4 h-3/4 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-[10px] uppercase tracking-widest">
+                                    No Image
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </Link>
+
+                {/* Product Info - Compact & Non-stretching */}
+                <div className="p-2 md:p-3 flex flex-col bg-white shrink-0">
+                    <Link prefetch={false} href={`/produk/${getProductSlug(product as any)}`} className="block mb-1">
+                        <h3 className="text-[11px] md:text-xs font-bold text-gray-800 line-clamp-2 group-hover:text-red-600 transition-colors leading-tight min-h-[2.5em]" title={product.name}>
+                            {product.name}
+                        </h3>
+                    </Link>
+                    <p className="text-[9px] text-gray-400 mb-2 font-medium tracking-tight">SKU: {product.sku}</p>
+
+                    <div className="mt-auto">
+                        <div className="flex items-center justify-between mb-2">
+                            <div className="flex flex-col">
+                                {priceInfo.hasDiscount ? (
+                                    <>
+                                        {priceInfo.isCustomerDiscount && (
+                                            <p className="text-[9px] text-gray-400 line-through">
+                                                Rp {formatPrice(priceInfo.originalPriceWithPPN)}
+                                            </p>
+                                        )}
+                                        <p className="text-[13px] font-black text-red-600 tracking-tighter">
+                                            Rp {formatPrice(priceInfo.discountedPriceWithPPN)}
+                                        </p>
+                                    </>
+                                ) : (
+                                    <p className="text-[13px] font-black text-red-600 tracking-tighter">
+                                        Rp {formatPrice(priceInfo.originalPriceWithPPN)}
+                                    </p>
+                                )}
+                            </div>
+                            <button
+                                onClick={handleAddToCart}
+                                className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all ${isAdded
+                                    ? 'bg-green-500 text-white'
+                                    : 'bg-red-50 text-red-600 hover:bg-red-600 hover:text-white'
+                                    }`}
+                                title="Tambah ke Keranjang"
+                            >
+                                {isAdded ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                            </button>
+                        </div>
+
+                        {/* Stock Badge - Extra Mini */}
+                        <div className="flex flex-wrap gap-1">
+                            {product.availableToSell > 0 ? (
+                                <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-tighter border ${product.availableToSell > 5
+                                    ? 'bg-green-50 text-green-600 border-green-100'
+                                    : 'bg-amber-50 text-amber-700 border-amber-100'
+                                    }`}>
+                                    Ready: {product.availableToSell}
+                                </span>
+                            ) : (
+                                <span className="text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-tighter bg-red-50 text-red-600 border border-red-100">
+                                    Indent
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // Default Variant (Normal Layout)
     return (
-        <div className="group bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-lg transition-all duration-300 flex flex-col h-full shadow-sm min-h-0">
-            {/* Product Image - Flexible */}
-            <Link prefetch={false}  href={`/produk/${getProductSlug(product as any)}`} className="block relative flex-1 min-h-0">
-                <div className="h-full w-full bg-white relative p-4 group-hover:bg-gray-50/50 transition-colors">
+        <div className="group bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow flex flex-col">
+            {/* Product Image */}
+            <Link prefetch={false} href={`/produk/${getProductSlug(product as any)}`} className="block relative">
+                <div className="aspect-square bg-white relative p-2">
                     {product.image ? (
                         <Image
                             src={product.image}
                             alt={product.name}
                             fill
-                            className="object-contain p-2 group-hover:scale-110 transition-transform duration-500"
-                            sizes="(max-width: 768px) 50vw, 200px"
+                            className="object-contain p-2"
+                            sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
                         />
                     ) : (
                         <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
-                            <div className="w-3/4 h-3/4 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-[10px] uppercase tracking-widest">
+                            <div className="w-3/4 h-3/4 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs">
                                 No Image
                             </div>
                         </div>
@@ -78,14 +166,14 @@ export default function ProductCard({ product }: ProductCardProps) {
                 </div>
             </Link>
 
-            {/* Product Info - Compact & Non-stretching */}
-            <div className="p-2 md:p-3 flex flex-col bg-white shrink-0">
-                <Link prefetch={false}  href={`/produk/${getProductSlug(product as any)}`} className="block mb-1">
-                    <h3 className="text-[11px] md:text-xs font-bold text-gray-800 line-clamp-2 group-hover:text-red-600 transition-colors leading-tight min-h-[2.5em]" title={product.name}>
+            {/* Product Info */}
+            <div className="p-3 flex-1 flex flex-col">
+                <Link prefetch={false} href={`/produk/${getProductSlug(product as any)}`} className="block mb-1">
+                    <h3 className="text-sm font-medium text-gray-900 line-clamp-2 group-hover:text-red-600 transition-colors" title={product.name}>
                         {product.name}
                     </h3>
                 </Link>
-                <p className="text-[9px] text-gray-400 mb-2 font-medium tracking-tight">SKU: {product.sku}</p>
+                <p className="text-[10px] text-gray-400 mb-2">SKU: {product.sku}</p>
 
                 <div className="mt-auto">
                     <div className="flex items-center justify-between mb-2">
@@ -93,44 +181,44 @@ export default function ProductCard({ product }: ProductCardProps) {
                             {priceInfo.hasDiscount ? (
                                 <>
                                     {priceInfo.isCustomerDiscount && (
-                                        <p className="text-[9px] text-gray-400 line-through">
+                                        <p className="text-xs text-gray-400 line-through">
                                             Rp {formatPrice(priceInfo.originalPriceWithPPN)}
                                         </p>
                                     )}
-                                    <p className="text-[13px] font-black text-red-600 tracking-tighter">
+                                    <p className="text-sm font-bold text-red-600">
                                         Rp {formatPrice(priceInfo.discountedPriceWithPPN)}
                                     </p>
                                 </>
                             ) : (
-                                <p className="text-[13px] font-black text-red-600 tracking-tighter">
+                                <p className="text-sm font-bold text-red-600">
                                     Rp {formatPrice(priceInfo.originalPriceWithPPN)}
                                 </p>
                             )}
                         </div>
                         <button
                             onClick={handleAddToCart}
-                            className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all ${isAdded
+                            className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${isAdded
                                 ? 'bg-green-500 text-white'
-                                : 'bg-red-50 text-red-600 hover:bg-red-600 hover:text-white'
+                                : 'bg-red-100 text-red-600 hover:bg-red-600 hover:text-white'
                                 }`}
                             title="Tambah ke Keranjang"
                         >
-                            {isAdded ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                            {isAdded ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                         </button>
                     </div>
 
-                    {/* Stock Badge - Extra Mini */}
+                    {/* Badges */}
                     <div className="flex flex-wrap gap-1">
-                        {product.availableToSell > 0 ? (
-                            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-tighter border ${
-                                product.availableToSell > 5 
-                                ? 'bg-green-50 text-green-600 border-green-100' 
-                                : 'bg-amber-50 text-amber-700 border-amber-100'
-                            }`}>
-                                Ready: {product.availableToSell}
+                        {product.availableToSell > 5 ? (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-50 text-green-600 border border-green-200">
+                                Stock: {product.availableToSell} Unit
+                            </span>
+                        ) : product.availableToSell > 0 ? (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                                Stock: {product.availableToSell} Unit
                             </span>
                         ) : (
-                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-tighter bg-red-50 text-red-600 border border-red-100">
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-200">
                                 Indent
                             </span>
                         )}

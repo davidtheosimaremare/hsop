@@ -56,13 +56,13 @@ export default function ProductGridSection({
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 lg:gap-8 items-stretch">
                     {/* Featured Column (Banner or Larger Product) */}
-                    <div className="lg:col-span-5 xl:col-span-4 flex flex-col">
+                    <div className="lg:col-span-5 xl:col-span-4">
                         {bannerImage ? (
-                            /* Custom Banner Layout - Optimized 3:4 Ratio */
+                            /* Custom Banner Layout - Locked 3:4 Ratio */
                             <div className="relative group h-full">
                                 <Link 
                                     href={bannerLink || viewAllLink}
-                                    className="block relative aspect-[3/4] lg:aspect-auto lg:h-full w-full rounded-2xl overflow-hidden border border-gray-200 shadow-xl hover:shadow-red-500/10 hover:border-red-200 transition-all duration-700 bg-white"
+                                    className="block relative aspect-[3/4] w-full lg:h-full rounded-2xl overflow-hidden border border-gray-200 shadow-xl hover:shadow-red-500/10 hover:border-red-100 transition-all duration-700 bg-white"
                                 >
                                     <Image
                                         src={bannerImage}
@@ -88,7 +88,7 @@ export default function ProductGridSection({
                             </div>
                         ) : (
                             /* Default Featured Product Card */
-                            <div className="group h-full bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-2xl hover:border-red-100 transition-all duration-700 flex flex-col relative shadow-sm">
+                            <div className="group bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-2xl hover:border-red-100 transition-all duration-700 flex flex-col relative shadow-sm h-full">
                                 <div className="absolute top-6 left-6 z-10">
                                     <span className="bg-red-600 text-white text-[10px] font-black px-4 py-2 rounded-xl uppercase tracking-[0.2em] shadow-xl shadow-red-200">
                                         Hot Item
@@ -149,8 +149,8 @@ export default function ProductGridSection({
                     <div className="lg:col-span-7 xl:col-span-8">
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 lg:gap-6 h-full lg:grid-rows-2">
                             {(bannerImage ? products : otherProducts).slice(0, 6).map((product) => (
-                                <div key={product.id} className="min-h-0">
-                                    <ProductCard product={product} />
+                                <div key={product.id} className="min-h-0 h-full">
+                                    <ProductCard product={product} variant="compact" />
                                 </div>
                             ))}
                         </div>
