@@ -80,7 +80,7 @@ export default function ProductGridSection({
                                     <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex flex-col justify-end p-8">
                                         <div className="flex items-center gap-3 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
                                             <span className="px-6 py-3 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-xl">
-                                                Lihat Koleksi
+                                                Lihat Produk
                                             </span>
                                         </div>
                                     </div>
