@@ -58,18 +58,18 @@ export default function ProductGridSection({
                     {/* Featured Column (Banner or Larger Product) */}
                     <div className="lg:col-span-5 xl:col-span-4">
                         {bannerImage ? (
-                            /* Custom Banner Layout - Clean & Precise */
+                            /* Custom Banner Layout - Optimized 3:4 Ratio for better grid alignment */
                             <div className="relative group">
                                 <Link 
                                     href={bannerLink || viewAllLink}
-                                    className="block relative aspect-[2/3] w-full rounded-2xl overflow-hidden border border-gray-200 shadow-xl hover:shadow-red-500/10 hover:border-red-100 transition-all duration-700 bg-white"
+                                    className="block relative aspect-[3/4] w-full rounded-2xl overflow-hidden border border-gray-200 shadow-xl hover:shadow-red-500/10 hover:border-red-100 transition-all duration-700 bg-white"
                                 >
                                     <Image
                                         src={bannerImage}
                                         alt={title}
                                         fill
                                         className="object-cover object-top group-hover:scale-105 transition-transform duration-1000 ease-out"
-                                        sizes="(max-width: 1024px) 100vw, 600px"
+                                        sizes="(max-width: 1024px) 100vw, 500px"
                                         priority
                                         unoptimized={true}
                                     />
@@ -145,10 +145,10 @@ export default function ProductGridSection({
                         )}
                     </div>
 
-                    {/* Secondary Grid Column - Matching Banner Height on LG */}
+                    {/* Secondary Grid Column - Matching Banner Height with 3x2 Grid */}
                     <div className="lg:col-span-7 xl:col-span-8">
-                        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 lg:gap-5 lg:aspect-[2/3] lg:grid-rows-2 overflow-hidden">
-                            {(bannerImage ? products : otherProducts).slice(0, 8).map((product) => (
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 lg:gap-6 lg:aspect-[3/4] lg:grid-rows-2 overflow-hidden">
+                            {(bannerImage ? products : otherProducts).slice(0, 6).map((product) => (
                                 <ProductCard key={product.id} product={product} />
                             ))}
                         </div>
