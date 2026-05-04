@@ -189,6 +189,16 @@ export default async function Home() {
     '7KM3220-0BA01-1DA0'
   ];
 
+  // 2. Fetch specific control products requested by user
+  const controlSkus = [
+    '3RH2140-1BF40',
+    '3MH7922-0CT10',
+    '3MV8100-0NL00',
+    '3UF7010-1AU00-0',
+    '3RB3026-1VB0',
+    '3MU7110-0QA0'
+  ];
+
   // 3. Fetch specific lighting products requested by user
   const lightingSkus = [
     'TL-500-4.2m-D/O',
