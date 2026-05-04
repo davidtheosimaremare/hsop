@@ -216,17 +216,20 @@ export default async function Home() {
         
         <div className="bg-gray-50 pb-12">
             <ProductGridSection 
-                title="Siemens Protection" 
+                title="Protection" 
+                subtitle="MCB, MCCB, ACB, RCBO & Electrical Protection"
                 viewAllLink="/pencarian?q=mcb" 
                 products={rsProtection} 
             />
             <ProductGridSection 
-                title="Control Products" 
+                title="Control Product" 
+                subtitle="Contactor, Relay, Inverter, VSD, Soft Starter & PLC"
                 viewAllLink="/pencarian?q=contactor" 
                 products={rsControl} 
             />
             <ProductGridSection 
                 title="Lampu & Tata Cahaya" 
+                subtitle="Philips LED, Downlight, Tube & Industrial Lighting"
                 viewAllLink="/pencarian?q=lampu" 
                 products={rsLighting} 
             />
