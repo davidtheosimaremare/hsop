@@ -57,8 +57,19 @@ export function HomepageSectionBannerManager({ initialSettings }: HomepageSectio
                 const formData = new FormData();
                 formData.append("file", file);
                 
-                console.log(`[BannerManager] Uploading ${file.name} to assets folder...`);
-                const res = await uploadFile(formData, false, "assets");
+                console.log(`[BannerManager] Uploading ${file.name} to /api/upload...`);
+                
+                // Use API route instead of Server Action to avoid 403 Forbidden
+                const response = await fetch("/api/upload?folder=assets", {
+                    method: "POST",
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Upload failed with status ${response.status}`);
+                }
+
+                const res = await response.json();
 
                 if (res.success && res.url) {
                     const newBanners = { ...banners, [key]: res.url };
@@ -73,7 +84,7 @@ export function HomepageSectionBannerManager({ initialSettings }: HomepageSectio
                 }
             } catch (error: any) {
                 console.error(`[BannerManager] System error:`, error);
-                toast.error("Terjadi kesalahan sistem: " + error.message);
+                toast.error("Terjadi kesalahan sistem (403/WAF?): " + error.message);
             } finally {
                 setUploadingKey(null);
                 if (fileInputRef.current) fileInputRef.current.value = "";
