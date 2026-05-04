@@ -189,20 +189,31 @@ export default async function Home() {
     '7KM3220-0BA01-1DA0'
   ];
 
-  const specificProtection = await db.product.findMany({
-    where: { 
-        sku: { in: protectionSkus },
-        isVisible: true
-    }
-  });
+  // 2. Fetch specific control products requested by user
+  const controlSkus = [
+    '3RH2140-1BF40',
+    '3MH7922-0CT10',
+    '3MV8100-0NL00',
+    '3UF7010-1AU00-0',
+    '3RB3026-1VB0',
+    '3MU7110-0QA0'
+  ];
+
+  const [specificProtection, specificControl] = await Promise.all([
+    db.product.findMany({ where: { sku: { in: protectionSkus }, isVisible: true } }),
+    db.product.findMany({ where: { sku: { in: controlSkus }, isVisible: true } })
+  ]);
 
   // Sort them to match the user's requested order
   const orderedProtection = protectionSkus
     .map(sku => specificProtection.find(p => p.sku === sku))
     .filter(Boolean);
 
+  const orderedControl = controlSkus
+    .map(sku => specificControl.find(p => p.sku === sku))
+    .filter(Boolean);
+
   // Mix products for other sections
-  const mixedControl = mixProducts(rsControl, ['Contactor', 'PLC', 'Relay', 'VSD', 'Starter']);
   const mixedLighting = mixProducts(rsLighting, ['LED', 'Lampu', 'Philips', 'Downlight']);
 
   let gridCategories: any[] = [];
@@ -309,7 +320,7 @@ export default async function Home() {
                 title="Produk Kontrol" 
                 subtitle="Teknologi kontrol presisi untuk otomatisasi mesin dan sistem kelistrikan masa depan."
                 viewAllLink="/pencarian?q=&category=Control+Product" 
-                products={mixedControl} 
+                products={orderedControl as any} 
                 bannerImage={controlBanner}
             />
             <ProductGridSection 
