@@ -111,7 +111,19 @@ function getReadyStockLighting() {
 
 export default async function Home() {
   // Fetch everything in one go
-  const [savedGridSettings, clientProjects, latestNews, activeBanners, companyDetails, rsProtection, rsControl, rsLighting] = await Promise.all([
+  const [
+    savedGridSettings, 
+    clientProjects, 
+    latestNews, 
+    activeBanners, 
+    companyDetails, 
+    rsProtection, 
+    rsControl, 
+    rsLighting,
+    protectionBanner,
+    controlBanner,
+    lightingBanner
+  ] = await Promise.all([
     getSiteSetting("homepage_grid_categories"),
     getClientProjects(),
     getLatestNews(4),
@@ -119,7 +131,10 @@ export default async function Home() {
     getSiteSetting("company_details") as Promise<any>,
     getReadyStockProtection(),
     getReadyStockControl(),
-    getReadyStockLighting()
+    getReadyStockLighting(),
+    getSiteSetting("homepage_banner_protection"),
+    getSiteSetting("homepage_banner_control"),
+    getSiteSetting("homepage_banner_lighting")
   ]);
 
   let gridCategories: any[] = [];
@@ -220,18 +235,21 @@ export default async function Home() {
                 subtitle="MCB, MCCB, ACB, RCBO & Electrical Protection"
                 viewAllLink="/pencarian?q=mcb" 
                 products={rsProtection} 
+                bannerImage={protectionBanner}
             />
             <ProductGridSection 
                 title="Control Product" 
                 subtitle="Contactor, Relay, Inverter, VSD, Soft Starter & PLC"
                 viewAllLink="/pencarian?q=contactor" 
                 products={rsControl} 
+                bannerImage={controlBanner}
             />
             <ProductGridSection 
                 title="Lampu & Tata Cahaya" 
                 subtitle="Philips LED, Downlight, Tube & Industrial Lighting"
                 viewAllLink="/pencarian?q=lampu" 
                 products={rsLighting} 
+                bannerImage={lightingBanner}
             />
         </div>
         

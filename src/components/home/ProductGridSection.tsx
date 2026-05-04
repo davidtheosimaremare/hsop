@@ -12,9 +12,18 @@ interface ProductGridSectionProps {
     subtitle?: string;
     viewAllLink: string;
     products: any[];
+    bannerImage?: string | null;
+    bannerLink?: string | null;
 }
 
-export default function ProductGridSection({ title, subtitle, viewAllLink, products }: ProductGridSectionProps) {
+export default function ProductGridSection({ 
+    title, 
+    subtitle, 
+    viewAllLink, 
+    products,
+    bannerImage,
+    bannerLink 
+}: ProductGridSectionProps) {
     if (!products || products.length === 0) return null;
 
     const featuredProduct = products[0];
@@ -46,72 +55,95 @@ export default function ProductGridSection({ title, subtitle, viewAllLink, produ
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                    {/* Featured Product Column (Larger) */}
+                    {/* Featured Column (Banner or Larger Product) */}
                     <div className="lg:col-span-5 xl:col-span-4">
-                        <div className="group h-full bg-gradient-to-br from-white to-gray-50 rounded-3xl border border-gray-200 overflow-hidden hover:shadow-2xl hover:border-red-100 transition-all duration-500 flex flex-col relative">
-                            {/* Featured Badge */}
-                            <div className="absolute top-6 left-6 z-10">
-                                <span className="bg-red-600 text-white text-[10px] font-black px-3 py-1.5 rounded-lg uppercase tracking-widest shadow-lg shadow-red-200 animate-pulse">
-                                    Hot Item
-                                </span>
-                            </div>
-
+                        {bannerImage ? (
+                            /* Custom Banner Layout */
                             <Link 
-                                href={`/produk/${getProductSlug(featuredProduct)}`} 
-                                className="block relative aspect-square bg-white overflow-hidden"
+                                href={bannerLink || viewAllLink}
+                                className="group block relative aspect-[4/5] lg:h-full rounded-3xl overflow-hidden border border-gray-100 shadow-xl hover:shadow-2xl hover:border-red-100 transition-all duration-500"
                             >
-                                {featuredProduct.image ? (
-                                    <Image
-                                        src={featuredProduct.image}
-                                        alt={featuredProduct.name}
-                                        fill
-                                        className="object-contain p-10 group-hover:scale-110 transition-transform duration-700"
-                                        sizes="(max-width: 768px) 100vw, 400px"
-                                    />
-                                ) : (
-                                    <div className="absolute inset-0 bg-gray-50 flex items-center justify-center text-gray-300 font-bold uppercase tracking-widest">
-                                        No Image Available
+                                <Image
+                                    src={bannerImage}
+                                    alt={title}
+                                    fill
+                                    className="object-cover group-hover:scale-105 transition-transform duration-700"
+                                    sizes="(max-width: 768px) 100vw, 400px"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-8">
+                                    <div className="text-white transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
+                                        <p className="text-xs font-black uppercase tracking-widest mb-2 text-red-400">Limited Collection</p>
+                                        <h3 className="text-2xl font-black leading-tight uppercase tracking-tighter">View {title} Catalog</h3>
                                     </div>
-                                )}
-                            </Link>
-
-                            <div className="p-8 flex-1 flex flex-col">
-                                <Link href={`/produk/${getProductSlug(featuredProduct)}`} className="block mb-3">
-                                    <h3 className="text-xl md:text-2xl font-black text-gray-900 leading-tight group-hover:text-red-600 transition-colors line-clamp-2">
-                                        {featuredProduct.name}
-                                    </h3>
-                                </Link>
-                                <div className="flex items-center gap-2 mb-6">
-                                    <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded uppercase tracking-tighter">SKU: {featuredProduct.sku}</span>
-                                    {featuredProduct.brand && (
-                                        <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded uppercase tracking-tighter">{featuredProduct.brand}</span>
-                                    )}
                                 </div>
-                                
-                                <div className="mt-auto pt-6 border-t border-gray-100">
-                                    <div className="flex items-center justify-between gap-4">
-                                        <div className="flex flex-col">
-                                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Starting From</span>
-                                            <span className="text-2xl font-black text-red-600 tracking-tighter">
-                                                Rp {new Intl.NumberFormat("id-ID").format(Math.round(featuredProduct.price))}
-                                            </span>
+                            </Link>
+                        ) : (
+                            /* Default Featured Product Card */
+                            <div className="group h-full bg-gradient-to-br from-white to-gray-50 rounded-3xl border border-gray-200 overflow-hidden hover:shadow-2xl hover:border-red-100 transition-all duration-500 flex flex-col relative">
+                                {/* Featured Badge */}
+                                <div className="absolute top-6 left-6 z-10">
+                                    <span className="bg-red-600 text-white text-[10px] font-black px-3 py-1.5 rounded-lg uppercase tracking-widest shadow-lg shadow-red-200 animate-pulse">
+                                        Hot Item
+                                    </span>
+                                </div>
+
+                                <Link 
+                                    href={`/produk/${getProductSlug(featuredProduct)}`} 
+                                    className="block relative aspect-square bg-white overflow-hidden"
+                                >
+                                    {featuredProduct.image ? (
+                                        <Image
+                                            src={featuredProduct.image}
+                                            alt={featuredProduct.name}
+                                            fill
+                                            className="object-contain p-10 group-hover:scale-110 transition-transform duration-700"
+                                            sizes="(max-width: 768px) 100vw, 400px"
+                                        />
+                                    ) : (
+                                        <div className="absolute inset-0 bg-gray-50 flex items-center justify-center text-gray-300 font-bold uppercase tracking-widest">
+                                            No Image Available
                                         </div>
-                                        <Link 
-                                            href={`/produk/${getProductSlug(featuredProduct)}`}
-                                            className="bg-gray-900 text-white p-4 rounded-2xl hover:bg-red-600 transition-all shadow-xl hover:shadow-red-200"
-                                        >
-                                            <ShoppingCart className="w-6 h-6" />
-                                        </Link>
+                                    )}
+                                </Link>
+
+                                <div className="p-8 flex-1 flex flex-col">
+                                    <Link href={`/produk/${getProductSlug(featuredProduct)}`} className="block mb-3">
+                                        <h3 className="text-xl md:text-2xl font-black text-gray-900 leading-tight group-hover:text-red-600 transition-colors line-clamp-2">
+                                            {featuredProduct.name}
+                                        </h3>
+                                    </Link>
+                                    <div className="flex items-center gap-2 mb-6">
+                                        <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded uppercase tracking-tighter">SKU: {featuredProduct.sku}</span>
+                                        {featuredProduct.brand && (
+                                            <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded uppercase tracking-tighter">{featuredProduct.brand}</span>
+                                        )}
+                                    </div>
+                                    
+                                    <div className="mt-auto pt-6 border-t border-gray-100">
+                                        <div className="flex items-center justify-between gap-4">
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Starting From</span>
+                                                <span className="text-2xl font-black text-red-600 tracking-tighter">
+                                                    Rp {new Intl.NumberFormat("id-ID").format(Math.round(featuredProduct.price))}
+                                                </span>
+                                            </div>
+                                            <Link 
+                                                href={`/produk/${getProductSlug(featuredProduct)}`}
+                                                className="bg-gray-900 text-white p-4 rounded-2xl hover:bg-red-600 transition-all shadow-xl hover:shadow-red-200"
+                                            >
+                                                <ShoppingCart className="w-6 h-6" />
+                                            </Link>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        )}
                     </div>
 
                     {/* Secondary Grid Column */}
                     <div className="lg:col-span-7 xl:col-span-8">
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 h-full">
-                            {otherProducts.slice(0, 6).map((product) => (
+                            {(bannerImage ? products : otherProducts).slice(0, 6).map((product) => (
                                 <ProductCard key={product.id} product={product} />
                             ))}
                         </div>
