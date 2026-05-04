@@ -189,19 +189,20 @@ export default async function Home() {
     '7KM3220-0BA01-1DA0'
   ];
 
-  // 2. Fetch specific control products requested by user
-  const controlSkus = [
-    '3RH2140-1BF40',
-    '3MH7922-0CT10',
-    '3MV8100-0NL00',
-    '3UF7010-1AU00-0',
-    '3RB3026-1VB0',
-    '3MU7110-0QA0'
+  // 3. Fetch specific lighting products requested by user
+  const lightingSkus = [
+    'TL-500-4.2m-D/O',
+    'TL-200',
+    'PT-200',
+    'PS-200',
+    'S3',
+    'TL-400'
   ];
 
-  const [specificProtection, specificControl] = await Promise.all([
+  const [specificProtection, specificControl, specificLighting] = await Promise.all([
     db.product.findMany({ where: { sku: { in: protectionSkus }, isVisible: true } }),
-    db.product.findMany({ where: { sku: { in: controlSkus }, isVisible: true } })
+    db.product.findMany({ where: { sku: { in: controlSkus }, isVisible: true } }),
+    db.product.findMany({ where: { sku: { in: lightingSkus }, isVisible: true } })
   ]);
 
   // Sort them to match the user's requested order
@@ -213,8 +214,9 @@ export default async function Home() {
     .map(sku => specificControl.find(p => p.sku === sku))
     .filter(Boolean);
 
-  // Mix products for other sections
-  const mixedLighting = mixProducts(rsLighting, ['LED', 'Lampu', 'Philips', 'Downlight']);
+  const orderedLighting = lightingSkus
+    .map(sku => specificLighting.find(p => p.sku === sku))
+    .filter(Boolean);
 
   let gridCategories: any[] = [];
 
@@ -326,8 +328,8 @@ export default async function Home() {
             <ProductGridSection 
                 title="Lampu & Pencahayaan" 
                 subtitle="Sistem pencahayaan hemat energi dan estetis untuk kenyamanan ruangan Anda."
-                viewAllLink="/pencarian?q=&category=Lampu" 
-                products={mixedLighting} 
+                viewAllLink="/pencarian?q=&category=Mobile+Lighting" 
+                products={orderedLighting as any} 
                 bannerImage={lightingBanner}
             />
         </div>
