@@ -56,10 +56,10 @@ export default function ProductCard({ product }: ProductCardProps) {
     };
 
     return (
-        <div className="group bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-lg transition-all duration-300 flex flex-col h-full shadow-sm">
-            {/* Product Image */}
-            <Link prefetch={false}  href={`/produk/${getProductSlug(product as any)}`} className="block relative">
-                <div className="aspect-square bg-white relative p-4 group-hover:bg-gray-50/50 transition-colors">
+        <div className="group bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-lg transition-all duration-300 flex flex-col h-full shadow-sm min-h-0">
+            {/* Product Image - Flexible */}
+            <Link prefetch={false}  href={`/produk/${getProductSlug(product as any)}`} className="block relative flex-1 min-h-0">
+                <div className="h-full w-full bg-white relative p-4 group-hover:bg-gray-50/50 transition-colors">
                     {product.image ? (
                         <Image
                             src={product.image}
@@ -78,8 +78,8 @@ export default function ProductCard({ product }: ProductCardProps) {
                 </div>
             </Link>
 
-            {/* Product Info - Compact */}
-            <div className="p-3 flex-1 flex flex-col bg-white">
+            {/* Product Info - Compact & Non-stretching */}
+            <div className="p-2 md:p-3 flex flex-col bg-white shrink-0">
                 <Link prefetch={false}  href={`/produk/${getProductSlug(product as any)}`} className="block mb-1">
                     <h3 className="text-[11px] md:text-xs font-bold text-gray-800 line-clamp-2 group-hover:text-red-600 transition-colors leading-tight min-h-[2.5em]" title={product.name}>
                         {product.name}
