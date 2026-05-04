@@ -56,43 +56,32 @@ export default function ProductGridSection({
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 lg:gap-8 items-start">
                     {/* Featured Column (Banner or Larger Product) */}
-                    <div className="lg:col-span-5 xl:col-span-4 flex flex-col">
+                    <div className="lg:col-span-5 xl:col-span-4">
                         {bannerImage ? (
-                            /* Custom Banner Layout - Fixed Aspect Ratio to match 400x600 perfectly */
+                            /* Custom Banner Layout - Clean & Precise */
                             <div className="relative group">
                                 <Link 
                                     href={bannerLink || viewAllLink}
-                                    className="block relative aspect-[2/3] w-full rounded-2xl overflow-hidden border border-gray-200 shadow-xl hover:shadow-red-500/10 hover:border-red-200 transition-all duration-700 bg-white"
+                                    className="block relative aspect-[2/3] w-full rounded-2xl overflow-hidden border border-gray-200 shadow-xl hover:shadow-red-500/10 hover:border-red-100 transition-all duration-700 bg-white"
                                 >
                                     <Image
                                         src={bannerImage}
                                         alt={title}
                                         fill
                                         className="object-cover object-top group-hover:scale-105 transition-transform duration-1000 ease-out"
-                                        sizes="(max-width: 1024px) 100vw, 500px"
+                                        sizes="(max-width: 1024px) 100vw, 600px"
                                         priority
                                         unoptimized={true}
                                     />
-                                    {/* Subtle Top Border/Inner Shadow to separate from page white */}
-                                    <div className="absolute inset-x-0 top-0 h-4 bg-gradient-to-b from-black/5 to-transparent pointer-events-none" />
+                                    {/* Subtle Top Border for separation */}
+                                    <div className="absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-black/5 to-transparent pointer-events-none" />
                                     
-                                    {/* Bottom Overlay for readability */}
-                                    <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-80 group-hover:opacity-90 transition-opacity duration-500" />
-                                    
-                                    <div className="absolute inset-0 flex flex-col justify-end p-6 md:p-8">
-                                        <div className="transform translate-y-2 group-hover:translate-y-0 transition-transform duration-500">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <span className="w-6 h-px bg-red-500"></span>
-                                                <span className="text-[9px] font-black uppercase tracking-[0.3em] text-red-500">Official Banner</span>
-                                            </div>
-                                            <h3 className="text-2xl md:text-3xl font-black text-white leading-none uppercase tracking-tighter mb-4 drop-shadow-md">
-                                                {title}
-                                            </h3>
-                                            <div className="flex items-center gap-3">
-                                                <span className="px-4 py-2 bg-white text-black text-[10px] font-black uppercase tracking-widest rounded-full group-hover:bg-red-600 group-hover:text-white transition-colors duration-300 shadow-lg">
-                                                    Shop Collection
-                                                </span>
-                                            </div>
+                                    {/* Minimalist Bottom Overlay */}
+                                    <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex flex-col justify-end p-8">
+                                        <div className="flex items-center gap-3 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
+                                            <span className="px-6 py-3 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-xl">
+                                                Explore Collection
+                                            </span>
                                         </div>
                                     </div>
                                 </Link>
@@ -156,9 +145,9 @@ export default function ProductGridSection({
                         )}
                     </div>
 
-                    {/* Secondary Grid Column */}
-                    <div className="lg:col-span-7 xl:col-span-8 flex flex-col">
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 lg:gap-6 flex-1">
+                    {/* Secondary Grid Column - Matching Banner Height on LG */}
+                    <div className="lg:col-span-7 xl:col-span-8">
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 lg:gap-6 lg:aspect-[2/3] lg:grid-rows-2">
                             {(bannerImage ? products : otherProducts).slice(0, 6).map((product) => (
                                 <ProductCard key={product.id} product={product} />
                             ))}
