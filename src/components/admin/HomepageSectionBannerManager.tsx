@@ -3,7 +3,7 @@
 import { useState, useTransition, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { updateSiteSetting } from "@/app/actions/settings";
-import { compressImage } from "@/lib/image";
+
 import {
     Loader2,
     ImageIcon,
@@ -54,12 +54,8 @@ export function HomepageSectionBannerManager({ initialSettings }: HomepageSectio
         
         startSave(async () => {
             try {
-                // 1. Compress the image before upload
-                console.log(`[BannerManager] Compressing ${file.name}...`);
-                const compressedBlob = await compressImage(file, 1200, 0.8);
-
                 const formData = new FormData();
-                formData.append("file", compressedBlob, file.name);
+                formData.append("file", file);
                 
                 console.log(`[BannerManager] Uploading to /api/upload...`);
                 

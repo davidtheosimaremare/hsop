@@ -3,7 +3,7 @@
 import { useState, useTransition, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { createBanner, deleteBanner, toggleBannerStatus } from "@/app/actions/settings";
-import { compressImage } from "@/lib/image";
+
 import {
     Loader2,
     Plus,
@@ -77,13 +77,9 @@ export function BannerManager({ initialBanners }: BannerManagerProps) {
         }
         startCreate(async () => {
             try {
-                // 1. Compress the image before upload to speed up and save bandwidth
-                console.log(`[BannerManager] Compressing ${selectedFile.name}...`);
-                const compressedBlob = await compressImage(selectedFile, 1920, 0.85);
-                
-                // 2. Upload using API route (faster and avoids some WAF issues with server actions)
+                // 1. Upload using API route (faster and avoids some WAF issues with server actions)
                 const formData = new FormData();
-                formData.append("file", compressedBlob, selectedFile.name);
+                formData.append("file", selectedFile);
                 
                 console.log(`[BannerManager] Uploading to /api/upload...`);
                 const response = await fetch("/api/upload?folder=assets", {
