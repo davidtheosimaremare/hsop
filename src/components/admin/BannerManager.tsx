@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { createBanner, deleteBanner, toggleBannerStatus } from "@/app/actions/settings";
+import { createBanner, deleteBanner, toggleBannerStatus, reorderBanners } from "@/app/actions/settings";
 
 import {
     Loader2,
@@ -27,6 +27,25 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    DragEndEvent
+} from '@dnd-kit/core';
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    verticalListSortingStrategy,
+    useSortable,
+    rectSortingStrategy
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { GripVertical } from "lucide-react";
 
 interface Banner {
     id: string;
@@ -42,6 +61,7 @@ interface BannerManagerProps {
 }
 
 export function BannerManager({ initialBanners }: BannerManagerProps) {
+    const [banners, setBanners] = useState<Banner[]>(initialBanners);
     const [title, setTitle] = useState("");
     const [link, setLink] = useState("");
     const [isActive, setIsActive] = useState(true);
@@ -50,7 +70,46 @@ export function BannerManager({ initialBanners }: BannerManagerProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [isCreating, startCreate] = useTransition();
+    const [isReordering, startReorder] = useTransition();
     const router = useRouter();
+
+    // Sync banners if initialBanners change (e.g. after refresh)
+    useState(() => {
+        setBanners(initialBanners);
+    });
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8,
+            },
+        }),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+
+        if (over && active.id !== over.id) {
+            const oldIndex = banners.findIndex((b) => b.id === active.id);
+            const newIndex = banners.findIndex((b) => b.id === over.id);
+
+            const newBanners = arrayMove(banners, oldIndex, newIndex);
+            setBanners(newBanners);
+
+            startReorder(async () => {
+                const res = await reorderBanners(newBanners.map(b => b.id));
+                if (res.success) {
+                    toast.success("Urutan banner disimpan");
+                } else {
+                    toast.error("Gagal menyimpan urutan");
+                    setBanners(initialBanners); // Revert on failure
+                }
+            });
+        }
+    };
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -238,15 +297,21 @@ export function BannerManager({ initialBanners }: BannerManagerProps) {
             <div className="flex items-center justify-between border-b border-gray-100 pb-2">
                 <div className="flex items-center gap-2">
                     <LayoutTemplate className="w-5 h-5 text-gray-400" />
-                    <h3 className="text-sm font-black text-gray-900 uppercase tracking-tight">Daftar Banner Aktif</h3>
+                    <div>
+                        <h3 className="text-sm font-black text-gray-900 uppercase tracking-tight flex items-center gap-2">
+                            Daftar Banner Aktif
+                            {isReordering && <Loader2 className="w-3 h-3 animate-spin text-red-500" />}
+                        </h3>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Drag dan drop untuk mengatur urutan</p>
+                    </div>
                 </div>
                 <Badge variant="outline" className="rounded-lg text-[10px] font-black bg-gray-50 text-gray-500 border-gray-200">
-                    {initialBanners.length} TOTAL BANNER
+                    {banners.length} TOTAL BANNER
                 </Badge>
             </div>
 
-            {/* Banner Grid */}
-            {initialBanners.length === 0 ? (
+            {/* Banner Grid with Drag & Drop */}
+            {banners.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 bg-gray-50/50 rounded-[2rem] border border-dashed border-gray-200">
                     <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-sm mb-4">
                         <ImageIcon className="w-8 h-8 text-gray-200" />
@@ -255,17 +320,52 @@ export function BannerManager({ initialBanners }: BannerManagerProps) {
                     <p className="text-xs text-gray-400 mt-1 font-medium">Tambahkan banner baru melalui form di atas.</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {initialBanners.map((banner) => (
-                        <BannerItem key={banner.id} banner={banner} />
-                    ))}
-                </div>
+                <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                >
+                    <SortableContext
+                        items={banners.map(b => b.id)}
+                        strategy={rectSortingStrategy}
+                    >
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                            {banners.map((banner) => (
+                                <SortableBannerItem key={banner.id} banner={banner} />
+                            ))}
+                        </div>
+                    </SortableContext>
+                </DndContext>
             )}
         </div>
     );
 }
 
-function BannerItem({ banner }: { banner: Banner }) {
+function SortableBannerItem({ banner }: { banner: Banner }) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging
+    } = useSortable({ id: banner.id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        zIndex: isDragging ? 50 : undefined,
+        opacity: isDragging ? 0.5 : 1,
+    };
+
+    return (
+        <div ref={setNodeRef} style={style}>
+            <BannerItem banner={banner} dragHandleProps={{ ...attributes, ...listeners }} />
+        </div>
+    );
+}
+
+function BannerItem({ banner, dragHandleProps }: { banner: Banner, dragHandleProps?: any }) {
     const [isDeleting, startDelete] = useTransition();
     const [isToggling, startToggle] = useTransition();
     const router = useRouter();
@@ -297,6 +397,14 @@ function BannerItem({ banner }: { banner: Banner }) {
 
     return (
         <Card className="overflow-hidden group relative border border-gray-100 shadow-sm hover:shadow-xl hover:border-red-100 rounded-[1.5rem] transition-all duration-300 flex flex-col bg-white">
+            {/* Drag Handle Overlay (Visible on Hover or always on mobile) */}
+            <div 
+                {...dragHandleProps} 
+                className="absolute top-3 right-3 z-30 w-8 h-8 rounded-lg bg-white/90 backdrop-blur shadow-sm border border-gray-100 flex items-center justify-center cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+                <GripVertical className="w-4 h-4 text-gray-400" />
+            </div>
+
             {/* Image Preview Container */}
             <div className="aspect-[4/1] relative overflow-hidden bg-gray-50">
                 <div className={cn(

@@ -232,6 +232,26 @@ export async function toggleBannerStatus(id: string, isActive: boolean) {
     }
 }
 
+export async function reorderBanners(bannerIds: string[]) {
+    try {
+        await db.$transaction(
+            bannerIds.map((id, index) =>
+                db.banner.update({
+                    where: { id },
+                    data: { order: index },
+                })
+            )
+        );
+        revalidatePath("/admin/settings/banners");
+        memoryCache.invalidate('active-banners');
+        revalidatePath("/");
+        return { success: true };
+    } catch (error) {
+        console.error("Reorder banners failed:", error);
+        return { success: false };
+    }
+}
+
 
 // --- Client Project Actions (Portfolio) ---
 
