@@ -3,7 +3,7 @@
 import { useState, useTransition, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { updateSiteSetting } from "@/app/actions/settings";
-import { uploadFile } from "@/app/actions/upload";
+import { compressImage } from "@/lib/image";
 import {
     Loader2,
     ImageIcon,
@@ -54,10 +54,14 @@ export function HomepageSectionBannerManager({ initialSettings }: HomepageSectio
         
         startSave(async () => {
             try {
+                // 1. Compress the image before upload
+                console.log(`[BannerManager] Compressing ${file.name}...`);
+                const compressedBlob = await compressImage(file, 1200, 0.8);
+
                 const formData = new FormData();
-                formData.append("file", file);
+                formData.append("file", compressedBlob, file.name);
                 
-                console.log(`[BannerManager] Uploading ${file.name} to /api/upload...`);
+                console.log(`[BannerManager] Uploading to /api/upload...`);
                 
                 // Use API route instead of Server Action to avoid 403 Forbidden
                 const response = await fetch("/api/upload?folder=assets", {
