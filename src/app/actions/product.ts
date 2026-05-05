@@ -23,7 +23,10 @@ function calculateSortWeight(name: string): number {
     if (isAccessory) return 200;
 
     // Main unit patterns (Highest priority)
-    const mainKeywords = ["ACB", "MCCB", "MCB", "RCBO", "RCCB", "VSD", "PLC"];
+    const mainKeywords = [
+        "ACB", "MCCB", "MCB", "RCBO", "RCCB", "VSD", "PLC", 
+        "CONTACTOR", "SINOVA", "MOTOR STARTER", "SOFTSTARTER", "7KM"
+    ];
     const isMain = mainKeywords.some(kw => {
         // Must start with "SIEMENS [KW]" or just "[KW]"
         return upperName.startsWith("SIEMENS " + kw) || upperName.startsWith(kw);

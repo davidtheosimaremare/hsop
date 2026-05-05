@@ -194,6 +194,7 @@ export async function createBanner(data: { title: string; image: string; link?: 
             }
         });
         revalidatePath("/admin/settings/banners");
+        memoryCache.invalidate('active-banners');
         revalidatePath("/");
         return { success: true };
     } catch (error) {
@@ -206,6 +207,8 @@ export async function deleteBanner(id: string) {
     try {
         await db.banner.delete({ where: { id } });
         revalidatePath("/admin/settings/banners");
+        memoryCache.invalidate('active-banners');
+        revalidatePath("/");
         return { success: true };
     } catch (error) {
         console.error("Delete banner failed:", error);
@@ -220,6 +223,8 @@ export async function toggleBannerStatus(id: string, isActive: boolean) {
             data: { isActive },
         });
         revalidatePath("/admin/settings/banners");
+        memoryCache.invalidate('active-banners');
+        revalidatePath("/");
         return { success: true };
     } catch (error) {
         console.error("Toggle banner failed:", error);
@@ -243,6 +248,8 @@ export async function createClientProject(data: any) {
             }
         });
         revalidatePath("/admin/settings/portfolio");
+        memoryCache.invalidate('client-projects');
+        revalidatePath("/");
         return { success: true };
     } catch (error: any) { // Explicitly type error as any or Error to access message
         console.error("Create project failed. Error details:", error);
@@ -256,6 +263,8 @@ export async function deleteClientProject(id: string) {
     try {
         await db.clientProject.delete({ where: { id } });
         revalidatePath("/admin/settings/portfolio");
+        memoryCache.invalidate('client-projects');
+        revalidatePath("/");
         return { success: true };
     } catch (error) {
         console.error("Delete project failed:", error);
