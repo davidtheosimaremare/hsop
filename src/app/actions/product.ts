@@ -4,6 +4,37 @@ import { db } from "@/lib/db";
 import { fetchAllProducts, fetchSingleProduct } from "@/lib/accurate";
 import { revalidatePath } from "next/cache";
 
+function calculateSortWeight(name: string): number {
+    const upperName = name.toUpperCase();
+    
+    // Accessories and enclosures should be deprioritized
+    const accessoryKeywords = [
+        "ACC ", "ACC,", "ACCESSORY", "ACCESSORIES", "BOX", "BUSBAR", 
+        "AUXILIARY", "SPARE PART", "MOUNTING", "BRACKET", "HANDLE",
+        "COVER", "BASE", "TERMINAL", "LUG", "SHROUD", "AKSESORIS"
+    ];
+
+    const isAccessory = accessoryKeywords.some(kw => {
+        // Match keyword as a whole word or at least preceded/followed by non-alphanumeric
+        const regex = new RegExp(`(?:^|[^A-Z0-9])${kw}(?:$|[^A-Z0-9])`, 'i');
+        return regex.test(upperName);
+    });
+    
+    if (isAccessory) return 200;
+
+    // Main unit patterns (Highest priority)
+    const mainKeywords = ["ACB", "MCCB", "MCB", "RCBO", "RCCB", "VSD", "PLC"];
+    const isMain = mainKeywords.some(kw => {
+        // Must start with "SIEMENS [KW]" or just "[KW]"
+        return upperName.startsWith("SIEMENS " + kw) || upperName.startsWith(kw);
+    });
+    
+    if (isMain) return 0;
+
+    // Default weight for everything else
+    return 100;
+}
+
 export async function syncProductsAction() {
     try {
         console.log("Starting product sync...");
@@ -74,6 +105,9 @@ export async function syncProductsAction() {
                     else if (upperName.includes("APS")) brand = "APS";
                 }
 
+                // Calculate sort weight for better search prioritization
+                const sortWeight = calculateSortWeight(ap.name);
+
                 await db.product.upsert({
                     where: { accurateId: ap.id }, // Use accurateId as unique identifier for sync
                     update: {
@@ -84,6 +118,7 @@ export async function syncProductsAction() {
                         brand: brand,
                         category: category,
                         itemType: ap.itemType,
+                        sortWeight: sortWeight,
                         // Do NOT update isVisible on sync, preserve manual setting
                     },
                     create: {
@@ -97,6 +132,7 @@ export async function syncProductsAction() {
                         itemType: ap.itemType,
                         description: `Imported from Accurate (${ap.itemType})`,
                         isVisible: true, // Default new items to visible
+                        sortWeight: sortWeight,
                     }
                 });
                 syncedCount++;
@@ -144,6 +180,7 @@ export async function syncSingleProductAction(itemNo: string) {
         const stock = ap.availableToSell || 0;
         const category = ap.itemCategory?.name || "Uncategorized";
         const brand = ap.itemBrand?.name ? ap.itemBrand.name.toUpperCase() : null;
+        const sortWeight = calculateSortWeight(ap.name);
 
         await db.product.upsert({
             where: { accurateId: ap.id },
@@ -155,6 +192,7 @@ export async function syncSingleProductAction(itemNo: string) {
                 brand: brand,
                 category: category,
                 itemType: ap.itemType,
+                sortWeight: sortWeight,
             },
             create: {
                 accurateId: ap.id,
@@ -167,6 +205,7 @@ export async function syncSingleProductAction(itemNo: string) {
                 itemType: ap.itemType,
                 description: `Imported from Accurate (${ap.itemType})`,
                 isVisible: true,
+                sortWeight: sortWeight,
             }
         });
 

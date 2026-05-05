@@ -126,6 +126,7 @@ model Product {
   marginType      String?     // 'PERCENTAGE', 'FIXED', 'MANUAL'
   marginValue     Float?      // Nilai dari margin (misal 10 untuk 10%, atau 50000 untuk +50k)
   indentTime      String      @default("12 - 16 Minggu")
+  sortWeight      Int         @default(100) // Lower is more important (Main units = 0-50, ACC/Box = 100-200)
   stockLogs       ProductStockLog[]
 
   @@index([sku])

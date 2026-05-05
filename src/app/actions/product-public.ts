@@ -205,7 +205,10 @@ export async function getPublicProducts({
             orderBy = { price: "desc" };
             break;
         case "popular":
-            orderBy = { name: "asc" };
+            orderBy = [
+                { sortWeight: "asc" },
+                { name: "asc" }
+            ] as any;
             break;
         case "newest":
             orderBy = { createdAt: "desc" };
@@ -213,7 +216,10 @@ export async function getPublicProducts({
         case "abjad":
         case "relevansi":
         default:
-            orderBy = { name: "asc" };
+            orderBy = [
+                { sortWeight: "asc" },
+                { name: "asc" }
+            ] as any;
             break;
     }
 
