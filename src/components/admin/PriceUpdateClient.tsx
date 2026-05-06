@@ -55,6 +55,50 @@ export default function PriceUpdateClient() {
         logs: []
     });
     const [showProgressModal, setShowProgressModal] = useState<boolean>(false);
+    const [rowSyncingSku, setRowSyncingSku] = useState<string | null>(null);
+
+    // Sync single row item to Accurate
+    const handleSyncSingleRow = async (item: ComparePriceItem) => {
+        if (rowSyncingSku) return;
+        setRowSyncingSku(item.sku);
+        try {
+            const result = await updateAccuratePrices([{
+                sku: item.sku,
+                accurateId: item.accurateId,
+                newPrice: item.newPrice
+            }]);
+
+            if (result && result[0]) {
+                const res = result[0];
+                if (res.success) {
+                    toast.success(`Berhasil update harga SKU ${item.sku} ke Accurate!`);
+                    setComparisonList(prev => 
+                        prev.map(p => {
+                            if (p.sku === item.sku) {
+                                return {
+                                    ...p,
+                                    currentPrice: p.newPrice,
+                                    status: "SAME" as const
+                                };
+                            }
+                            return p;
+                        })
+                    );
+                    const newSelected = new Set(selectedSkus);
+                    newSelected.delete(item.sku);
+                    setSelectedSkus(newSelected);
+                } else {
+                    toast.error(`Gagal update SKU ${item.sku}: ${res.message}`);
+                }
+            } else {
+                toast.error(`Gagal sinkronisasi SKU ${item.sku}`);
+            }
+        } catch (err: any) {
+            toast.error(`Gagal sinkronisasi SKU ${item.sku}: ${err.message || err}`);
+        } finally {
+            setRowSyncingSku(null);
+        }
+    };
 
     // Download a ready-to-use template Excel file
     const handleDownloadTemplate = () => {
@@ -494,12 +538,13 @@ export default function PriceUpdateClient() {
                                         <th className="px-6 py-3.5 text-xs font-bold text-slate-400 uppercase tracking-wider text-right w-[150px]">Harga Baru (Excel)</th>
                                         <th className="px-6 py-3.5 text-xs font-bold text-slate-400 uppercase tracking-wider text-right w-[150px]">Selisih</th>
                                         <th className="px-6 py-3.5 text-xs font-bold text-slate-400 uppercase tracking-wider text-center w-[160px]">Status</th>
+                                        <th className="px-6 py-3.5 text-xs font-bold text-slate-400 uppercase tracking-wider text-center w-[120px]">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50 font-medium text-sm text-slate-700">
                                     {paginatedItems.length === 0 ? (
                                         <tr>
-                                            <td colSpan={7} className="text-center py-8 text-slate-400 text-xs">
+                                            <td colSpan={8} className="text-center py-8 text-slate-400 text-xs">
                                                 Tidak ada produk yang cocok dengan filter pencarian.
                                             </td>
                                         </tr>
@@ -572,6 +617,31 @@ export default function PriceUpdateClient() {
                                                                 <X className="w-3 h-3 shrink-0" />
                                                                 Tidak Ada
                                                             </span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-6 py-3 text-center align-middle">
+                                                        {item.status === "DIFFERENT" ? (
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                disabled={!!rowSyncingSku}
+                                                                onClick={() => handleSyncSingleRow(item)}
+                                                                className="h-8 px-2.5 rounded-lg border-slate-200 text-red-600 hover:bg-red-50 hover:border-red-200 text-xs font-extrabold inline-flex items-center justify-center gap-1 transition-all"
+                                                            >
+                                                                {rowSyncingSku === item.sku ? (
+                                                                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                                                ) : (
+                                                                    <Upload className="w-3.5 h-3.5" />
+                                                                )}
+                                                                {rowSyncingSku === item.sku ? "Sync..." : "Sync"}
+                                                            </Button>
+                                                        ) : item.status === "SAME" ? (
+                                                            <span className="text-emerald-600 text-xs font-bold inline-flex items-center justify-center gap-1">
+                                                                <Check className="w-3.5 h-3.5" />
+                                                                Selesai
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-slate-300 text-xs">-</span>
                                                         )}
                                                     </td>
                                                 </tr>
