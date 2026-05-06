@@ -38,6 +38,7 @@ interface BulkItem extends BulkOrderProduct {
     finalPrice: number;
     originalPrice?: number;
     hasDiscount: boolean;
+    isCustomerDiscount?: boolean;
     stockStatus?: 'READY' | 'INDENT';
     customId: string;
     isCustom?: boolean;
@@ -122,14 +123,21 @@ export default function BulkOrderClient() {
             const newFinal = priceInfo.discountedPriceWithPPN;
             const newOriginal = priceInfo.hasDiscount ? priceInfo.originalPriceWithPPN : undefined;
             const newHasDiscount = priceInfo.hasDiscount;
+            const newIsCustomerDiscount = priceInfo.isCustomerDiscount;
             
-            if (item.finalPrice !== newFinal || item.originalPrice !== newOriginal || item.hasDiscount !== newHasDiscount) {
+            if (
+                item.finalPrice !== newFinal || 
+                item.originalPrice !== newOriginal || 
+                item.hasDiscount !== newHasDiscount ||
+                item.isCustomerDiscount !== newIsCustomerDiscount
+            ) {
                 changed = true;
                 return {
                     ...item,
                     finalPrice: newFinal,
                     originalPrice: newOriginal,
-                    hasDiscount: newHasDiscount
+                    hasDiscount: newHasDiscount,
+                    isCustomerDiscount: newIsCustomerDiscount
                 };
             }
             return item;
@@ -278,6 +286,7 @@ export default function BulkOrderClient() {
                 finalPrice: pInfo.discountedPriceWithPPN,
                 originalPrice: pInfo.hasDiscount ? pInfo.originalPriceWithPPN : undefined,
                 hasDiscount: pInfo.hasDiscount,
+                isCustomerDiscount: pInfo.isCustomerDiscount,
                 stockStatus: type,
                 customId: `${product.id}-${type}`,
                 isCustom
@@ -515,6 +524,7 @@ export default function BulkOrderClient() {
                         finalPrice: readyPriceInfo.discountedPriceWithPPN,
                         originalPrice: readyPriceInfo.hasDiscount ? readyPriceInfo.originalPriceWithPPN : undefined,
                         hasDiscount: readyPriceInfo.hasDiscount,
+                        isCustomerDiscount: readyPriceInfo.isCustomerDiscount,
                         stockStatus: 'READY',
                         customId: readyId,
                     };
@@ -539,6 +549,7 @@ export default function BulkOrderClient() {
                         finalPrice: indentPriceInfo.discountedPriceWithPPN,
                         originalPrice: indentPriceInfo.hasDiscount ? indentPriceInfo.originalPriceWithPPN : undefined,
                         hasDiscount: indentPriceInfo.hasDiscount,
+                        isCustomerDiscount: indentPriceInfo.isCustomerDiscount,
                         stockStatus: 'INDENT',
                         customId: indentId,
                     };
@@ -788,17 +799,12 @@ export default function BulkOrderClient() {
                                                     </span>
                                                 </div>
                                                 <div className="flex items-center gap-2 mt-0.5">
-                                                    {priceInfo.hasDiscount && (
+                                                    {priceInfo.hasDiscount && priceInfo.isCustomerDiscount && (
                                                         <span className="text-xs text-gray-400 line-through leading-tight">
                                                             Rp {priceInfo.originalPriceWithPPN.toLocaleString("id-ID")}
                                                         </span>
                                                     )}
                                                     <p className="text-xs font-semibold text-red-600">Rp {priceInfo.discountedPriceWithPPN.toLocaleString("id-ID")}</p>
-                                                    {priceInfo.hasDiscount && priceInfo.discountStr && (
-                                                        <span className="text-[9px] font-extrabold text-emerald-600 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-100">
-                                                            -{priceInfo.discountStr}%
-                                                        </span>
-                                                    )}
                                                 </div>
                                             </div>
                                             <Plus className="w-4 h-4 text-gray-300 flex-shrink-0" />
@@ -1050,7 +1056,7 @@ function SortableRow({ item, updateQty, removeItem, isLoggedIn }: {
             {/* Price — fixed width, no layout shift */}
             <td className="px-4 py-3">
                 <div className="flex flex-col">
-                    {isLoggedIn && item.hasDiscount && item.originalPrice && (
+                    {isLoggedIn && item.hasDiscount && item.isCustomerDiscount && item.originalPrice && (
                         <span className="text-xs text-gray-400 line-through leading-tight">
                             Rp {item.originalPrice.toLocaleString("id-ID")}
                         </span>
