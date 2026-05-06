@@ -802,3 +802,45 @@ export async function getAccurateCustomerDetail(accurateId: number) {
         return null;
     }
 }
+
+export async function updateAccurateItemPrice(sku: string, accurateId: number | null, newPrice: number): Promise<{ success: boolean; message: string }> {
+    const host = process.env.ACCURATE_API_HOST || "https://zeus.accurate.id";
+    const endpoint = `${host}/accurate/api/item/save.do`;
+
+    try {
+        const headers = await generateAccurateAuthHeaders();
+        if (!headers) {
+            console.log(`[Accurate Mock] Successfully updated price for ${sku} to Rp ${newPrice}`);
+            return { success: true, message: `[MOCK] Berhasil update harga SKU ${sku} ke Rp ${newPrice}` };
+        }
+
+        const payload: any = {
+            no: sku,
+            unitPrice: newPrice
+        };
+        if (accurateId) {
+            payload.id = accurateId;
+        }
+
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: headers as HeadersInit,
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            throw new Error(`Accurate API error: ${response.status}`);
+        }
+
+        const result = await response.json();
+        if (!result.s) {
+            throw new Error(result.d || result.message || "Gagal menyimpan ke Accurate");
+        }
+
+        return { success: true, message: `Berhasil update harga SKU ${sku} ke Rp ${newPrice}` };
+    } catch (err: any) {
+        console.error(`Gagal update harga SKU ${sku} ke Accurate`, err);
+        return { success: false, message: err.message || "Gagal update harga" };
+    }
+}
+

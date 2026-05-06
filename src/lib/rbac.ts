@@ -408,6 +408,7 @@ export const sidebarMenuItems = [
       { title: "Sembunyikan Kategori", href: "/admin/products/hidden-categories", icon: "ListTree", requiredPermission: "categories:manage" },
       { title: "Pemetaan Kategori", href: "/admin/products/categories", icon: "ListTree", requiredPermission: "categories:manage" },
       { title: "Diskon Default", href: "/admin/products/default-discounts", icon: "BadgePercent", requiredPermission: "discounts:manage" },
+      { title: "Update Harga Accurate", href: "/admin/products/price-update", icon: "ArrowUpCircle", requiredPermission: "products:view" },
     ],
   },
 
