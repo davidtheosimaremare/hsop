@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Search, Download, Trash2, ShoppingCart, Plus, Minus, AlertCircle, FileSpreadsheet, X, FileDown, RotateCcw } from "lucide-react";
+import { Search, Download, Trash2, ShoppingCart, Plus, Minus, AlertCircle, FileSpreadsheet, X, FileDown, RotateCcw, GripVertical } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useCart } from "@/lib/useCart";
 import { searchProductBySku, searchProductsBySkus, searchBulkProducts, getBulkOrderCategories, BulkOrderProduct } from "@/app/actions/bulk-order";
@@ -14,6 +14,24 @@ import { exportQuotationPDF, exportQuotationExcel } from "@/lib/export-quotation
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    DragEndEvent
+} from '@dnd-kit/core';
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    verticalListSortingStrategy,
+    useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface BulkItem extends BulkOrderProduct {
     qty: number;
@@ -60,12 +78,67 @@ export default function BulkOrderClient() {
     const debounceRef = useRef<NodeJS.Timeout | null>(null);
     const { addItem } = useCart();
     const router = useRouter();
-    const { getPriceInfo, isLoggedIn } = usePricing();
+    const { getPriceInfo, isLoggedIn, customerDiscount, categoryMappings, discountRules } = usePricing();
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8,
+            },
+        }),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+
+        if (over && active.id !== over.id) {
+            const oldIndex = items.findIndex((item) => item.customId === active.id);
+            const newIndex = items.findIndex((item) => item.customId === over.id);
+
+            const newItems = arrayMove(items, oldIndex, newIndex);
+            setItems(newItems);
+        }
+    };
 
     // Load categories on mount
     useEffect(() => {
         getBulkOrderCategories().then(setCategories).catch(console.error);
     }, []);
+
+    // Recalculate prices of all items when pricing context is loaded or changed
+    useEffect(() => {
+        if (items.length === 0) return;
+        
+        let changed = false;
+        const updatedItems = items.map(item => {
+            if (item.isCustom) return item; // Custom products keep their manual price
+            
+            const isReady = item.stockStatus === 'READY';
+            const priceInfo = getPriceInfo(item.price, item.category, isReady ? 100 : 0);
+            
+            const newFinal = priceInfo.discountedPriceWithPPN;
+            const newOriginal = priceInfo.hasDiscount ? priceInfo.originalPriceWithPPN : undefined;
+            const newHasDiscount = priceInfo.hasDiscount;
+            
+            if (item.finalPrice !== newFinal || item.originalPrice !== newOriginal || item.hasDiscount !== newHasDiscount) {
+                changed = true;
+                return {
+                    ...item,
+                    finalPrice: newFinal,
+                    originalPrice: newOriginal,
+                    hasDiscount: newHasDiscount
+                };
+            }
+            return item;
+        });
+        
+        if (changed) {
+            setItems(updatedItems);
+        }
+    }, [customerDiscount, categoryMappings, discountRules, getPriceInfo]);
 
     // Persist items to localStorage on every change
     useEffect(() => {
@@ -694,7 +767,7 @@ export default function BulkOrderClient() {
                                     </div>
                                 )}
                                 {!isSearchingSuggestions && suggestions.map((suggestion) => {
-                                    const priceInfo = getPriceInfo(suggestion.price, null, 100);
+                                    const priceInfo = getPriceInfo(suggestion.price, suggestion.category || null, suggestion.availableToSell);
                                     return (
                                         <button
                                             key={suggestion.id}
@@ -714,7 +787,19 @@ export default function BulkOrderClient() {
                                                         {suggestion.availableToSell > 0 ? `Ready: ${suggestion.availableToSell}` : 'Indent'}
                                                     </span>
                                                 </div>
-                                                <p className="text-xs font-semibold text-red-600">Rp {priceInfo.discountedPriceWithPPN.toLocaleString("id-ID")}</p>
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    {priceInfo.hasDiscount && (
+                                                        <span className="text-xs text-gray-400 line-through leading-tight">
+                                                            Rp {priceInfo.originalPriceWithPPN.toLocaleString("id-ID")}
+                                                        </span>
+                                                    )}
+                                                    <p className="text-xs font-semibold text-red-600">Rp {priceInfo.discountedPriceWithPPN.toLocaleString("id-ID")}</p>
+                                                    {priceInfo.hasDiscount && priceInfo.discountStr && (
+                                                        <span className="text-[9px] font-extrabold text-emerald-600 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-100">
+                                                            -{priceInfo.discountStr}%
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                             <Plus className="w-4 h-4 text-gray-300 flex-shrink-0" />
                                         </button>
@@ -730,125 +815,50 @@ export default function BulkOrderClient() {
             {items.length > 0 ? (
                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
-                            <colgroup>
-                                <col style={{ width: '36%' }} />
-                                <col style={{ width: '16%' }} />
-                                <col style={{ width: '12%' }} />
-                                <col style={{ width: '14%' }} />
-                                <col style={{ width: '16%' }} />
-                                <col style={{ width: '6%' }} />
-                            </colgroup>
-                            <thead>
-                                <tr className="bg-gray-50 border-b border-gray-200">
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Produk</th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Harga Satuan</th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
-                                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Qty</th>
-                                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Subtotal</th>
-                                    <th className="px-4 py-3"></th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {items.map((item) => (
-                                    <tr key={item.customId} className="hover:bg-gray-50/50 transition-colors">
-                                        {/* Product */}
-                                        <td className="px-4 py-3">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 bg-gray-100 rounded-lg flex-shrink-0 relative overflow-hidden">
-                                                    {item.image ? (
-                                                        <Image src={item.image} alt={item.name} fill className="object-cover" />
-                                                    ) : (
-                                                        <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-400">No Img</div>
-                                                    )}
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <p className="font-medium text-gray-900 text-sm line-clamp-1">{item.name}</p>
-                                                    <p className="text-xs text-gray-400 mt-0.5">SKU: {item.sku}</p>
-                                                </div>
-                                            </div>
-                                        </td>
-
-                                        {/* Price — fixed width, no layout shift */}
-                                        <td className="px-4 py-3">
-                                            <div className="flex flex-col">
-                                                {isLoggedIn && item.hasDiscount && item.originalPrice && (
-                                                    <span className="text-xs text-gray-400 line-through leading-tight">
-                                                        Rp {item.originalPrice.toLocaleString("id-ID")}
-                                                    </span>
-                                                )}
-                                                <span className="text-sm font-semibold text-red-600 leading-tight">
-                                                    Rp {item.finalPrice.toLocaleString("id-ID")}
-                                                </span>
-                                            </div>
-                                        </td>
-
-                                        {/* Stock Status */}
-                                        <td className="px-4 py-3">
-                                            <div className="flex flex-col gap-1">
-                                                {item.stockStatus === 'READY' ? (
-                                                    <>
-                                                        <span className="inline-flex items-center w-fit text-[11px] font-medium px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">
-                                                            Ready Stock
-                                                        </span>
-                                                        {!item.isCustom && (
-                                                            <span className="text-[10px] text-gray-400">Tersedia: {item.availableToSell}</span>
-                                                        )}
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <span className="inline-flex items-center w-fit text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                                                            Indent
-                                                        </span>
-                                                        {item.isCustom && (
-                                                            <span className="text-[10px] text-gray-400">Produk Kustom</span>
-                                                        )}
-                                                    </>
-                                                )}
-                                            </div>
-                                        </td>
-
-                                        {/* Qty — fixed width stepper */}
-                                        <td className="px-4 py-3">
-                                            <div className="flex items-center justify-center gap-1">
-                                                <button
-                                                    onClick={() => updateQty(item.customId, -1)}
-                                                    className="w-6 h-6 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors flex-shrink-0"
-                                                >
-                                                    <Minus className="w-3 h-3 text-gray-600" />
-                                                </button>
-                                                <span className="w-8 text-center text-sm font-semibold text-gray-800 tabular-nums select-none">
-                                                    {item.qty}
-                                                </span>
-                                                <button
-                                                    onClick={() => updateQty(item.customId, 1)}
-                                                    className="w-6 h-6 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors flex-shrink-0"
-                                                >
-                                                    <Plus className="w-3 h-3 text-gray-600" />
-                                                </button>
-                                            </div>
-                                        </td>
-
-                                        {/* Subtotal — fixed width, tabular nums */}
-                                        <td className="px-4 py-3 text-right">
-                                            <span className="text-sm font-bold text-gray-900 tabular-nums">
-                                                Rp {(item.finalPrice * item.qty).toLocaleString("id-ID")}
-                                            </span>
-                                        </td>
-
-                                        {/* Remove */}
-                                        <td className="px-4 py-3 text-center">
-                                            <button
-                                                onClick={() => removeItem(item.customId)}
-                                                className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                                            >
-                                                <Trash2 className="w-3.5 h-3.5" />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                        <DndContext
+                            sensors={sensors}
+                            collisionDetection={closestCenter}
+                            onDragEnd={handleDragEnd}
+                        >
+                            <SortableContext
+                                items={items.map(i => i.customId)}
+                                strategy={verticalListSortingStrategy}
+                            >
+                                <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
+                                    <colgroup>
+                                        <col style={{ width: '4%' }} />
+                                        <col style={{ width: '32%' }} />
+                                        <col style={{ width: '16%' }} />
+                                        <col style={{ width: '12%' }} />
+                                        <col style={{ width: '14%' }} />
+                                        <col style={{ width: '16%' }} />
+                                        <col style={{ width: '6%' }} />
+                                    </colgroup>
+                                    <thead>
+                                        <tr className="bg-gray-50 border-b border-gray-200">
+                                            <th className="w-[4%]"></th>
+                                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Produk</th>
+                                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Harga Satuan</th>
+                                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
+                                            <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Qty</th>
+                                            <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Subtotal</th>
+                                            <th className="px-4 py-3"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {items.map((item) => (
+                                            <SortableRow
+                                                key={item.customId}
+                                                item={item}
+                                                updateQty={updateQty}
+                                                removeItem={removeItem}
+                                                isLoggedIn={isLoggedIn}
+                                            />
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </SortableContext>
+                        </DndContext>
                     </div>
 
                     {/* Footer Summary + Actions */}
@@ -980,5 +990,139 @@ export default function BulkOrderClient() {
                 </DialogContent>
             </Dialog>
         </div>
+    );
+}
+
+function SortableRow({ item, updateQty, removeItem, isLoggedIn }: {
+    item: BulkItem;
+    updateQty: (id: string, delta: number) => void;
+    removeItem: (id: string) => void;
+    isLoggedIn: boolean;
+}) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging
+    } = useSortable({ id: item.customId });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        zIndex: isDragging ? 50 : undefined,
+        opacity: isDragging ? 0.5 : 1,
+    };
+
+    return (
+        <tr ref={setNodeRef} style={style} className={`hover:bg-gray-50/50 transition-colors ${isDragging ? 'bg-red-50/30' : ''}`}>
+            {/* Drag Grip Handle */}
+            <td className="px-2 py-3 text-center align-middle">
+                <button
+                    {...attributes}
+                    {...listeners}
+                    type="button"
+                    className="p-1.5 text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing rounded hover:bg-gray-100 transition-colors inline-flex items-center justify-center"
+                    title="Geser untuk mengurutkan"
+                >
+                    <GripVertical className="w-4 h-4" />
+                </button>
+            </td>
+
+            {/* Product */}
+            <td className="px-4 py-3">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gray-100 rounded-lg flex-shrink-0 relative overflow-hidden">
+                        {item.image ? (
+                            <Image src={item.image} alt={item.name} fill className="object-cover" />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-400">No Img</div>
+                        )}
+                    </div>
+                    <div className="min-w-0">
+                        <p className="font-medium text-gray-900 text-sm line-clamp-1">{item.name}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">SKU: {item.sku}</p>
+                    </div>
+                </div>
+            </td>
+
+            {/* Price — fixed width, no layout shift */}
+            <td className="px-4 py-3">
+                <div className="flex flex-col">
+                    {isLoggedIn && item.hasDiscount && item.originalPrice && (
+                        <span className="text-xs text-gray-400 line-through leading-tight">
+                            Rp {item.originalPrice.toLocaleString("id-ID")}
+                        </span>
+                    )}
+                    <span className="text-sm font-semibold text-red-600 leading-tight">
+                        Rp {item.finalPrice.toLocaleString("id-ID")}
+                    </span>
+                </div>
+            </td>
+
+            {/* Stock Status */}
+            <td className="px-4 py-3">
+                <div className="flex flex-col gap-1">
+                    {item.stockStatus === 'READY' ? (
+                        <>
+                            <span className="inline-flex items-center w-fit text-[11px] font-medium px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">
+                                Ready Stock
+                            </span>
+                            {!item.isCustom && (
+                                <span className="text-[10px] text-gray-400">Tersedia: {item.availableToSell}</span>
+                            )}
+                        </>
+                    ) : (
+                        <>
+                            <span className="inline-flex items-center w-fit text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                                Indent
+                            </span>
+                            {item.isCustom && (
+                                <span className="text-[10px] text-gray-400">Produk Kustom</span>
+                            )}
+                        </>
+                    )}
+                </div>
+            </td>
+
+            {/* Qty — fixed width stepper */}
+            <td className="px-4 py-3">
+                <div className="flex items-center justify-center gap-1">
+                    <button
+                        onClick={() => updateQty(item.customId, -1)}
+                        className="w-6 h-6 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors flex-shrink-0"
+                    >
+                        <Minus className="w-3 h-3 text-gray-600" />
+                    </button>
+                    <span className="w-8 text-center text-sm font-semibold text-gray-800 tabular-nums select-none">
+                        {item.qty}
+                    </span>
+                    <button
+                        onClick={() => updateQty(item.customId, 1)}
+                        className="w-6 h-6 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors flex-shrink-0"
+                    >
+                        <Plus className="w-3 h-3 text-gray-600" />
+                    </button>
+                </div>
+            </td>
+
+            {/* Subtotal — fixed width, tabular nums */}
+            <td className="px-4 py-3 text-right">
+                <span className="text-sm font-bold text-gray-900 tabular-nums">
+                    Rp {(item.finalPrice * item.qty).toLocaleString("id-ID")}
+                </span>
+            </td>
+
+            {/* Remove */}
+            <td className="px-4 py-3 text-center">
+                <button
+                    onClick={() => removeItem(item.customId)}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                >
+                    <Trash2 className="w-3.5 h-3.5" />
+                </button>
+            </td>
+        </tr>
     );
 }
