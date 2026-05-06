@@ -86,12 +86,6 @@ export async function updateAccuratePrices(items: { sku: string; accurateId: num
             const syncRes = await updateAccurateItemPrice(item.sku, item.accurateId, item.newPrice);
 
             if (syncRes.success) {
-                // 2. If accurate sync succeeds, update local database price
-                await db.product.update({
-                    where: { sku: item.sku },
-                    data: { price: item.newPrice }
-                });
-
                 results.push({
                     sku: item.sku,
                     success: true,
