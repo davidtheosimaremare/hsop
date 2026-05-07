@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 
 interface Banner {
     id: string;
@@ -100,19 +101,27 @@ export default function HeroSlider({ banners }: HeroSliderProps) {
                                 {slides[currentSlide].link ? (
                                     <Link prefetch={false}  href={slides[currentSlide].link || "#"}>
                                         <div className="relative w-full h-full cursor-pointer overflow-hidden">
-                                            <img
+                                            <Image
                                                 src={slides[currentSlide].image}
                                                 alt={slides[currentSlide].title || "Banner"}
-                                                className="w-full h-full object-cover"
+                                                fill
+                                                priority={currentSlide === 0}
+                                                unoptimized={true}
+                                                className="object-cover"
+                                                sizes="(max-width: 1280px) 100vw, 1200px"
                                             />
                                         </div>
                                     </Link>
                                 ) : (
                                     <div className="relative w-full h-full overflow-hidden">
-                                        <img
+                                        <Image
                                             src={slides[currentSlide].image}
                                             alt={slides[currentSlide].title || "Banner"}
-                                            className="w-full h-full object-cover"
+                                            fill
+                                            priority={currentSlide === 0}
+                                            unoptimized={true}
+                                            className="object-cover"
+                                            sizes="(max-width: 1280px) 100vw, 1200px"
                                         />
                                     </div>
                                 )}

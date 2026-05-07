@@ -39,13 +39,10 @@ export async function generateMetadata(
     return {
         title: { absolute: metaTitle },
         description: metaDesc.substring(0, 160),
-        alternates: {
-            canonical: `https://shop.hokiindo.co.id/produk/${encodeURIComponent(product.sku)}`
-        },
         openGraph: {
             title: metaTitle,
             description: metaDesc,
-            url: `https://shop.hokiindo.co.id/produk/${encodeURIComponent(product.sku)}`,
+            url: `https://shop.hokiindo.co.id/produk/${product.slug}`,
             type: 'website',
             images: firstImage ? [{ url: firstImage, width: 800, height: 600, alt: product.name }] : [],
         },
@@ -112,7 +109,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
+        <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans">
             <script
                 type="application/ld+json"
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -124,25 +121,25 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
             <SiteHeader />
 
             <main className="flex-1">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
                     {/* Breadcrumb - instant */}
-                    <nav className="text-sm mb-4">
-                        <ol className="flex items-center gap-2 flex-wrap">
-                            <li><Link prefetch={false}  href="/" className="text-gray-500 hover:text-red-600">Beranda</Link></li>
-                            <li className="text-gray-400">›</li>
-                            <li><Link prefetch={false}  href="/pencarian" className="text-gray-500 hover:text-red-600">Produk</Link></li>
+                    <nav className="text-[10px] md:text-xs font-bold uppercase tracking-wider mb-5 select-none">
+                        <ol className="flex items-center gap-2 flex-wrap text-[#64748b]">
+                            <li><Link prefetch={false} href="/" className="hover:text-red-500 transition-colors">Beranda</Link></li>
+                            <li className="text-slate-300">/</li>
+                            <li><Link prefetch={false} href="/pencarian" className="hover:text-red-500 transition-colors">Produk</Link></li>
                             {product.category && (
                                 <>
-                                    <li className="text-gray-400">›</li>
+                                    <li className="text-slate-300">/</li>
                                     <li>
-                                        <Link prefetch={false}  href={`/pencarian?category=${encodeURIComponent(product.category)}`} className="text-gray-500 hover:text-red-600">
+                                        <Link prefetch={false} href={`/pencarian?category=${encodeURIComponent(product.category)}`} className="hover:text-red-500 transition-colors">
                                             {product.category}
                                         </Link>
                                     </li>
                                 </>
                             )}
-                            <li className="text-gray-400">›</li>
-                            <li className="text-gray-900 font-medium truncate max-w-[200px] uppercase">
+                            <li className="text-slate-300">/</li>
+                            <li className="text-slate-900 truncate max-w-[200px] font-black">
                                 {product.name}
                             </li>
                         </ol>

@@ -3,14 +3,51 @@ import Footer from "@/components/layout/Footer";
 import Link from "next/link";
 import { getCategoriesTree, getPublicProducts, getBrands, getProductSpecFilters } from "@/app/actions/product-public";
 import SidebarFilter from "@/components/public/SidebarFilter";
-import ProductSort from "@/components/public/ProductSort";
-import StockFilter from "@/components/public/StockFilter";
 import ShareButton from "@/components/public/ShareButton";
 import ProductGrid from "@/components/public/ProductGrid";
 import { getCustomerPricingData } from "@/app/actions/customer-pricing";
 import { PricingProvider } from "@/lib/PricingContext";
 
 export const dynamic = "force-dynamic"; // Ensure fresh data on search
+
+function getCategoryDescription(categoryName: string | null): string {
+    if (!categoryName) {
+        return "Jelajahi produk kelistrikan industri, otomasi pabrik, hingga portable light tower terlengkap. Jaminan 100% orisinil, tersertifikasi, dengan dukungan teknis purna jual profesional.";
+    }
+
+    const normalized = categoryName.toLowerCase();
+
+    if (normalized.includes("air circuit") || normalized.includes("acb")) {
+        return "Fungsi Utama: Pemutus sirkuit udara tegangan rendah berkapasitas besar. Berfungsi sebagai proteksi utama (main incoming) pada panel distribusi utama (LVMDP) terhadap beban berlebih, hubung singkat, dan gangguan tanah guna mengamankan sirkuit kelistrikan utama gedung atau pabrik.";
+    }
+    if (normalized.includes("molded case") || normalized.includes("mccb")) {
+        return "Fungsi Utama: Pengaman dan pemutus sirkuit otomatis berkapasitas menengah hingga tinggi. Berfungsi melindungi motor, transformator, dan kabel distribusi dari bahaya hubung singkat (short circuit) serta beban lebih (overload) pada sistem kelistrikan 3-fasa industri.";
+    }
+    if (normalized.includes("miniature") || normalized.includes("mcb")) {
+        return "Fungsi Utama: Proteksi sirkuit cabang berkapasitas rendah. Berfungsi memutuskan aliran listrik secara cepat ketika mendeteksi beban lebih maupun korsleting listrik pada instalasi penerangan, soket daya, serta sirkuit kontrol mesin industri skala kecil.";
+    }
+    if (normalized.includes("contactor") || normalized.includes("kontaktik") || normalized.includes("kontaktor")) {
+        return "Fungsi Utama: Sakelar elektromagnetik otomatis untuk beban arus kuat. Berfungsi mengendalikan, menghubungkan, dan memutus sirkuit listrik berdaya tinggi secara remote (jarak jauh), terutama untuk kontrol motor listrik, pemanas, pompa air, dan otomatisasi pabrik.";
+    }
+    if (normalized.includes("overload") || normalized.includes("tor") || normalized.includes("relay")) {
+        return "Fungsi Utama: Proteksi termal khusus untuk motor listrik. Berfungsi mendeteksi panas berlebih akibat kelebihan beban mekanis atau hilangnya salah satu fasa (single phasing), dan memicu kontaktor untuk memutus aliran daya guna mencegah kumparan motor terbakar.";
+    }
+    if (normalized.includes("lighting") || normalized.includes("light tower") || normalized.includes("portable light")) {
+        return "Fungsi Utama: Solusi pencahayaan modular area terbuka berdaya tinggi. Berfungsi menyediakan penerangan intensitas tinggi yang andal, portabel, dan tahan cuaca ekstrim untuk proyek konstruksi malam hari, tambang, tanggap darurat bencana, serta operasional lapangan.";
+    }
+    if (normalized.includes("busbar") || normalized.includes("chasis")) {
+        return "Fungsi Utama: Sistem distribusi daya terintegrasi berkapasitas tinggi. Berfungsi menghantarkan arus listrik utama secara efisien, rapi, dan aman di dalam panel listrik, menggantikan sistem kabel konvensional untuk meminimalkan rugi daya (power loss) dan panas berlebih.";
+    }
+    if (normalized.includes("protection") || normalized.includes("proteksi")) {
+        return "Fungsi Utama: Sistem proteksi kelistrikan komprehensif. Berfungsi melindungi aset kelistrikan industri, sirkuit distribusi, dan operator dari bahaya beban lebih, hubungan pendek, gangguan isolasi, serta fluktuasi arus yang tidak stabil.";
+    }
+    if (normalized.includes("control") || normalized.includes("kontrol") || normalized.includes("kendali")) {
+        return "Fungsi Utama: Perangkat kendali dan otomatisasi industri. Berfungsi mengatur, mengukur, serta mengotomatisasi pengoperasian mesin dan beban kelistrikan di pabrik secara aman, presisi, dan terintegrasi dengan sistem kontrol pusat.";
+    }
+
+    // Default dynamic description for other categories
+    return `Jelajahi koleksi produk kategori ${categoryName} terlengkap untuk kebutuhan kelistrikan industri, otomatisasi pabrik, dan instalasi panel kelistrikan Anda. Jaminan 100% orisinil dengan dukungan purna jual profesional.`;
+}
 
 export default async function SearchPage({
     searchParams,
@@ -81,81 +118,178 @@ export default async function SearchPage({
         return `/pencarian?${params.toString()}`;
     };
 
+    // Build active filters for summary bar
+    const activeFilters = [
+        resolvedParams.brand && { key: "brand", label: `Brand: ${resolvedParams.brand}` },
+        resolvedParams.category && { key: "category", label: `Kategori: ${categoryDisplayName}` },
+        resolvedParams.pole && { key: "pole", label: `Kutub: ${resolvedParams.pole}` },
+        resolvedParams.ampere && { key: "ampere", label: `Arus: ${resolvedParams.ampere}A` },
+        resolvedParams.breakingCapacity && { key: "breakingCapacity", label: `Breaking: ${resolvedParams.breakingCapacity}` },
+        resolvedParams.stockStatus && resolvedParams.stockStatus !== "all" && { 
+            key: "stockStatus", 
+            label: resolvedParams.stockStatus === "ready" ? "Status: Ready Stock" : "Status: Indent" 
+        },
+    ].filter(Boolean) as { key: string; label: string }[];
+
+    const createRemoveFilterUrl = (keyToRemove: string) => {
+        const params = new URLSearchParams();
+        Object.entries(resolvedParams).forEach(([key, value]) => {
+            if (value && key !== keyToRemove && key !== "page") {
+                if (Array.isArray(value)) {
+                    value.forEach(v => params.append(key, v));
+                } else {
+                    params.append(key, value);
+                }
+            }
+        });
+        return `/pencarian?${params.toString()}`;
+    };
+
+    // Render Active Filters Node as a prop for sticky desktop placement
+    const activeFiltersNode = activeFilters.length > 0 ? (
+        <div className="bg-white rounded-xl border border-[#e2e8f0] p-3 flex flex-wrap items-center gap-2 shadow-sm">
+            <span className="text-[10px] md:text-xs font-bold text-[#64748b] mr-1 uppercase tracking-wider">Filter Aktif:</span>
+            {activeFilters.map((filter) => (
+                <Link
+                    prefetch={false}
+                    key={filter.key}
+                    href={createRemoveFilterUrl(filter.key)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] md:text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 hover:text-red-700 rounded-lg border border-red-100/60 transition-all group"
+                    title={`Hapus filter ${filter.label}`}
+                >
+                    <span>{filter.label}</span>
+                    <svg className="w-3 h-3 text-red-400 group-hover:text-red-600 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </Link>
+            ))}
+            <Link
+                prefetch={false}
+                href="/pencarian"
+                className="inline-flex items-center gap-1 px-2 py-1 text-[10px] md:text-xs font-bold text-[#64748b] hover:text-red-600 transition-colors ml-auto border border-dashed border-slate-200 hover:border-red-200 rounded-lg"
+            >
+                Bersihkan Semua
+            </Link>
+        </div>
+    ) : null;
+
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
+        <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans">
             <SiteHeader />
 
             <main className="flex-1">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                    {/* Page Title */}
-                    <div className="flex items-center justify-between mb-6">
-                        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-                            {originalQuery ? `Hasil Pencarian: "${originalQuery}"` : category ? `Kategori: ${categoryDisplayName}` : "Seluruh Produk Kami"}
-                        </h1>
-                        <ShareButton className="flex items-center gap-2 text-sm text-teal-600 hover:text-teal-700 outline-none" text="Bagikan Halaman" />
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                    
+                    {/* Clean & Simple Header Title Section */}
+                    <div className="mb-6 select-none">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-slate-200/60">
+                            <div>
+                                {/* Premium Breadcrumb */}
+                                <div className="flex items-center gap-2 text-[10px] text-slate-400 font-extrabold tracking-wider uppercase mb-2">
+                                    <Link href="/" className="hover:text-red-500 transition-colors">Beranda</Link>
+                                    <span className="text-slate-300">/</span>
+                                    <span className="text-slate-500 font-black">Produk</span>
+                                </div>
+                                
+                                <h1 className="text-xl md:text-2xl font-black tracking-tight text-slate-900">
+                                    {originalQuery ? (
+                                        <span className="flex flex-wrap items-center gap-x-2">
+                                            Hasil Pencarian <span className="text-red-600 font-black">"{originalQuery}"</span>
+                                        </span>
+                                    ) : category ? (
+                                        <span>Kategori: <span className="text-red-600 font-black">{categoryDisplayName}</span></span>
+                                    ) : (
+                                        <span>Seluruh Katalog <span className="text-red-600 font-black">Produk</span></span>
+                                    )}
+                                </h1>
+                            </div>
+                            
+                            <div className="flex items-center gap-3 shrink-0">
+                                <ShareButton 
+                                    className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-50 active:bg-slate-100 rounded-xl transition-all border border-slate-200 shadow-2xs outline-none" 
+                                    text="Bagikan Halaman" 
+                                />
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="flex gap-6 relative">
-                        {/* Sidebar Filter */}
+                    <div className="flex gap-4 relative">
+                        {/* Sidebar Filter Component */}
                         <SidebarFilter categories={categories as any} brands={brands} specFilters={specFilters} />
 
-                        {/* Products Grid */}
+                        {/* Products Area */}
                         <div className="flex-1">
-                            {/* Results Info & Sort (Simplified for now, can be extracted to client component for interactivity) */}
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-                                <p className="text-sm text-gray-600">
-                                    Menampilkan <span className="font-medium">{products.length}</span> dari {pagination.total} produk
-                                </p>
-                                <div className="flex gap-2">
-                                    <StockFilter />
-                                    <ProductSort />
-                                </div>
-                            </div>
+                             {/* Products Rendering Block */}
+                             {products.length === 0 ? (
+                                 <div className="text-center py-16 px-4 bg-white rounded-2xl border border-[#e2e8f0] shadow-sm flex flex-col items-center justify-center">
+                                     <div className="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center text-red-500 mb-4 animate-pulse">
+                                         <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                         </svg>
+                                     </div>
+                                     <h3 className="text-base font-extrabold text-[#0f172a] mb-1">Tidak Ada Produk Ditemukan</h3>
+                                     <p className="text-xs text-[#64748b] max-w-sm mb-6 leading-relaxed">
+                                         Maaf, kriteria pencarian Anda tidak cocok dengan produk apapun dalam katalog kami. Silakan coba periksa kembali kata kunci atau bersihkan filter aktif.
+                                     </p>
+                                     <div className="flex gap-2">
+                                         {activeFilters.length > 0 && (
+                                             <Link 
+                                                 href="/pencarian" 
+                                                 className="px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all shadow-sm"
+                                             >
+                                                 Bersihkan Filter
+                                             </Link>
+                                         )}
+                                         <Link 
+                                             href="/" 
+                                             className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-red-500/10"
+                                         >
+                                             Kembali ke Beranda
+                                         </Link>
+                                     </div>
+                                 </div>
+                             ) : (
+                                 <PricingProvider
+                                     initialCustomer={pricingData.customer}
+                                     initialMappings={pricingData.categoryMappings}
+                                     initialDiscountRules={pricingData.discountRules}
+                                 >
+                                     <ProductGrid products={products} total={pagination.total} activeFiltersNode={activeFiltersNode} />
+                                 </PricingProvider>
+                             )}
 
-                            {/* Products */}
-                            {products.length === 0 ? (
-                                <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
-                                    <p className="text-gray-500">Tidak ada produk ditemukan.</p>
-                                </div>
-                            ) : (
-                                <PricingProvider
-                                    initialCustomer={pricingData.customer}
-                                    initialMappings={pricingData.categoryMappings}
-                                    initialDiscountRules={pricingData.discountRules}
-                                >
-                                    <ProductGrid products={products} />
-                                </PricingProvider>
-                            )}
-
-                            {/* Pagination */}
+                            {/* Custom Polished Pagination Component */}
                             {pagination.totalPages > 1 && (
-                                <div className="flex items-center justify-center gap-2 mt-8">
-                                    {/* Simple pagination: Previous */}
+                                <div className="flex items-center justify-center gap-2.5 mt-8 py-5 border-t border-slate-100">
+                                    {/* Previous Page */}
                                     {page > 1 ? (
                                         <Link prefetch={false} 
                                             href={createPageUrl(page - 1)}
-                                            className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50"
+                                            className="w-10 h-10 flex items-center justify-center rounded-xl border border-[#e2e8f0] bg-white text-[#475569] hover:text-red-600 hover:border-red-500 hover:shadow-sm active:bg-slate-50 transition-all font-bold text-sm"
                                         >
                                             ‹
                                         </Link>
                                     ) : (
-                                        <button disabled className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 text-gray-300 cursor-not-allowed">‹</button>
+                                        <button disabled className="w-10 h-10 flex items-center justify-center rounded-xl border border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed text-sm">‹</button>
                                     )}
 
-                                    <span className="text-sm font-medium text-gray-700">
-                                        Halaman {page} dari {pagination.totalPages}
-                                    </span>
+                                    <div className="flex items-center gap-1.5 px-3.5 py-2 bg-white rounded-xl border border-[#e2e8f0] shadow-xs">
+                                        <span className="text-[10px] text-[#64748b] font-bold uppercase tracking-wider">Halaman</span>
+                                        <span className="text-xs font-black text-[#0f172a]">{page}</span>
+                                        <span className="text-[10px] text-[#94a3b8] font-bold">/</span>
+                                        <span className="text-xs font-black text-[#64748b]">{pagination.totalPages}</span>
+                                    </div>
 
-                                    {/* Next */}
+                                    {/* Next Page */}
                                     {page < pagination.totalPages ? (
                                         <Link prefetch={false} 
                                             href={createPageUrl(page + 1)}
-                                            className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50"
+                                            className="w-10 h-10 flex items-center justify-center rounded-xl border border-[#e2e8f0] bg-white text-[#475569] hover:text-red-600 hover:border-red-500 hover:shadow-sm active:bg-slate-50 transition-all font-bold text-sm"
                                         >
                                             ›
                                         </Link>
                                     ) : (
-                                        <button disabled className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 text-gray-300 cursor-not-allowed">›</button>
+                                        <button disabled className="w-10 h-10 flex items-center justify-center rounded-xl border border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed text-sm">›</button>
                                     )}
                                 </div>
                             )}

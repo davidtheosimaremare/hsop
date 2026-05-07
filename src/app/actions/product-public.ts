@@ -335,27 +335,85 @@ export async function getPublicProductBySlug(slug: string) {
 }
 
 async function getRelatedProductsCached(category: string, excludeId: string, name: string = "") {
-    const cacheKey = `related:${category}:${excludeId}:${name.slice(0, 20)}`;
+    const cacheKey = `related:${category}:${excludeId}:${name.slice(0, 40)}`;
     return memoryCache.getOrFetch(cacheKey, async () => {
-        // Clean name for better matching
-        const nameWords = name.split(/[\s-]+/).filter(w => w.length >= 3).slice(0, 2);
+        // Clean and tokenize current name
+        const currentNameLower = name.toLowerCase();
+        const currentWords = currentNameLower.split(/[\s,/\-\(\)]+/).filter(w => w.length >= 2);
 
-        // Initial search: Same category + matching keywords
-        const relatedProducts = await db.product.findMany({
-            where: {
-                category: category ? { contains: category, mode: "insensitive" } : undefined,
-                id: { not: excludeId },
-                isVisible: true,
-                OR: nameWords.length > 0 ? nameWords.map(word => ({
-                    name: { contains: word, mode: "insensitive" }
-                })) : undefined
-            },
-            take: 8,
-            orderBy: { name: 'asc' }
+        // Detect Siemens product series to fetch highly relevant candidates directly from the DB
+        const seriesList = ["3wj", "3wa", "3vl", "3rt", "3rv", "3ru", "3ua", "3ld", "5sy", "5sp", "5sl", "3vt", "3vm"];
+        const detectedSeries = seriesList.find(series => currentNameLower.includes(series));
+
+        let candidates: any[] = [];
+
+        // 1. Fetch candidates from the same series if detected
+        if (detectedSeries) {
+            candidates = await db.product.findMany({
+                where: {
+                    category: category ? { contains: category, mode: "insensitive" as const } : undefined,
+                    id: { not: excludeId },
+                    isVisible: true,
+                    name: { contains: detectedSeries, mode: "insensitive" as const }
+                },
+                take: 80,
+            });
+        }
+
+        // 2. Fallback/supplement with other products from the same category
+        if (candidates.length < 100) {
+            const fallbackCandidates = await db.product.findMany({
+                where: {
+                    category: category ? { contains: category, mode: "insensitive" as const } : undefined,
+                    id: { 
+                        not: excludeId,
+                        notIn: candidates.map(c => c.id)
+                    },
+                    isVisible: true,
+                },
+                take: 100 - candidates.length,
+            });
+            candidates = [...candidates, ...fallbackCandidates];
+        }
+
+        // Compute similarity scores based on overlapping words, heavily prioritizing technical parameters
+        const scoredCandidates = candidates.map(product => {
+            const nameStr = (product.name || "") as string;
+            const productWords = nameStr.toLowerCase().split(/[\s,/\-\(\)]+/).filter((w: string) => w.length >= 2);
+            let score = 0;
+
+            for (const word of productWords) {
+                if (currentWords.includes(word)) {
+                    // Heavily weight technical specs (numerals, poles, amperes, model series like ETU, 3WJ, etc.)
+                    const isTechnical = /[0-9]/.test(word) || 
+                                        word.endsWith('p') || 
+                                        word.endsWith('a') || 
+                                        word.endsWith('ka') ||
+                                        word.includes('etu') || 
+                                        word.includes('3wa') || 
+                                        word.includes('3wj') || 
+                                        word.includes('3rt') ||
+                                        word.includes('3rv') ||
+                                        word.includes('3vl');
+                    
+                    score += isTechnical ? 6 : 1.5;
+                }
+            }
+
+            return { product, score };
         });
 
-        // Fallback: If not enough related products, get from same category without keyword matching
-        let finalProducts = [...relatedProducts];
+        // Sort by similarity score descending; break ties with newer creation date
+        scoredCandidates.sort((a, b) => {
+            if (b.score !== a.score) {
+                return b.score - a.score;
+            }
+            return b.product.createdAt.getTime() - a.product.createdAt.getTime();
+        });
+
+        let finalProducts = scoredCandidates.slice(0, 8).map(sc => sc.product);
+
+        // Fallback: Same category without keywords if we need to fill the pool
         if (finalProducts.length < 8 && category) {
             const fallbackProducts = await db.product.findMany({
                 where: {

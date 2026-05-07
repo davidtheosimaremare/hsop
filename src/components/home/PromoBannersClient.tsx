@@ -27,6 +27,8 @@ export default function PromoBannersClient({ leftCTA, rightCTA }: PromoBannersCl
                         src={cta.image}
                         alt={cta.title}
                         fill
+                        unoptimized={true}
+                        sizes="(max-width: 1024px) 100vw, 600px"
                         className="object-cover transition-transform duration-700 group-hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-black/50" />

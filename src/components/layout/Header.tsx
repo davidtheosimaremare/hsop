@@ -39,7 +39,6 @@ const AlertDialogTitle = dynamic(() => import("@/components/ui/alert-dialog").th
 
 import { getUserNotifications, markNotificationAsRead } from "@/app/actions/notification";
 import dynamic from "next/dynamic";
-// ... imports
 
 interface HeaderProps {
     user?: {
@@ -64,7 +63,6 @@ const navCategories = [
     { name: "Kategori Produk" },
 ];
 
-// Helper to map icon string to component
 const getIconComponent = (iconName: string) => {
     switch (iconName) {
         case "zap": return <Zap className="w-5 h-5" />;
@@ -179,7 +177,7 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
     };
 
     return (
-        <header className="sticky top-0 z-50 w-full bg-white border-b border-gray-100">
+        <header className="sticky top-0 z-50 w-full bg-white border-b border-slate-100 shadow-3xs select-none">
             {/* Top Header */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-16 md:h-20 gap-4">
@@ -191,9 +189,9 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                 ? "w-0 opacity-0 overflow-hidden md:w-auto md:opacity-100 md:overflow-visible"
                                 : "w-auto opacity-100"
                         }`}
-                        whileHover={!isSearchFocused ? { scale: 1.02 } : {}}
+                        whileHover={!isSearchFocused ? { scale: 1.015 } : {}}
                     >
-                        <Link prefetch={false}  href="/" className="flex items-center">
+                        <Link prefetch={false} href="/" className="flex items-center">
                             {/* Desktop Logo */}
                             {companyDetails?.logo ? (
                                 <img
@@ -239,22 +237,22 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                             : "w-auto opacity-100"
                     }`}>
                         {/* Notifications & Cart Container */}
-                        <div className="flex items-center gap-1 md:gap-4 mr-1 md:mr-4">
+                        <div className="flex items-center gap-1.5 md:gap-3 mr-1 md:mr-3">
                             {/* Notifications - Only if logged in */}
                             {user && (
                                 <NotificationDropdown userId={userId} />
                             )}
 
-                            {/* Cart/Bag */}
-                            <Link prefetch={false}  href="/keranjang">
+                            {/* Cart/Bag Trigger - Beautiful premium capsule backdrop */}
+                            <Link prefetch={false} href="/keranjang">
                                 <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    className="group relative p-2 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-all duration-200"
+                                    whileHover={{ scale: 1.03 }}
+                                    whileTap={{ scale: 0.97 }}
+                                    className="group relative p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100/70 text-slate-600 hover:text-slate-900 border border-slate-100 hover:border-slate-200 transition-all duration-250 shadow-3xs"
                                 >
-                                    <ShoppingCart className="h-5 w-5 md:h-6 md:w-6 transition-colors duration-200" />
+                                    <ShoppingCart className="h-5 w-5 transition-colors duration-200" />
                                     {totalItems > 0 && (
-                                        <span className="absolute top-1 right-1 h-4 w-4 md:h-4.5 md:w-4.5 bg-red-600 border-2 border-white rounded-full text-[8px] md:text-[9px] text-white flex items-center justify-center font-bold">
+                                        <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-red-600 border border-white rounded-full text-[9px] text-white flex items-center justify-center font-black shadow-xs">
                                             {totalItems > 99 ? '99+' : totalItems}
                                         </span>
                                     )}
@@ -263,7 +261,7 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                         </div>
 
                         {/* Separator */}
-                        <div className="hidden sm:block h-8 w-px bg-gray-200 mx-4" />
+                        <div className="hidden sm:block h-7 w-px bg-slate-200 mx-3.5" />
 
                         {/* Auth Buttons or User Menu - Desktop */}
                         <div className="hidden sm:flex items-center gap-2">
@@ -271,9 +269,9 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                 <div className="relative" ref={userMenuRef}>
                                     <button
                                         onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                                        className="flex items-center gap-3 p-1.5 pr-3 rounded-xl hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-200"
+                                        className="flex items-center gap-3 p-1.5 pr-3 rounded-xl hover:bg-slate-50 transition-all border border-slate-100 hover:border-slate-200 shadow-3xs"
                                     >
-                                        <div className="w-9 h-9 rounded-lg overflow-hidden bg-red-100 flex items-center justify-center text-red-600 font-bold flex-shrink-0">
+                                        <div className="w-9 h-9 rounded-lg overflow-hidden bg-red-100 flex items-center justify-center text-red-600 font-extrabold flex-shrink-0">
                                             {customerImage ? (
                                                 <img src={customerImage} alt={user.name || "User"} className="w-full h-full object-cover" />
                                             ) : (
@@ -281,14 +279,14 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                             )}
                                         </div>
                                         <div className="text-left hidden lg:block">
-                                            <p className="text-sm font-bold text-gray-900 leading-none mb-1">
+                                            <p className="text-xs font-black text-slate-900 leading-none mb-1">
                                                 {user.name || "Member Hokiindo"}
                                             </p>
-                                            <p className="text-xs text-gray-500 leading-none truncate max-w-[150px]">
+                                            <p className="text-[10px] text-slate-400 font-bold leading-none truncate max-w-[140px]">
                                                 {user.email}
                                             </p>
                                         </div>
-                                        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isUserMenuOpen ? "rotate-180" : ""}`} />
+                                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isUserMenuOpen ? "rotate-180" : ""}`} />
                                     </button>
 
                                     <AnimatePresence>
@@ -297,17 +295,16 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                                 initial={{ opacity: 0, y: 10, scale: 0.95 }}
                                                 animate={{ opacity: 1, y: 0, scale: 1 }}
                                                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                                className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 py-2 overflow-hidden z-50"
+                                                className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-100 py-2 overflow-hidden z-50"
                                             >
-                                                <div className="px-4 py-3 border-b border-gray-50 mb-1">
-                                                    <p className="text-sm font-semibold text-gray-900">Akun Saya</p>
+                                                <div className="px-4 py-3 border-b border-slate-50 mb-1">
+                                                    <p className="text-xs font-black text-slate-800 uppercase tracking-wider">Akun Saya</p>
                                                 </div>
 
                                                 <Link prefetch={false} 
                                                     href="/dashboard"
-                                                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 transition-colors"
+                                                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-red-50 hover:text-red-700 transition-colors"
                                                     onClick={() => setIsUserMenuOpen(false)}
-                                                    prefetch={false}
                                                 >
                                                     <LayoutDashboard className="w-4 h-4" />
                                                     Dashboard
@@ -316,9 +313,8 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                                 {user.role && ["SUPER_ADMIN", "ADMIN", "MANAGER", "STAFF"].includes(user.role) && (
                                                     <Link prefetch={false} 
                                                         href="/admin"
-                                                        className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 transition-colors font-medium"
+                                                        className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-red-50 hover:text-red-700 transition-colors font-semibold"
                                                         onClick={() => setIsUserMenuOpen(false)}
-                                                        prefetch={false}
                                                     >
                                                         <Settings className="w-4 h-4 text-red-600" />
                                                         Dashboard Admin
@@ -327,19 +323,18 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
 
                                                 <Link prefetch={false} 
                                                     href="/dashboard/settings"
-                                                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 transition-colors"
+                                                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-red-50 hover:text-red-700 transition-colors"
                                                     onClick={() => setIsUserMenuOpen(false)}
-                                                    prefetch={false}
                                                 >
                                                     <User className="w-4 h-4" />
                                                     Pengaturan
                                                 </Link>
 
-                                                <div className="border-t border-gray-50 my-1" />
+                                                <div className="border-t border-slate-50 my-1" />
 
                                                 <button
                                                     onClick={handleLogoutClick}
-                                                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors font-semibold"
                                                 >
                                                     <LogOut className="w-4 h-4" />
                                                     Keluar
@@ -350,21 +345,24 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                 </div>
                             ) : (
                                 <>
+                                    {/* Sleek iOS/MacOS inspired Action buttons */}
                                     <Link href="/daftar" prefetch={false}>
-                                        <Button
-                                            variant="outline"
-                                            className="h-10 px-6 rounded-xl font-medium transition-all duration-300"
+                                        <motion.button
+                                            whileHover={{ y: -1 }}
+                                            whileTap={{ y: 0, scale: 0.98 }}
+                                            className="h-10 px-5 rounded-xl text-slate-700 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 hover:border-slate-300 font-bold text-xs uppercase tracking-wider transition-all duration-300 shadow-3xs"
                                         >
                                             Daftar
-                                        </Button>
+                                        </motion.button>
                                     </Link>
                                     <Link href="/masuk" prefetch={false}>
-                                        <Button
-                                            variant="red"
-                                            className="h-10 px-6 rounded-xl font-medium transition-all duration-300"
+                                        <motion.button
+                                            whileHover={{ y: -1 }}
+                                            whileTap={{ y: 0, scale: 0.98 }}
+                                            className="h-10 px-5 rounded-xl text-white bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-600 font-black text-xs uppercase tracking-wider transition-all duration-300 shadow-sm shadow-red-100/40 hover:shadow-md hover:shadow-red-200/30"
                                         >
                                             Masuk
-                                        </Button>
+                                        </motion.button>
                                     </Link>
                                 </>
                             )}
@@ -373,12 +371,12 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                         {/* Mobile Menu Button */}
                         <button
                             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                            className="md:hidden p-2 rounded-xl hover:bg-gray-100 transition-colors"
+                            className="md:hidden p-2 rounded-xl hover:bg-slate-100 transition-colors"
                         >
                             {isMobileMenuOpen ? (
-                                <X className="h-5 w-5 text-gray-600" />
+                                <X className="h-5 w-5 text-slate-600" />
                             ) : (
-                                <Menu className="h-5 w-5 text-gray-600" />
+                                <Menu className="h-5 w-5 text-slate-600" />
                             )}
                         </button>
                     </div>
@@ -388,7 +386,7 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
             </div>
 
             {/* Navigation Bar */}
-            <nav className="hidden md:block border-t border-gray-100 bg-white/60 relative" ref={megaMenuRef}>
+            <nav className="hidden md:block border-t border-slate-100 bg-white/60 relative" ref={megaMenuRef}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center justify-between h-12">
                         {/* Categories */}
@@ -401,12 +399,12 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                     setActiveCategory(0);
                                 }}
                                 className={`
-                                    flex items-center gap-1 px-3 py-1.5 rounded-lg font-medium transition-all duration-200
-                                    text-sm text-gray-700 hover:text-red-600 hover:bg-red-50
+                                    flex items-center gap-1.5 px-3.5 py-2 rounded-lg font-bold transition-all duration-200
+                                    text-xs uppercase tracking-wider text-slate-700 hover:text-red-600 hover:bg-red-50/50
                                     ${isMegaMenuOpen ? "text-red-600 bg-red-50" : ""}
                                 `}
                             >
-                                <LayoutGrid className="h-4 w-4" />
+                                <LayoutGrid className="h-4 w-4 text-red-500" />
                                 <span>Kategori Produk</span>
                                 <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${isMegaMenuOpen ? "rotate-180" : ""}`} />
                             </motion.button>
@@ -415,14 +413,14 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                             {searchSuggestions.length > 0 && (
                                 <>
                                     <div className="flex items-center gap-2 ml-2 mr-1">
-                                        {!isHomePage && <div className="h-4 w-px bg-gray-200" />}
-                                        <span className="text-[11px] text-gray-400 font-medium whitespace-nowrap">Saran Cepat :</span>
+                                        {!isHomePage && <div className="h-4 w-px bg-slate-200" />}
+                                        <span className="text-[10px] text-slate-400 font-black uppercase tracking-wider whitespace-nowrap">Saran Cepat :</span>
                                     </div>
                                     {searchSuggestions.map((term) => (
                                         <Link key={term} href={`/pencarian?q=${encodeURIComponent(term)}&page=1`} prefetch={false}>
                                             <motion.button
                                                 whileHover={{ y: -1 }}
-                                                className="flex items-center gap-1 px-3 py-1.5 rounded-lg font-medium transition-all duration-200 text-xs text-gray-600 hover:text-red-600 hover:bg-red-50"
+                                                className="flex items-center gap-1 px-3 py-1.5 rounded-lg font-bold transition-all duration-200 text-xs text-slate-600 hover:text-red-600 hover:bg-red-50/40"
                                             >
                                                 <span>{term}</span>
                                             </motion.button>
@@ -437,13 +435,13 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                             <Link
                                 href="/berita"
                                 prefetch={false}
-                                className="text-sm font-medium text-gray-600 hover:text-red-600 transition-colors"
+                                className="text-xs uppercase tracking-wider font-bold text-slate-600 hover:text-red-600 transition-colors"
                             >
                                 Berita
                             </Link>
                             <a
                                 href="/pesanan-besar"
-                                className="text-sm font-medium text-gray-600 hover:text-red-600 transition-colors"
+                                className="text-xs uppercase tracking-wider font-bold text-slate-600 hover:text-red-600 transition-colors"
                             >
                                 Bulk Order
                             </a>
@@ -460,14 +458,14 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -10 }}
                                 transition={{ duration: 0.2 }}
-                                className="absolute left-4 sm:left-6 lg:left-8 right-4 sm:right-6 lg:right-8 top-0 bg-white shadow-2xl border border-gray-100 z-50 rounded-b-2xl overflow-hidden"
+                                className="absolute left-4 sm:left-6 lg:left-8 right-4 sm:right-6 lg:right-8 top-0 bg-white shadow-2xl border border-slate-100 z-50 rounded-b-2xl overflow-hidden"
                                 style={{ maxWidth: "700px" }}
                             >
                                 <div className="flex">
                                     {/* Left Sidebar - Categories */}
-                                    <div className="w-52 bg-gradient-to-b from-gray-50 to-gray-100/50 py-3 border-r border-gray-100">
+                                    <div className="w-52 bg-gradient-to-b from-slate-50 to-slate-100/50 py-3 border-r border-slate-100">
                                         <div className="px-4 mb-3">
-                                            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Kategori Produk</h3>
+                                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Kategori Produk</h3>
                                         </div>
                                         {categoriesToDisplay.map((cat, catIndex) => (
                                             <Link prefetch={false} 
@@ -475,26 +473,25 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                                 href={`/pencarian?q=&category=${encodeURIComponent(cat.name)}&page=1`}
                                                 onMouseEnter={() => setActiveCategory(catIndex)}
                                                 onClick={() => setIsMegaMenuOpen(false)}
-                                                prefetch={false}
                                                 className={`
-                                                w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-medium transition-all duration-200
+                                                w-full flex items-center gap-3 px-4 py-3 text-left text-xs uppercase tracking-wide font-extrabold transition-all duration-200
                                                 ${activeCategory === catIndex
                                                         ? "bg-red-500 text-white shadow-md"
-                                                        : "text-gray-700 hover:bg-white hover:shadow-sm"
+                                                        : "text-slate-700 hover:bg-white hover:shadow-sm"
                                                     }
                                             `}
                                             >
                                                 <span className="flex-1">{cat.alias || cat.name}</span>
-                                                <ChevronRight className={`h-4 w-4 transition-transform ${activeCategory === catIndex ? "text-white translate-x-1" : "text-gray-400"}`} />
+                                                <ChevronRight className={`h-4 w-4 transition-transform ${activeCategory === catIndex ? "text-white translate-x-1" : "text-slate-400"}`} />
                                             </Link>
                                         ))}
 
                                         {/* View All Link */}
-                                        <div className="px-4 pt-4 mt-2 border-t border-gray-200">
+                                        <div className="px-4 pt-4 mt-2 border-t border-slate-200">
                                             <Link
                                                 href="/kategori"
                                                 prefetch={false}
-                                                className="flex items-center gap-2 text-sm font-medium text-red-600 hover:text-red-700 transition-colors"
+                                                className="flex items-center gap-2 text-xs uppercase tracking-wider font-extrabold text-red-600 hover:text-red-700 transition-colors"
                                                 onClick={() => setIsMegaMenuOpen(false)}
                                             >
                                                 <LayoutGrid className="h-4 w-4" />
@@ -505,8 +502,8 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
 
                                     {/* Right Content - Subcategories */}
                                     <div className="flex-1 p-6 bg-white">
-                                        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-100">
-                                            <h3 className="text-lg font-bold text-gray-900">{categoriesToDisplay[activeCategory]?.alias || categoriesToDisplay[activeCategory]?.name}</h3>
+                                        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+                                            <h3 className="text-sm font-black uppercase text-slate-800">{categoriesToDisplay[activeCategory]?.alias || categoriesToDisplay[activeCategory]?.name}</h3>
                                         </div>
                                         <div className="grid grid-cols-2 gap-2">
                                             {categoriesToDisplay[activeCategory]?.subcategories.map((subcat: any) => (
@@ -514,10 +511,9 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                                     key={subcat.id || subcat.name}
                                                     href={`/pencarian?q=&category=${encodeURIComponent(subcat.alias || subcat.name)}&page=1`}
                                                     onClick={() => setIsMegaMenuOpen(false)}
-                                                    prefetch={false}
                                                     className="group flex items-center p-2 rounded-lg hover:bg-red-50 transition-all duration-200"
                                                 >
-                                                    <span className="text-sm text-gray-700 group-hover:text-red-600 font-medium">{subcat.alias || subcat.name}</span>
+                                                    <span className="text-xs text-slate-700 group-hover:text-red-600 font-bold uppercase tracking-wide">{subcat.alias || subcat.name}</span>
                                                 </Link>
                                             ))}
                                         </div>
@@ -536,10 +532,10 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: "auto" }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="md:hidden border-t border-gray-100 bg-white overflow-y-auto overflow-x-hidden max-h-[calc(100vh-4rem)] overscroll-contain"
+                        className="md:hidden border-t border-slate-100 bg-white overflow-y-auto overflow-x-hidden max-h-[calc(100vh-4rem)] overscroll-contain"
                     >
                         <div className="px-4 py-4">
-                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 px-2">Kategori Produk</h3>
+                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 px-2">Kategori Produk</h3>
                             <div className="grid grid-cols-1 gap-1">
                                 {categoriesToDisplay.map((category, catIndex) => {
                                     const hasSubcats = category.subcategories && category.subcategories.length > 0;
@@ -549,22 +545,21 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                         <div className="flex items-center justify-between px-2 py-1.5 rounded-xl group hover:bg-red-50 transition-colors">
                                             <Link prefetch={false} 
                                                 href={`/pencarian?q=&category=${encodeURIComponent(category.name)}&page=1`}
-                                                className="flex-1 px-2 py-1.5 text-gray-700 group-hover:text-red-600 transition-colors font-semibold text-sm"
+                                                className="flex-1 px-2 py-1.5 text-slate-700 group-hover:text-red-600 transition-colors font-bold text-sm uppercase tracking-wide"
                                                 onClick={() => setIsMobileMenuOpen(false)}
-                                                prefetch={false}
                                             >
                                                 {category.alias || category.name}
                                             </Link>
                                             {hasSubcats ? (
                                                 <button 
                                                     onClick={() => setMobileExpandedCat(isExpanded ? null : catIndex)}
-                                                    className="p-2 text-gray-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-100"
+                                                    className="p-2 text-slate-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-100"
                                                 >
                                                     <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                                                 </button>
                                             ) : (
                                                 <div className="p-2">
-                                                    <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-red-400 group-hover:translate-x-1 transition-all" />
+                                                    <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-red-400 group-hover:translate-x-1 transition-all" />
                                                 </div>
                                             )}
                                         </div>
@@ -574,18 +569,17 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                                     initial={{ height: 0, opacity: 0 }}
                                                     animate={{ height: "auto", opacity: 1 }}
                                                     exit={{ height: 0, opacity: 0 }}
-                                                    className="overflow-hidden bg-gray-50/50 mx-2 rounded-lg"
+                                                    className="overflow-hidden bg-slate-50/50 mx-2 rounded-lg"
                                                 >
                                                     <div className="py-2 px-3 flex flex-col gap-1">
                                                         {category.subcategories.map((subcat: any) => (
                                                             <Link prefetch={false} 
                                                                 key={subcat.name}
                                                                 href={`/pencarian?q=&category=${encodeURIComponent(subcat.alias || subcat.name)}&page=1`}
-                                                                className="px-4 py-2 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 transition-colors rounded-lg flex items-center gap-2"
+                                                                className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-red-600 hover:bg-red-50 transition-colors rounded-lg flex items-center gap-2 uppercase tracking-wide"
                                                                 onClick={() => setIsMobileMenuOpen(false)}
-                                                                prefetch={false}
                                                             >
-                                                                <span className="w-1 h-1 rounded-full bg-gray-400" />
+                                                                <span className="w-1 h-1 rounded-full bg-slate-400" />
                                                                 {subcat.alias || subcat.name}
                                                             </Link>
                                                         ))}
@@ -595,12 +589,11 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                         </AnimatePresence>
                                     </div>
                                 )})}
-                                <div className="border-t border-gray-100 my-4" />
+                                <div className="border-t border-slate-100 my-4" />
                                 <Link prefetch={false} 
                                     href="/kategori"
-                                    className="flex items-center justify-center gap-2 px-4 py-4 rounded-xl bg-gray-50 text-gray-900 hover:bg-red-600 hover:text-white transition-all duration-200 font-bold text-sm"
+                                    className="flex items-center justify-center gap-2 px-4 py-4 rounded-xl bg-slate-50 text-slate-900 hover:bg-red-600 hover:text-white transition-all duration-200 font-black text-xs uppercase tracking-wider"
                                     onClick={() => setIsMobileMenuOpen(false)}
-                                    prefetch={false}
                                 >
                                     <LayoutGrid className="h-4 w-4" />
                                     Lihat Semua Kategori
@@ -619,17 +612,17 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                             <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
                                 <AlertTriangle className="w-5 h-5 text-red-600" />
                             </div>
-                            <AlertDialogTitle className="text-lg">Konfirmasi Logout</AlertDialogTitle>
+                            <AlertDialogTitle className="text-lg font-black uppercase tracking-tight">Konfirmasi Logout</AlertDialogTitle>
                         </div>
-                        <AlertDialogDescription className="text-sm pt-2">
+                        <AlertDialogDescription className="text-xs pt-2 font-semibold text-slate-500">
                             Apakah Anda yakin ingin keluar dari akun? Anda akan diarahkan ke halaman login.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="gap-2">
-                        <AlertDialogCancel className="font-medium">Batal</AlertDialogCancel>
+                        <AlertDialogCancel className="font-bold text-xs uppercase tracking-wider rounded-xl">Batal</AlertDialogCancel>
                         <AlertDialogAction
                             onClick={handleLogout}
-                            className="bg-red-600 hover:bg-red-700 text-white font-medium"
+                            className="bg-red-600 hover:bg-red-700 text-white font-black text-xs uppercase tracking-wider rounded-xl"
                             disabled={isLoggingOut}
                         >
                             {isLoggingOut ? (

@@ -15,7 +15,7 @@ const nextConfig: NextConfig = {
     },
   },
   images: {
-    unoptimized: true,
+    unoptimized: process.env.NODE_ENV === "development", // Menonaktifkan optimasi di lokal (development) untuk mencegah TimeoutError, tetapi mengaktifkannya di server production agar website customer super kencang!
     remotePatterns: [
       {
         protocol: 'https',
