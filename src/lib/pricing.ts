@@ -122,9 +122,9 @@ export function calculatePriceInfo(
 
     return {
         originalPrice: productPrice,
-        originalPriceWithPPN: productPrice * PPN,
+        originalPriceWithPPN: Math.ceil((productPrice * PPN) / 1000) * 1000,
         discountedPrice: finalPrice,
-        discountedPriceWithPPN: finalPrice * PPN,
+        discountedPriceWithPPN: Math.ceil((finalPrice * PPN) / 1000) * 1000,
         hasDiscount: discounts.length > 0,
         isCustomerDiscount: !!(ruleName && ruleName.toLowerCase().includes("customer")),
         discounts,

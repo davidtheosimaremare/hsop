@@ -302,7 +302,7 @@ export default function BulkOrderClient() {
                     itemsToAdd.push({
                         ...product,
                         qty,
-                        finalPrice: product.price * 1.11, // Manual price + PPN for custom
+                        finalPrice: Math.ceil((product.price * 1.11) / 1000) * 1000, // Manual price + PPN for custom, rounded up to nearest thousand
                         hasDiscount: false,
                         stockStatus: 'INDENT',
                         customId,
