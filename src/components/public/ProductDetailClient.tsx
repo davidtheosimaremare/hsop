@@ -207,7 +207,7 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 
                 {/* Left - Product Image Gallery (lg:col-span-4) */}
-                <div className="lg:col-span-4">
+                <div className="lg:col-span-4 min-w-0">
                     <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs relative overflow-hidden flex flex-col">
                         
                         {/* Main Image View with Loupe Hover Zoom Interaction */}
@@ -275,7 +275,7 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                 </div>
 
                 {/* Middle - Premium Product Technical Details (lg:col-span-5) */}
-                <div className="lg:col-span-5 flex flex-col">
+                <div className="lg:col-span-5 flex flex-col min-w-0">
                     
                     {/* Brand Identifier */}
                     <div className="text-[10px] uppercase tracking-widest text-red-600 font-extrabold mb-1.5">
@@ -283,7 +283,7 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                     </div>
 
                     {/* Product Name with beautiful letter spacing & line height */}
-                    <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-snug uppercase mb-2">
+                    <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-snug uppercase mb-2 break-words">
                         {product.name}
                     </h1>
 
@@ -438,7 +438,7 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                 </div>
 
                 {/* Right - Checkout Action Panel (lg:col-span-3) */}
-                <div className="lg:col-span-3">
+                <div className="lg:col-span-3 min-w-0">
                     <div className="bg-white rounded-2xl border border-slate-150 p-5 shadow-xs hover:shadow-sm transition-all duration-300 relative overflow-hidden">
                         
                         {/* Premium Red Top Accent Line */}
