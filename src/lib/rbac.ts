@@ -195,6 +195,8 @@ export const routePermissions: Record<string, Permission[]> = {
   "/admin/vendor-products": ["vendor_products:view"],
   "/admin/products/categories": ["categories:manage"],
   "/admin/products/default-discounts": ["discounts:manage"],
+  "/admin/products/price-update": ["products:view"],
+  "/admin/products/brand-update": ["products:view"],
   "/admin/orders": ["orders:view"],
   "/admin/orders/[id]": ["orders:view"],
   "/admin/customers": ["customers:view"],
@@ -409,6 +411,7 @@ export const sidebarMenuItems = [
       { title: "Pemetaan Kategori", href: "/admin/products/categories", icon: "ListTree", requiredPermission: "categories:manage" },
       { title: "Diskon Default", href: "/admin/products/default-discounts", icon: "BadgePercent", requiredPermission: "discounts:manage" },
       { title: "Update Harga Accurate", href: "/admin/products/price-update", icon: "ArrowUpCircle", requiredPermission: "products:view" },
+      { title: "Update Brand Accurate", href: "/admin/products/brand-update", icon: "Tag", requiredPermission: "products:view" },
     ],
   },
 

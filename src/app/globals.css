@@ -166,3 +166,25 @@
 .rich-text-content ul[data-type="taskList"] li > div {
     flex: 1 1 auto;
 }
+
+/* Cohesive Rich-Text Description Styles */
+.product-description-container,
+.product-description-container p,
+.product-description-container span,
+.product-description-container li,
+.rich-text-content,
+.rich-text-content p,
+.rich-text-content span,
+.rich-text-content li {
+    color: #475569 !important; /* Slate 600 - Standard Description Color */
+    font-size: inherit;
+    font-weight: 500;
+}
+
+.product-description-container strong,
+.product-description-container b,
+.rich-text-content strong,
+.rich-text-content b {
+    color: #1e293b !important; /* Slate 800 for bold highlights */
+    font-weight: 700 !important;
+}

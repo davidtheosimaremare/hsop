@@ -51,3 +51,7 @@ next-env.d.ts
 # custom backups
 /backups
 /public/backups
+
+# temporary scratch/debug files
+/scratch/
+/debug-product.ts

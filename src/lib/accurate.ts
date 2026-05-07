@@ -844,3 +844,44 @@ export async function updateAccurateItemPrice(sku: string, accurateId: number | 
     }
 }
 
+export async function updateAccurateItemBrand(sku: string, accurateId: number | null, brandId: number, brandName: string): Promise<{ success: boolean; message: string }> {
+    const host = process.env.ACCURATE_API_HOST || "https://zeus.accurate.id";
+    const endpoint = `${host}/accurate/api/item/save.do`;
+
+    try {
+        const headers = await generateAccurateAuthHeaders();
+        if (!headers) {
+            console.log(`[Accurate Mock] Successfully updated brand for ${sku} to ${brandName} (ID: ${brandId})`);
+            return { success: true, message: `[MOCK] Berhasil update brand SKU ${sku} ke ${brandName}` };
+        }
+
+        const payload: any = {
+            no: sku,
+            itemBrandId: brandId
+        };
+        if (accurateId) {
+            payload.id = accurateId;
+        }
+
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: headers as HeadersInit,
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            throw new Error(`Accurate API error: ${response.status}`);
+        }
+
+        const result = await response.json();
+        if (!result.s) {
+            throw new Error(result.d || result.message || "Gagal menyimpan brand ke Accurate");
+        }
+
+        return { success: true, message: `Berhasil update brand SKU ${sku} ke ${brandName} di Accurate` };
+    } catch (err: any) {
+        console.error(`Gagal update brand SKU ${sku} ke Accurate`, err);
+        return { success: false, message: err.message || "Gagal update brand" };
+    }
+}
+

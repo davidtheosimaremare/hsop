@@ -432,7 +432,7 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                                 </div>
                             </div>
                         ) : (
-                            <div className="text-xs md:text-sm text-slate-600 leading-[1.75] prose prose-sm max-w-none font-medium" dangerouslySetInnerHTML={{ __html: formatRichText(product.description) || "Tidak ada deskripsi." }} />
+                            <div className="text-xs md:text-sm text-slate-600 leading-[1.75] prose prose-sm max-w-none font-medium product-description-container" dangerouslySetInnerHTML={{ __html: formatRichText(product.description) || "Tidak ada deskripsi." }} />
                         )}
                     </div>
                 </div>
