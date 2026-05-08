@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getProductSlug } from "@/lib/utils";
+import { submitToGoogleIndexing } from "@/lib/google-indexing";
 
 const BASE_URL = "https://shop.hokiindo.co.id";
 const INDEXNOW_KEY = "hokiindo2026seo";
@@ -126,32 +127,6 @@ async function submitToIndexNow(urls: string[]): Promise<{ status: string; count
     }
 }
 
-// Ping Google sitemap
-async function pingGoogle(): Promise<string> {
-    try {
-        const res = await fetch(
-            `https://www.google.com/ping?sitemap=${encodeURIComponent(`${BASE_URL}/sitemap.xml`)}`,
-            { method: "GET", signal: AbortSignal.timeout(10000) }
-        );
-        return res.ok ? "success" : `failed (${res.status})`;
-    } catch (e: any) {
-        return `error: ${e.message}`;
-    }
-}
-
-// Ping Bing sitemap
-async function pingBing(): Promise<string> {
-    try {
-        const res = await fetch(
-            `https://www.bing.com/ping?sitemap=${encodeURIComponent(`${BASE_URL}/sitemap.xml`)}`,
-            { method: "GET", signal: AbortSignal.timeout(10000) }
-        );
-        return res.ok ? "success" : `failed (${res.status})`;
-    } catch (e: any) {
-        return `error: ${e.message}`;
-    }
-}
-
 // ===== GET: Preview =====
 export async function GET(request: NextRequest) {
     if (!verifyAccess(request)) {
@@ -202,11 +177,14 @@ export async function POST(request: NextRequest) {
     // Merge static pages with today's batch (deduplicate)
     const urlsToSubmit = [...new Set([...staticPages, ...batchUrls])];
 
-    // Execute all in parallel
-    const [indexNowResult, googlePing, bingPing] = await Promise.all([
+    // Limit Google Indexing API to 150 URLs per day to stay within the default 200/day quota
+    const GOOGLE_LIMIT = 150;
+    const urlsForGoogle = urlsToSubmit.slice(0, GOOGLE_LIMIT);
+
+    // Execute API submissions
+    const [indexNowResult, googleIndexingResult] = await Promise.all([
         submitToIndexNow(urlsToSubmit),
-        pingGoogle(),
-        pingBing(),
+        submitToGoogleIndexing(urlsForGoogle),
     ]);
 
     const duration = Date.now() - startTime;
@@ -219,19 +197,24 @@ export async function POST(request: NextRequest) {
             totalUrlsInSite: allUrls.length,
             totalBatches,
             todayBatch: `${batchIndex + 1}/${totalBatches}`,
-            urlsSubmitted: urlsToSubmit.length,
+            urlsSubmittedIndexNow: urlsToSubmit.length,
+            urlsSubmittedGoogle: urlsForGoogle.length,
             allBatchesCompleteIn: `${totalBatches} days`,
         },
         results: {
             indexNow: indexNowResult,
-            googleSitemapPing: googlePing,
-            bingSitemapPing: bingPing,
+            googleIndexing: {
+                status: googleIndexingResult.status,
+                successCount: googleIndexingResult.successCount,
+                failedCount: googleIndexingResult.failedCount,
+                errors: googleIndexingResult.errors.slice(0, 10), // Limit error logs in response
+            },
         },
         nextBatch: `Batch ${((batchIndex + 1) % totalBatches) + 1} tomorrow`,
         sampleUrlsSubmitted: urlsToSubmit.slice(0, 5),
     };
 
-    console.log(`[SEO Daily Index] Batch ${batchIndex + 1}/${totalBatches} | ${urlsToSubmit.length} URLs | IndexNow: ${indexNowResult.status} | Google: ${googlePing} | Bing: ${bingPing}`);
+    console.log(`[SEO Daily Index] Batch ${batchIndex + 1}/${totalBatches} | IndexNow: ${indexNowResult.status} (${urlsToSubmit.length} URLs) | Google Indexing API: ${googleIndexingResult.status} (${googleIndexingResult.successCount} success, ${googleIndexingResult.failedCount} failed)`);
 
     return NextResponse.json(result);
 }

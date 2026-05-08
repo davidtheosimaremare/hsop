@@ -1,56 +1,40 @@
 import { NextResponse } from "next/server";
+import { submitToGoogleIndexing } from "@/lib/google-indexing";
 
 /**
- * API route to ping Google & Bing about sitemap updates.
+ * API route to submit main pages to Google & Bing via Indexing APIs.
  * 
  * Usage: POST /api/seo/ping (from admin panel or after product updates)
- * 
- * This notifies search engines that the sitemap has been updated,
- * prompting them to re-crawl. This is the fastest way to get
- * new content indexed without waiting for natural crawl cycles.
  */
 export async function POST() {
-    const sitemapUrl = "https://shop.hokiindo.co.id/sitemap.xml";
+    const BASE_URL = "https://shop.hokiindo.co.id";
+    const coreUrls = [
+        BASE_URL,
+        `${BASE_URL}/pencarian`,
+        `${BASE_URL}/kategori`,
+        `${BASE_URL}/berita`,
+    ];
     
-    const results: { engine: string; status: string; error?: string }[] = [];
+    const results: { engine: string; status: string; count?: number; error?: string }[] = [];
 
-    // 1. Ping Google
+    // 1. Submit to Google Indexing API
     try {
-        const googleRes = await fetch(
-            `https://www.google.com/ping?sitemap=${encodeURIComponent(sitemapUrl)}`,
-            { method: "GET", signal: AbortSignal.timeout(10000) }
-        );
+        const googleResult = await submitToGoogleIndexing(coreUrls);
         results.push({
-            engine: "Google",
-            status: googleRes.ok ? "success" : `failed (${googleRes.status})`,
+            engine: "Google Indexing API",
+            status: googleResult.status,
+            count: googleResult.successCount,
+            error: googleResult.errors.length > 0 ? googleResult.errors.join("; ") : undefined,
         });
     } catch (error: any) {
         results.push({
-            engine: "Google",
+            engine: "Google Indexing API",
             status: "error",
             error: error.message,
         });
     }
 
-    // 2. Ping Bing
-    try {
-        const bingRes = await fetch(
-            `https://www.bing.com/ping?sitemap=${encodeURIComponent(sitemapUrl)}`,
-            { method: "GET", signal: AbortSignal.timeout(10000) }
-        );
-        results.push({
-            engine: "Bing",
-            status: bingRes.ok ? "success" : `failed (${bingRes.status})`,
-        });
-    } catch (error: any) {
-        results.push({
-            engine: "Bing",
-            status: "error",
-            error: error.message,
-        });
-    }
-
-    // 3. Ping IndexNow (Bing/Yandex instant indexing)
+    // 2. Submit to IndexNow (Bing/Yandex instant indexing)
     try {
         const indexNowRes = await fetch("https://api.indexnow.org/indexnow", {
             method: "POST",
@@ -58,38 +42,34 @@ export async function POST() {
             body: JSON.stringify({
                 host: "shop.hokiindo.co.id",
                 key: "hokiindo2026seo",
-                urlList: [
-                    "https://shop.hokiindo.co.id",
-                    "https://shop.hokiindo.co.id/pencarian",
-                    "https://shop.hokiindo.co.id/kategori",
-                    "https://shop.hokiindo.co.id/berita",
-                ],
+                urlList: coreUrls,
             }),
             signal: AbortSignal.timeout(10000),
         });
         results.push({
-            engine: "IndexNow",
+            engine: "IndexNow (Bing)",
             status: indexNowRes.ok || indexNowRes.status === 202 ? "success" : `failed (${indexNowRes.status})`,
+            count: coreUrls.length,
         });
     } catch (error: any) {
         results.push({
-            engine: "IndexNow",
+            engine: "IndexNow (Bing)",
             status: "error",
             error: error.message,
         });
     }
 
     return NextResponse.json({
-        message: "Sitemap ping completed",
+        message: "SEO API submission completed",
         results,
-        sitemapUrl,
+        coreUrls,
         timestamp: new Date().toISOString(),
     });
 }
 
 export async function GET() {
     return NextResponse.json({ 
-        message: "Use POST to ping search engines about sitemap updates",
+        message: "Use POST to submit main pages to search engines",
         usage: "POST /api/seo/ping" 
     });
 }
