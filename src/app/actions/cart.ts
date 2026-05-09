@@ -449,3 +449,33 @@ async function sendFonteeMessage(phone: string, message: string) {
     }
 }
 
+export async function getCartProductsMetadata(skus: string[]) {
+    try {
+        const products = await db.product.findMany({
+            where: {
+                sku: { in: skus }
+            },
+            select: {
+                sku: true,
+                price: true,
+                category: true,
+                availableToSell: true
+            }
+        });
+
+        return {
+            success: true,
+            products: products.map(p => ({
+                sku: p.sku,
+                price: p.price,
+                category: p.category,
+                availableToSell: p.availableToSell
+            }))
+        };
+    } catch (error) {
+        console.error("Failed to fetch product metadata for cart:", error);
+        return { success: false, products: [] };
+    }
+}
+
+

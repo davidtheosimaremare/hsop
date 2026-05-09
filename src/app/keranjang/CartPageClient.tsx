@@ -1,13 +1,13 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Minus, Plus, Trash2, Loader2, Clock, Check, ShoppingBag, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/lib/useCart";
 import Image from "next/image";
 import Link from "next/link";
 import GuestCheckoutModal from "@/components/public/GuestCheckoutModal";
-import { saveQuotationToDb } from "@/app/actions/cart";
+import { saveQuotationToDb, getCartProductsMetadata } from "@/app/actions/cart";
 import { useAuth } from "@/components/auth/CanAccess";
 import { useToast, ToastManager } from "@/components/ui/toast";
 import { usePricing, PricingProvider } from "@/lib/PricingContext";
@@ -46,6 +46,31 @@ function CartInner() {
     const [successMessage, setSuccessMessage] = useState("");
     const { toasts, removeToast, toast } = useToast();
 
+    // Fetch and sync real-time metadata from DB to support stale local cart items
+    const [productsMetadata, setProductsMetadata] = useState<Record<string, { price: number; category: string | null; availableToSell: number }>>({});
+
+    useEffect(() => {
+        const fetchMetadata = async () => {
+            const skus = cartItems.map(item => item.sku).filter(Boolean);
+            if (skus.length === 0) return;
+
+            const res = await getCartProductsMetadata(skus);
+            if (res.success && res.products) {
+                const metaMap: any = {};
+                res.products.forEach(p => {
+                    metaMap[p.sku] = {
+                        price: p.price,
+                        category: p.category,
+                        availableToSell: p.availableToSell
+                    };
+                });
+                setProductsMetadata(metaMap);
+            }
+        };
+
+        fetchMetadata();
+    }, [cartItems]);
+
     // Estimate Modal State
     const [isEstimateModalOpen, setIsEstimateModalOpen] = useState(false);
     const [estimateName, setEstimateName] = useState("");
@@ -60,8 +85,11 @@ function CartInner() {
 
     // Calculate dynamic pricing and split conditions for each item in the cart
     const calculatedItems = cartItems.map(item => {
-        const basePrice = item.basePrice || item.price;
-        const category = item.category || null;
+        // Resolve latest basePrice, category and stock level from fetched metadata
+        const meta = productsMetadata[item.sku];
+        const basePrice = meta ? meta.price : (item.basePrice || item.price);
+        const category = meta ? meta.category : (item.category || null);
+        const availableToSell = meta ? meta.availableToSell : item.availableToSell;
 
         // Calculate specific ready and indent prices using context
         const readyPriceInfo = getPriceInfo(basePrice, category, 1);
@@ -69,7 +97,7 @@ function CartInner() {
 
         // A split happens if it's a general product (no explicit split stockStatus like READY/INDENT from detail page)
         // and its cart quantity is strictly greater than available ready stock, and there is ready stock available (> 0)
-        const isSplit = !item.stockStatus && item.availableToSell > 0 && item.quantity > item.availableToSell;
+        const isSplit = !item.stockStatus && availableToSell > 0 && item.quantity > availableToSell;
 
         let displayPrice = item.price;
         let displayOriginalPrice = item.originalPrice;
@@ -78,8 +106,8 @@ function CartInner() {
         let itemSubtotal = item.price * item.quantity;
 
         // Ready and Indent portions for calculation
-        const readyQty = isSplit ? item.availableToSell : (item.stockStatus === 'INDENT' ? 0 : item.quantity);
-        const indentQty = isSplit ? (item.quantity - item.availableToSell) : (item.stockStatus === 'INDENT' ? item.quantity : 0);
+        const readyQty = isSplit ? availableToSell : (item.stockStatus === 'INDENT' ? 0 : item.quantity);
+        const indentQty = isSplit ? (item.quantity - availableToSell) : (item.stockStatus === 'INDENT' ? item.quantity : 0);
 
         if (item.stockStatus === 'READY') {
             displayPrice = readyPriceInfo.discountedPriceWithPPN;
@@ -100,7 +128,7 @@ function CartInner() {
             displayPrice = readyPriceInfo.discountedPriceWithPPN; // fallback/primary
         } else {
             // Unsplit general item
-            const isReady = item.availableToSell > 0;
+            const isReady = availableToSell > 0;
             const pInfo = isReady ? readyPriceInfo : indentPriceInfo;
             displayPrice = pInfo.discountedPriceWithPPN;
             displayOriginalPrice = pInfo.originalPriceWithPPN;
@@ -113,6 +141,7 @@ function CartInner() {
             ...item,
             basePrice,
             category,
+            availableToSell,
             readyPriceInfo,
             indentPriceInfo,
             isSplit,
