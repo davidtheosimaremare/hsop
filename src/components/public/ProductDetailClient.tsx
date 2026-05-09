@@ -361,7 +361,7 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                         {product.availableToSell > 0 ? (
                             <span className="text-[11px] px-3 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 font-bold tracking-wide flex items-center gap-1.5 shadow-2xs select-none">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                Stok: {product.availableToSell} Unit Ready
+                                Stok: {product.availableToSell} Unit
                             </span>
                         ) : (
                             <span className="text-[11px] px-3 py-1 rounded-lg bg-sky-50 text-sky-700 border border-sky-100 font-bold tracking-wide flex items-center gap-1.5 shadow-2xs select-none">
@@ -704,7 +704,7 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                                                 {relProduct.availableToSell > 5 ? (
                                                     <span className="text-[10px] px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100/50 font-semibold tracking-wide flex items-center gap-1.5 select-none">
                                                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                                        Ready Stock: {relProduct.availableToSell} Unit
+                                                        Stok: {relProduct.availableToSell} Unit
                                                     </span>
                                                 ) : relProduct.availableToSell > 0 ? (
                                                     <span className="text-[10px] px-2 py-0.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-100/50 font-semibold tracking-wide flex items-center gap-1.5 select-none">

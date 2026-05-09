@@ -196,7 +196,7 @@ export default function ProductCard({ product, variant = 'default' }: ProductCar
                         {product.availableToSell > 5 ? (
                             <span className="text-[10px] px-2.5 py-0.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100/50 font-semibold tracking-wide flex items-center gap-1.5 select-none">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                Ready Stock: {product.availableToSell} Unit
+                                Stok: {product.availableToSell} Unit
                             </span>
                         ) : product.availableToSell > 0 ? (
                             <span className="text-[10px] px-2.5 py-0.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-100/50 font-semibold tracking-wide flex items-center gap-1.5 select-none">
