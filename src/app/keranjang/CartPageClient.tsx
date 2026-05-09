@@ -79,6 +79,16 @@ function CartInner() {
         return new Intl.NumberFormat("id-ID").format(Math.round(price));
     };
 
+    const cleanProductName = (name: string) => {
+        if (!name) return "";
+        return name
+            .replace(/\s*\(\s*ready\s*stock\s*\)/gi, "")
+            .replace(/\s*\(\s*ready\s*\)/gi, "")
+            .replace(/\s*\(\s*indent\s*.*?\)/gi, "")
+            .replace(/\s*\(\s*indent\s*\)/gi, "")
+            .trim();
+    };
+
     const handleQuotationSuccess = () => {
         toast.success("Permintaan terkirim! Silakan login jika ingin melihat riwayat transaksi ini.");
     };
@@ -302,20 +312,20 @@ function CartInner() {
                             {/* Cart Items Rows */}
                             <div className="divide-y divide-slate-100">
                                 {calculatedItems.map((item) => (
-                                    <div key={item.id} className="p-4 flex flex-col sm:flex-row gap-4 hover:bg-slate-50/10 transition-colors">
+                                    <div key={item.id} className="py-2.5 px-3 flex flex-col sm:flex-row gap-3 hover:bg-slate-50/10 transition-colors">
                                         
                                         {/* Compact Product Image Panel */}
-                                        <div className="w-16 h-16 bg-slate-50/30 border border-slate-100 rounded-xl flex-shrink-0 flex items-center justify-center relative overflow-hidden shadow-2xs select-none">
+                                        <div className="w-14 h-14 bg-slate-50/30 border border-slate-100 rounded-xl flex-shrink-0 flex items-center justify-center relative overflow-hidden shadow-2xs select-none">
                                             {item.image ? (
                                                 <Image
                                                     src={item.image}
-                                                    alt={item.name}
+                                                    alt={cleanProductName(item.name)}
                                                     fill
-                                                    className="object-contain p-1.5"
-                                                    sizes="64px"
+                                                    className="object-contain p-1"
+                                                    sizes="56px"
                                                 />
                                             ) : (
-                                                <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-[9px] text-slate-400 uppercase tracking-wider font-extrabold">
+                                                <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-[9px] text-slate-400 uppercase tracking-wider font-extrabold">
                                                     No Image
                                                 </div>
                                             )}
@@ -329,8 +339,8 @@ function CartInner() {
                                                         <span className="text-[9px] uppercase tracking-wider text-red-600 font-extrabold block">
                                                             {item.brand || "SIEMENS"}
                                                         </span>
-                                                        <h3 className="text-xs font-bold text-slate-800 line-clamp-2 uppercase leading-snug hover:text-red-600 transition-colors" title={item.name}>
-                                                            {item.name}
+                                                        <h3 className="text-xs font-bold text-slate-800 line-clamp-2 uppercase leading-snug hover:text-red-600 transition-colors" title={cleanProductName(item.name)}>
+                                                            {cleanProductName(item.name)}
                                                         </h3>
                                                         <p className="text-[10px] text-slate-400 font-semibold mt-0.5">SKU: <span className="text-slate-600 font-bold">{item.sku}</span></p>
                                                     </div>
@@ -346,7 +356,7 @@ function CartInner() {
                                                 </div>
 
                                                 {/* Compact Status Badge */}
-                                                <div className="mt-1.5 select-none">
+                                                <div className="mt-1 select-none">
                                                     {item.isSplit ? (
                                                         <div className="flex flex-wrap gap-1">
                                                             <span className="text-[9px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-600 border border-emerald-100/40 font-bold tracking-wide flex items-center gap-1 w-fit">
@@ -373,7 +383,7 @@ function CartInner() {
                                             </div>
 
                                             {/* Price & iOS-Style Quantity Spinner */}
-                                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mt-3 border-t border-slate-50/50 pt-2.5">
+                                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mt-2 border-t border-slate-50/50 pt-2">
                                                 
                                                 {/* Subtotal / Price Display */}
                                                 <div className="select-none flex-1">
@@ -480,7 +490,7 @@ function CartInner() {
                                             {item.image ? (
                                                 <Image
                                                     src={item.image}
-                                                    alt={item.name}
+                                                    alt={cleanProductName(item.name)}
                                                     fill
                                                     className="object-contain p-1"
                                                     sizes="36px"
@@ -490,7 +500,7 @@ function CartInner() {
                                             )}
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-xs font-bold text-slate-800 line-clamp-1 uppercase" title={item.name}>{item.name}</p>
+                                            <p className="text-xs font-bold text-slate-800 line-clamp-1 uppercase" title={cleanProductName(item.name)}>{cleanProductName(item.name)}</p>
                                             <p className="text-[10px] text-slate-400 font-semibold">
                                                 {item.isSplit ? (
                                                     <span>{item.readyQty} Ready + {item.indentQty} Indent</span>
