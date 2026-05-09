@@ -10,7 +10,7 @@ import GuestCheckoutModal from "@/components/public/GuestCheckoutModal";
 import { saveQuotationToDb } from "@/app/actions/cart";
 import { useAuth } from "@/components/auth/CanAccess";
 import { useToast, ToastManager } from "@/components/ui/toast";
-import { usePricing } from "@/lib/PricingContext";
+import { usePricing, PricingProvider } from "@/lib/PricingContext";
 
 import {
     Dialog,
@@ -23,7 +23,19 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export default function CartPageClient() {
+export default function CartPageClient({ pricingData }: { pricingData: any }) {
+    return (
+        <PricingProvider
+            initialCustomer={pricingData?.customer}
+            initialMappings={pricingData?.categoryMappings || []}
+            initialDiscountRules={pricingData?.discountRules || []}
+        >
+            <CartInner />
+        </PricingProvider>
+    );
+}
+
+function CartInner() {
     const { user, refreshUser } = useAuth();
     const router = useRouter();
     const { items: cartItems, updateQuantity, removeItem, totalItems, clearCart } = useCart();
