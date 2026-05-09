@@ -60,16 +60,34 @@ async function getBrandsCached() {
         const brandCounts: Record<string, number> = {};
         productCounts.forEach(pc => {
             if (pc.brand) {
-                brandCounts[pc.brand.toUpperCase()] = pc._count.brand;
+                const key = pc.brand.toUpperCase();
+                brandCounts[key] = (brandCounts[key] || 0) + pc._count.brand;
             }
         });
 
-        return brands.map(b => ({
-            name: b.name,
-            displayName: b.alias || b.name,
-            count: brandCounts[b.name.toUpperCase()] || 0
-        })).filter(b => b.count > 0);
-    }, 3600);
+        // Custom display order requested by USER: SIEMENS, G-COMIN, APS
+        const customOrder = ["SIEMENS", "G-COMIN", "APS"];
+
+        return brands
+            .map(b => ({
+                name: b.name,
+                displayName: b.alias || b.name,
+                count: brandCounts[b.name.toUpperCase()] || 0
+            }))
+            .filter(b => b.count > 0)
+            .sort((a, b) => {
+                const indexA = customOrder.indexOf(a.name.toUpperCase());
+                const indexB = customOrder.indexOf(b.name.toUpperCase());
+
+                if (indexA !== -1 && indexB !== -1) {
+                    return indexA - indexB;
+                }
+                if (indexA !== -1) return -1;
+                if (indexB !== -1) return 1;
+
+                return a.name.localeCompare(b.name);
+            });
+    }, 300); // 5 minutes cache TTL
 }
 
 export async function getBrands() {

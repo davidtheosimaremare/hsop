@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { fetchAllProducts, updateAccurateItemBrand } from "@/lib/accurate";
 import { revalidatePath } from "next/cache";
+import { memoryCache } from "@/lib/cache";
 
 export interface BrandSyncItem {
     sku: string;
@@ -164,6 +165,7 @@ export async function updateAccurateBrands(
         }
     }
 
+    memoryCache.invalidate('brands-list');
     revalidatePath("/admin/products");
     return results;
 }

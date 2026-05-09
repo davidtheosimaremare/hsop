@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { generateAccurateAuthHeaders, fetchAllProducts } from "@/lib/accurate";
 import { unstable_noStore as noStore } from "next/cache";
+import { memoryCache } from "@/lib/cache";
 
 export async function syncBrandsFromAccurate() {
     try {
@@ -73,6 +74,7 @@ export async function syncBrandsFromAccurate() {
             }
         });
 
+        memoryCache.invalidate('brands-list');
         revalidatePath("/admin/settings/brands");
         return { success: true, count: totalSynced };
     } catch (error) {
@@ -103,6 +105,7 @@ export async function updateBrand(id: string, data: { name?: string; alias?: str
                 isVisible: data.isVisible
             }
         });
+        memoryCache.invalidate('brands-list');
         revalidatePath("/admin/settings/brands");
         return { success: true };
     } catch (error) {
@@ -114,6 +117,7 @@ export async function updateBrand(id: string, data: { name?: string; alias?: str
 export async function deleteBrand(id: string) {
     try {
         await db.brand.delete({ where: { id } });
+        memoryCache.invalidate('brands-list');
         revalidatePath("/admin/settings/brands");
         return { success: true };
     } catch (error) {
