@@ -47,6 +47,70 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: '/product/:slug',
+        destination: '/produk/:slug',
+        permanent: true,
+      },
+      {
+        source: '/product/:slug/',
+        destination: '/produk/:slug',
+        permanent: true,
+      },
+      {
+        source: '/cart',
+        destination: '/keranjang',
+        permanent: true,
+      },
+      {
+        source: '/cart/',
+        destination: '/keranjang',
+        permanent: true,
+      },
+      {
+        source: '/checkout',
+        destination: '/keranjang',
+        permanent: true,
+      },
+      {
+        source: '/checkout/',
+        destination: '/keranjang',
+        permanent: true,
+      },
+      {
+        source: '/checkout-2',
+        destination: '/keranjang',
+        permanent: true,
+      },
+      {
+        source: '/checkout-2/',
+        destination: '/keranjang',
+        permanent: true,
+      },
+      {
+        source: '/my-account',
+        destination: '/dashboard',
+        permanent: true,
+      },
+      {
+        source: '/my-account/',
+        destination: '/dashboard',
+        permanent: true,
+      },
+      {
+        source: '/shop',
+        destination: '/pencarian',
+        permanent: true,
+      },
+      {
+        source: '/shop/',
+        destination: '/pencarian',
+        permanent: true,
+      },
+    ];
+  },
   typescript: {
     ignoreBuildErrors: true,
   },
