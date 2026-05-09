@@ -310,17 +310,17 @@ export default function CartPageClient() {
                                                         <div className="flex flex-wrap gap-1">
                                                             <span className="text-[9px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-600 border border-emerald-100/40 font-bold tracking-wide flex items-center gap-1 w-fit">
                                                                 <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
-                                                                Ready: {item.readyQty}
+                                                                Stok: {item.readyQty} Unit
                                                             </span>
                                                             <span className="text-[9px] px-2 py-0.5 rounded-md bg-sky-50 text-sky-700 border border-sky-100 font-bold tracking-wide flex items-center gap-1 w-fit">
                                                                 <Clock className="w-2.5 h-2.5" />
-                                                                Indent: {item.indentQty}
+                                                                Indent: {item.indentQty} Unit
                                                             </span>
                                                         </div>
                                                     ) : item.stockStatus === 'READY' || (!item.stockStatus && item.availableToSell > 0) ? (
                                                         <span className="text-[9px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-600 border border-emerald-100/40 font-bold tracking-wide flex items-center gap-1 w-fit">
                                                             <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
-                                                            Ready Stock
+                                                            Stok: {item.availableToSell} Unit
                                                         </span>
                                                     ) : (
                                                         <span className="text-[9px] px-2 py-0.5 rounded-md bg-sky-50 text-sky-700 border border-sky-100 font-bold tracking-wide flex items-center gap-1 w-fit">
