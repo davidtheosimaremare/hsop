@@ -36,6 +36,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const seoVerification = await getSiteSetting("seo_verification") as Record<string, string> | null;
   const googleVerification = seoVerification?.google || undefined;
   const bingVerification = seoVerification?.bing || undefined;
+  const yandexVerification = seoVerification?.yandex || "743e88f542517f48";
   
   return {
     metadataBase: new URL('https://shop.hokiindo.co.id'),
@@ -64,6 +65,7 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     verification: {
       google: googleVerification,
+      yandex: yandexVerification,
       other: bingVerification ? { 'msvalidate.01': bingVerification } : undefined,
     },
   };

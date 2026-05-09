@@ -25,6 +25,7 @@ export default function AdminSeoPage() {
     // SEO Verification
     const [googleVerification, setGoogleVerification] = useState("");
     const [bingVerification, setBingVerification] = useState("");
+    const [yandexVerification, setYandexVerification] = useState("");
 
     // Analytics
     const [gaId, setGaId] = useState("");
@@ -44,6 +45,7 @@ export default function AdminSeoPage() {
             const seoResult = await getSiteSetting("seo_verification") as Record<string, string> | null;
             if (seoResult?.google) setGoogleVerification(seoResult.google);
             if (seoResult?.bing) setBingVerification(seoResult.bing);
+            if (seoResult?.yandex) setYandexVerification(seoResult.yandex);
 
             const analyticsResult = await getSiteSetting("analytics_config") as Record<string, string> | null;
             if (analyticsResult?.gaId) setGaId(analyticsResult.gaId);
@@ -59,6 +61,7 @@ export default function AdminSeoPage() {
             await updateSiteSetting("seo_verification", {
                 google: googleVerification,
                 bing: bingVerification,
+                yandex: yandexVerification,
             });
 
             await updateSiteSetting("analytics_config", {
@@ -116,7 +119,7 @@ export default function AdminSeoPage() {
                             </div>
                             <div>
                                 <CardTitle className="text-lg font-black text-slate-900 tracking-tight uppercase">Verifikasi Mesin Pencari</CardTitle>
-                                <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">Google Search Console & Bing Webmaster</CardDescription>
+                                <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">Google Search Console, Bing & Yandex</CardDescription>
                             </div>
                         </div>
                     </CardHeader>
@@ -124,8 +127,8 @@ export default function AdminSeoPage() {
                         <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex items-start gap-3">
                             <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
                             <div className="text-xs font-bold text-blue-800 leading-relaxed">
-                                <p className="italic mb-2">Masukkan kode verifikasi dari Google Search Console agar website Anda terindeks di Google.</p>
-                                <p className="text-blue-600 font-medium">Langkah: Buka <a href="https://search.google.com/search-console" target="_blank" rel="noopener noreferrer" className="underline font-bold">Google Search Console</a> → Tambah Properti → Pilih &quot;HTML Tag&quot; → Copy kode <code className="bg-blue-100 px-1 rounded">content=&quot;...&quot;</code> saja.</p>
+                                <p className="italic mb-2">Masukkan kode verifikasi dari Google Search Console, Bing Webmaster, atau Yandex Webmaster agar website Anda terindeks.</p>
+                                <p className="text-blue-600 font-medium">Langkah: Pilih opsi &quot;HTML Tag&quot; pada mesin pencari → Copy kode <code className="bg-blue-100 px-1 rounded">content=&quot;...&quot;</code> saja.</p>
                             </div>
                         </div>
 
@@ -153,6 +156,18 @@ export default function AdminSeoPage() {
                                     value={bingVerification}
                                     onChange={(e) => setBingVerification(e.target.value)}
                                     placeholder="Kode verifikasi Bing..."
+                                    className="h-12 rounded-xl border-slate-100 bg-slate-50/50 focus:ring-blue-500/20 font-mono text-sm text-slate-900"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                    <Globe className="w-3 h-3 text-blue-500" /> Yandex Webmaster Verification (Opsional)
+                                </label>
+                                <Input
+                                    value={yandexVerification}
+                                    onChange={(e) => setYandexVerification(e.target.value)}
+                                    placeholder="Contoh: 743e88f542517f48"
                                     className="h-12 rounded-xl border-slate-100 bg-slate-50/50 focus:ring-blue-500/20 font-mono text-sm text-slate-900"
                                 />
                             </div>
@@ -251,7 +266,7 @@ export default function AdminSeoPage() {
                         <ExternalLink className="w-6 h-6 text-red-500" />
                         Link Penting Dashboard
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         <a
                             href="https://search.google.com/search-console"
                             target="_blank"
@@ -296,6 +311,22 @@ export default function AdminSeoPage() {
                             <div>
                                 <p className="font-bold text-sm text-white group-hover:text-teal-300 transition-colors">Bing Webmaster</p>
                                 <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Indexing di Bing & Yahoo</p>
+                            </div>
+                            <ExternalLink className="w-4 h-4 text-slate-500 ml-auto" />
+                        </a>
+
+                        <a
+                            href="https://webmaster.yandex.com/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl p-4 transition-all group"
+                        >
+                            <div className="w-10 h-10 bg-red-500/20 rounded-xl flex items-center justify-center">
+                                <Globe className="w-5 h-5 text-red-400" />
+                            </div>
+                            <div>
+                                <p className="font-bold text-sm text-white group-hover:text-red-300 transition-colors">Yandex Webmaster</p>
+                                <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Indexing di Yandex Rusia</p>
                             </div>
                             <ExternalLink className="w-4 h-4 text-slate-500 ml-auto" />
                         </a>
