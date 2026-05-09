@@ -49,7 +49,9 @@ export default function ProductCard({ product, variant = 'default' }: ProductCar
             image: product.image,
             availableToSell: product.availableToSell,
             discountStr: priceInfo.discountStr,
-            isCustomerDiscount: priceInfo.isCustomerDiscount
+            isCustomerDiscount: priceInfo.isCustomerDiscount,
+            basePrice: product.price,
+            category: product.category || null
         }, 1);
 
         setIsAdded(true);

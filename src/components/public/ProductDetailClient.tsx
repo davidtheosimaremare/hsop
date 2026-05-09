@@ -122,7 +122,9 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                 availableToSell: stock,
                 stockStatus: undefined, // No split status
                 discountStr: readyPriceInfo.discountStr,
-                isCustomerDiscount: readyPriceInfo.isCustomerDiscount
+                isCustomerDiscount: readyPriceInfo.isCustomerDiscount,
+                basePrice: product.price,
+                category: product.category || null
             }, quantity);
         }
         // Scenario 1: Fully Ready (Non-equal prices or just logic)
@@ -139,7 +141,9 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                 availableToSell: stock,
                 stockStatus: 'READY',
                 discountStr: readyPriceInfo.discountStr,
-                isCustomerDiscount: readyPriceInfo.isCustomerDiscount
+                isCustomerDiscount: readyPriceInfo.isCustomerDiscount,
+                basePrice: product.price,
+                category: product.category || null
             }, quantity);
         }
         // Scenario 2: Fully Indent
@@ -156,7 +160,9 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                 availableToSell: 0,
                 stockStatus: 'INDENT',
                 discountStr: indentPriceInfo.discountStr,
-                isCustomerDiscount: indentPriceInfo.isCustomerDiscount
+                isCustomerDiscount: indentPriceInfo.isCustomerDiscount,
+                basePrice: product.price,
+                category: product.category || null
             }, quantity);
         }
         // Scenario 3: Mixed (Split)
@@ -177,7 +183,9 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                 availableToSell: stock,
                 stockStatus: 'READY',
                 discountStr: readyPriceInfo.discountStr,
-                isCustomerDiscount: readyPriceInfo.isCustomerDiscount
+                isCustomerDiscount: readyPriceInfo.isCustomerDiscount,
+                basePrice: product.price,
+                category: product.category || null
             }, readyQty);
 
             // Add Indent Bundle
@@ -193,7 +201,9 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                 availableToSell: 0,
                 stockStatus: 'INDENT',
                 discountStr: indentPriceInfo.discountStr,
-                isCustomerDiscount: indentPriceInfo.isCustomerDiscount
+                isCustomerDiscount: indentPriceInfo.isCustomerDiscount,
+                basePrice: product.price,
+                category: product.category || null
             }, indentQty);
         }
 
@@ -578,7 +588,7 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                         <div className="border-t border-slate-100 pt-4 mt-4 space-y-2.5 text-[10px] font-semibold text-slate-500 select-none">
                             <div className="flex items-center gap-2 text-slate-500">
                                 <Shield className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
-                                <span>Garansi Resmi Siemens</span>
+                                <span>Garansi Resmi</span>
                             </div>
                             <div className="flex items-center gap-2 text-slate-500">
                                 <Sparkles className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />

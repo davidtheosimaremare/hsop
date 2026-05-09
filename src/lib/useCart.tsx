@@ -16,6 +16,8 @@ export interface CartItem {
     originalId?: string | number;
     discountStr?: string;
     isCustomerDiscount?: boolean;
+    basePrice?: number;
+    category?: string | null;
 }
 
 interface CartContextType {
