@@ -42,6 +42,7 @@ interface BulkItem extends BulkOrderProduct {
     stockStatus?: 'READY' | 'INDENT';
     customId: string;
     isCustom?: boolean;
+    isNotFound?: boolean;
 }
 
 export default function BulkOrderClient() {
@@ -55,15 +56,16 @@ export default function BulkOrderClient() {
         }
     });
     const [skuInput, setSkuInput] = useState("");
+    const [activeTab, setActiveTab] = useState<'search' | 'paste'>('search');
+    const [pasteContent, setPasteContent] = useState("");
+    const [isProcessingPaste, setIsProcessingPaste] = useState(false);
     const [isSearching, setIsSearching] = useState(false);
     const [isSearchingSuggestions, setIsSearchingSuggestions] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
     const [suggestions, setSuggestions] = useState<BulkOrderProduct[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
-    const [filterCategory, setFilterCategory] = useState("all");
-    const [filterStock, setFilterStock] = useState<'all' | 'ready' | 'indent'>("all");
-    const [categories, setCategories] = useState<string[]>([]);
+
 
     // Custom Product Modal State
     const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
@@ -104,10 +106,7 @@ export default function BulkOrderClient() {
         }
     };
 
-    // Load categories on mount
-    useEffect(() => {
-        getBulkOrderCategories().then(setCategories).catch(console.error);
-    }, []);
+
 
     // Recalculate prices of all items when pricing context is loaded or changed
     useEffect(() => {
@@ -173,16 +172,15 @@ export default function BulkOrderClient() {
         if (debounceRef.current) clearTimeout(debounceRef.current);
 
         const hasMinQuery = skuInput.trim().length >= 2;
-        const hasActiveFilter = filterCategory !== "all" || filterStock !== "all";
 
-        if (hasMinQuery || (skuInput.trim().length >= 0 && hasActiveFilter)) {
+        if (hasMinQuery) {
             setIsSearchingSuggestions(true);
             debounceRef.current = setTimeout(async () => {
                 try {
                     const results = await searchBulkProducts({
                         query: skuInput,
-                        category: filterCategory,
-                        stockFilter: filterStock,
+                        category: "all",
+                        stockFilter: "all",
                     });
                     setSuggestions(results);
                     setShowSuggestions(true);
@@ -200,7 +198,7 @@ export default function BulkOrderClient() {
         return () => {
             if (debounceRef.current) clearTimeout(debounceRef.current);
         };
-    }, [skuInput, filterCategory, filterStock]);
+    }, [skuInput]);
 
     const handleSkuSearch = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -263,7 +261,7 @@ export default function BulkOrderClient() {
         setSkuInput("");
     };
 
-    const addItemToList = (product: BulkOrderProduct, qty: number, isCustom: boolean = false) => {
+    const addItemToList = (product: BulkOrderProduct, qty: number, isCustom: boolean = false, isNotFound: boolean = false) => {
         const stock = Number(product.availableToSell || 0);
         console.log(`Adding product ${product.sku}: Qty ${qty}, Stock ${stock}`);
 
@@ -294,7 +292,7 @@ export default function BulkOrderClient() {
 
             if (isCustom) {
                 // Custom products are always "Indent" as they aren't in DB
-                const customId = `custom-${product.sku}`;
+                const customId = isNotFound ? `not-found-${product.sku}` : `custom-${product.sku}`;
                 const existingIdx = newItems.findIndex(p => p.customId === customId);
                 if (existingIdx > -1) {
                     newItems[existingIdx].qty += qty;
@@ -306,7 +304,8 @@ export default function BulkOrderClient() {
                         hasDiscount: false,
                         stockStatus: 'INDENT',
                         customId,
-                        isCustom: true
+                        isCustom: true,
+                        isNotFound
                     });
                 }
             } else {
@@ -342,6 +341,64 @@ export default function BulkOrderClient() {
 
             return [...newItems, ...itemsToAdd];
         });
+    };
+
+
+    const handleProcessPaste = async () => {
+        if (!pasteContent.trim()) return;
+        setIsProcessingPaste(true);
+        
+        const rawSkus = pasteContent.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+        if (rawSkus.length === 0) {
+            setIsProcessingPaste(false);
+            return;
+        }
+        
+        const skuMap = new Map<string, number>();
+        rawSkus.forEach(sku => {
+            const cleanSku = sku.toLowerCase();
+            skuMap.set(cleanSku, (skuMap.get(cleanSku) || 0) + 1);
+        });
+        
+        const uniqueSkus = Array.from(skuMap.keys());
+        
+        try {
+            const products = await searchProductsBySkus(uniqueSkus);
+            const foundSkus = new Set(products.map(p => p.sku.toLowerCase()));
+            
+            // Add found products
+            products.forEach(p => {
+                const qty = skuMap.get(p.sku.toLowerCase()) || 1;
+                addItemToList(p, qty);
+            });
+            
+            // Add NOT FOUND products
+            uniqueSkus.forEach(sku => {
+                if (!foundSkus.has(sku)) {
+                    const qty = skuMap.get(sku) || 1;
+                    const notFoundProduct: BulkOrderProduct = {
+                        id: `not-found-${Date.now()}-${sku}`,
+                        sku: sku,
+                        name: "Tidak Ditemukan",
+                        price: 0,
+                        image: null,
+                        availableToSell: 0,
+                        brand: "-",
+                        category: "Not Found",
+                        isValid: false
+                    };
+                    addItemToList(notFoundProduct, qty, true, true);
+                }
+            });
+            
+            setPasteContent("");
+            setActiveTab('search');
+        } catch (error) {
+            console.error("Paste error", error);
+            alert("Terjadi kesalahan saat memproses SKU.");
+        } finally {
+            setIsProcessingPaste(false);
+        }
     };
 
     const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -580,7 +637,7 @@ export default function BulkOrderClient() {
             title: "ESTIMASI HARGA",
             typeLabel: "Nomor Estimasi",
             totalAmount: totalAmount,
-            items: items.map(item => ({
+            items: items.filter(i => !i.isNotFound).map(item => ({
                 productSku: item.sku,
                 productName: item.name,
                 brand: item.brand || "",
@@ -600,7 +657,7 @@ export default function BulkOrderClient() {
             title: "ESTIMASI HARGA",
             typeLabel: "Nomor Estimasi",
             totalAmount: totalAmount,
-            items: items.map(item => ({
+            items: items.filter(i => !i.isNotFound).map(item => ({
                 productSku: item.sku,
                 productName: item.name,
                 brand: item.brand || "",
@@ -613,7 +670,7 @@ export default function BulkOrderClient() {
     };
 
     const handleAddToCart = () => {
-        items.forEach(item => {
+        items.filter(i => !i.isNotFound).forEach(item => {
             let itemName = item.name;
             if (item.isCustom) {
                 itemName = `${item.name} (Custom - Menunggu Update Admin)`;
@@ -640,303 +697,325 @@ export default function BulkOrderClient() {
     const totalQty = items.reduce((sum, item) => sum + item.qty, 0);
 
     return (
-        <div className="space-y-6">
-            {/* Info Banner */}
-            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
-                <div className="text-sm text-blue-800">
-                    <p className="font-semibold mb-1">Cara Menggunakan Bulk Order:</p>
-                    <ul className="list-disc list-inside space-y-0.5 text-blue-700">
-                        <li>Unduh template Excel, isi kolom SKU dan QTY, lalu unggah kembali.</li>
-                        <li>Atau cari produk satu per satu menggunakan kolom pencarian di bawah.</li>
-                        <li>Produk dengan stok terbatas akan otomatis dipisah menjadi baris Ready & Indent.</li>
-                    </ul>
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
+            {/* Left Column: Search & Product List */}
+            <div className="flex-1 space-y-4 w-full min-w-0">
+                {/* Info Banner */}
+                <div className="bg-blue-50/50 border border-blue-100/50 rounded-lg py-2 px-3 flex items-center gap-2 text-xs text-blue-800">
+                    <AlertCircle className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+                    <p>
+                        <span className="font-semibold mr-1">Tips:</span>
+                        Cari produk satu per satu, copy-paste list SKU, atau unggah Excel di panel samping. Produk dengan stok terbatas otomatis dipisah (Ready/Indent).
+                    </p>
                 </div>
-            </div>
 
-            {/* Actions Bar */}
-            <div
-                onDragOver={onDragOver}
-                onDragLeave={onDragLeave}
-                onDrop={onDrop}
-                className={`bg-white rounded-xl border-2 transition-all p-4 ${isDragging
-                    ? "border-red-500 border-dashed bg-red-50/50 scale-[1.01] shadow-lg"
-                    : "border-gray-200 border-solid"
-                    }`}
-            >
-                <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between pointer-events-auto">
-                    {/* File Actions */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                        {isDragging ? (
-                            <div className="flex items-center gap-2 text-red-600 font-bold animate-pulse py-2 px-4">
-                                <FileSpreadsheet className="w-5 h-5" />
-                                Lepaskan file untuk impor...
-                            </div>
-                        ) : (
-                            <>
-                                <button
-                                    onClick={downloadTemplate}
-                                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                                >
-                                    <Download className="w-4 h-4" />
-                                    Template Excel
-                                </button>
-                                <input
-                                    type="file"
-                                    accept=".xlsx, .xls, .csv"
-                                    className="hidden"
-                                    ref={fileInputRef}
-                                    onChange={handleExcelUpload}
-                                />
-                                <button
-                                    onClick={() => fileInputRef.current?.click()}
-                                    disabled={isUploading}
-                                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm hover:bg-emerald-700 transition-colors disabled:opacity-50"
-                                >
-                                    <FileSpreadsheet className="w-4 h-4" />
-                                    {isUploading ? "Memproses..." : "Impor Excel"}
-                                </button>
-                                <p className="hidden lg:block text-xs text-gray-400 italic ml-2">
-                                    * Anda juga bisa tarik & drop file di sini
-                                </p>
-                            </>
-                        )}
+                {/* SKU Search */}
+                                <div className="bg-white rounded-xl border border-gray-200 p-3.5 shadow-sm relative" ref={searchContainerRef}>
+                    <div className="flex items-center p-1 bg-gray-100/80 rounded-lg w-fit mb-3">
+                        <button 
+                            className={`text-xs font-semibold px-4 py-1.5 rounded-md transition-all ${activeTab === 'search' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                            onClick={() => setActiveTab('search')}
+                        >
+                            Cari Produk
+                        </button>
+                        <button 
+                            className={`text-xs font-semibold px-4 py-1.5 rounded-md transition-all ${activeTab === 'paste' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                            onClick={() => setActiveTab('paste')}
+                        >
+                            Copy & Paste List
+                        </button>
                     </div>
 
-                    <div className="hidden md:block w-px h-8 bg-gray-200 self-center" />
-
-                    {/* Filters */}
-                    <div className="flex items-center gap-2 flex-wrap w-full md:w-auto">
-                        <select
-                            value={filterCategory}
-                            onChange={(e) => setFilterCategory(e.target.value)}
-                            className="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-1 focus:ring-red-500 outline-none bg-white min-w-[140px]"
-                        >
-                            <option value="all">Semua Kategori</option>
-                            {categories.map((cat) => (
-                                <option key={cat} value={cat}>{cat}</option>
-                            ))}
-                        </select>
-
-                        <select
-                            value={filterStock}
-                            onChange={(e) => setFilterStock(e.target.value as any)}
-                            className="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-1 focus:ring-red-500 outline-none bg-white min-w-[110px]"
-                        >
-                            <option value="all">Semua Stok</option>
-                            <option value="ready">Ready</option>
-                            <option value="indent">Indent</option>
-                        </select>
-                    </div>
-
-                    <div className="hidden md:block w-px h-8 bg-gray-200 self-center" />
-
-                    {/* SKU Search */}
-                    <div className="w-full md:max-w-sm relative" ref={searchContainerRef}>
+                    {activeTab === 'search' ? (
                         <form onSubmit={handleSkuSearch} className="flex gap-2">
                             <div className="relative flex-1">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                                 <Input
-                                    placeholder="Cari SKU atau nama produk..."
+                                    placeholder="Ketik SKU atau nama produk untuk ditambahkan..."
                                     value={skuInput}
                                     onChange={e => setSkuInput(e.target.value)}
                                     onFocus={() => {
-                                        const hasMinQuery = skuInput.trim().length >= 2;
-                                        const hasActiveFilter = filterCategory !== "all" || filterStock !== "all";
-                                        if (hasMinQuery || hasActiveFilter) setShowSuggestions(true);
+                                        if (skuInput.trim().length >= 2) setShowSuggestions(true);
                                     }}
-                                    className="pl-9 pr-8"
+                                    className="pl-9 pr-8 h-9 text-sm rounded-md border-gray-300 focus-visible:ring-red-500"
                                     autoComplete="off"
                                 />
                                 {skuInput && (
                                     <button
                                         type="button"
                                         onClick={() => { setSkuInput(""); setShowSuggestions(false); }}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full p-1 transition-colors"
                                     >
                                         <X className="w-3.5 h-3.5" />
                                     </button>
                                 )}
                             </div>
-                            <Button type="submit" disabled={isSearching || !skuInput} variant="red">
-                                {isSearching ? "..." : "Tambah"}
+                            <Button type="submit" disabled={isSearching || !skuInput} variant="red" className="h-9 px-4 rounded-md text-xs font-medium shadow-sm hover:shadow-md transition-all text-sm">
+                                {isSearching ? "Mencari..." : "Tambah"}
                             </Button>
                         </form>
-
-                        {/* Suggestions Dropdown */}
-                        {showSuggestions && (suggestions.length > 0 || isSearchingSuggestions) && (
-                            <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border border-gray-100 z-50 max-h-96 overflow-y-auto">
-                                {isSearchingSuggestions && (
-                                    <div className="p-4 text-center text-sm text-gray-400 flex items-center justify-center gap-2">
-                                        <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
-                                        Mencari produk...
-                                    </div>
-                                )}
-                                {!isSearchingSuggestions && suggestions.length === 0 && (
-                                    <div className="p-4 text-center text-sm text-gray-400">
-                                        Produk tidak ditemukan
-                                    </div>
-                                )}
-                                {!isSearchingSuggestions && suggestions.map((suggestion) => {
-                                    const priceInfo = getPriceInfo(suggestion.price, suggestion.category || null, suggestion.availableToSell);
-                                    return (
-                                        <button
-                                            key={suggestion.id}
-                                            onClick={() => handleSuggestionClick(suggestion)}
-                                            className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 transition-colors text-left border-b border-gray-50 last:border-0"
-                                        >
-                                            <div className="w-9 h-9 bg-gray-100 rounded-lg flex-shrink-0 relative overflow-hidden text-xs flex items-center justify-center text-gray-400">
-                                                {suggestion.image ? (
-                                                    <Image src={suggestion.image} alt={suggestion.name} fill className="object-contain p-1" />
-                                                ) : "No Img"}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium text-gray-900 truncate">{suggestion.name}</p>
-                                                <div className="flex items-center gap-2">
-                                                    <p className="text-xs text-gray-400">SKU: {suggestion.sku}</p>
-                                                    <span className={`text-[10px] font-medium px-1.5 py-0 rounded-sm ${suggestion.availableToSell > 0 ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-amber-50 text-amber-600 border border-amber-100'}`}>
-                                                        {suggestion.availableToSell > 0 ? `Ready: ${suggestion.availableToSell}` : 'Indent'}
-                                                    </span>
-                                                </div>
-                                                <div className="flex items-center gap-2 mt-0.5">
-                                                    {priceInfo.hasDiscount && priceInfo.isCustomerDiscount && (
-                                                        <span className="text-xs text-gray-400 line-through leading-tight">
-                                                            Rp {priceInfo.originalPriceWithPPN.toLocaleString("id-ID")}
-                                                        </span>
-                                                    )}
-                                                    <p className="text-xs font-semibold text-red-600">Rp {priceInfo.discountedPriceWithPPN.toLocaleString("id-ID")}</p>
-                                                </div>
-                                            </div>
-                                            <Plus className="w-4 h-4 text-gray-300 flex-shrink-0" />
-                                        </button>
-                                    );
-                                })}
+                    ) : (
+                        <div className="flex flex-col gap-3">
+                            <textarea
+                                value={pasteContent}
+                                onChange={e => setPasteContent(e.target.value)}
+                                placeholder="Paste daftar SKU di sini (pisahkan dengan koma atau baris baru)...&#10;Contoh:&#10;SKU-A&#10;SKU-B&#10;SKU-C"
+                                className="w-full h-24 p-2.5 text-xs border border-gray-300 rounded-lg focus:ring-1 focus:ring-red-500 focus:border-red-500 resize-none"
+                            />
+                            <div className="flex justify-between items-center">
+                                <p className="text-xs text-gray-400 italic">*SKU yang tidak ditemukan akan ditandai</p>
+                                <Button 
+                                    onClick={handleProcessPaste} 
+                                    disabled={isProcessingPaste || !pasteContent.trim()} 
+                                    variant="red" 
+                                    className="h-8 px-4 rounded-md font-medium text-xs shadow-sm"
+                                >
+                                    {isProcessingPaste ? "Memproses..." : "Submit List"}
+                                </Button>
                             </div>
+                        </div>
+                    )}
+
+                    {/* Suggestions Dropdown */}
+                    {activeTab === 'search' && showSuggestions && (suggestions.length > 0 || isSearchingSuggestions) && (
+                        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 z-50 max-h-80 overflow-y-auto overflow-x-hidden">
+                            {isSearchingSuggestions && (
+                                <div className="p-6 text-center text-sm text-gray-400 flex flex-col items-center justify-center gap-3">
+                                    <div className="w-6 h-6 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+                                    Mencari produk...
+                                </div>
+                            )}
+                            {!isSearchingSuggestions && suggestions.length === 0 && (
+                                <div className="p-6 text-center text-sm text-gray-400">
+                                    Produk tidak ditemukan
+                                </div>
+                            )}
+                            {!isSearchingSuggestions && suggestions.map((suggestion) => {
+                                const priceInfo = getPriceInfo(suggestion.price, suggestion.category || null, suggestion.availableToSell);
+                                return (
+                                    <button
+                                        key={suggestion.id}
+                                        onClick={() => handleSuggestionClick(suggestion)}
+                                        className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 transition-colors text-left border-b border-gray-50 last:border-0 group"
+                                    >
+                                        <div className="w-10 h-10 bg-white border border-gray-100 rounded-lg flex-shrink-0 relative overflow-hidden text-[10px] flex items-center justify-center text-gray-400">
+                                            {suggestion.image ? (
+                                                <Image src={suggestion.image} alt={suggestion.name} fill className="object-contain p-1" />
+                                            ) : "No Img"}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium text-gray-900 truncate">{suggestion.name}</p>
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                                <p className="text-xs text-gray-500 font-mono bg-gray-100 px-1.5 py-0.5 rounded">SKU: {suggestion.sku}</p>
+                                                <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${suggestion.availableToSell > 0 ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-amber-50 text-amber-600 border border-amber-100'}`}>
+                                                    {suggestion.availableToSell > 0 ? `Ready: ${suggestion.availableToSell}` : 'Indent'}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                {priceInfo.hasDiscount && priceInfo.isCustomerDiscount && (
+                                                    <span className="text-xs text-gray-400 line-through leading-tight">
+                                                        Rp {priceInfo.originalPriceWithPPN.toLocaleString("id-ID")}
+                                                    </span>
+                                                )}
+                                                <p className="text-xs font-bold text-red-600">Rp {priceInfo.discountedPriceWithPPN.toLocaleString("id-ID")}</p>
+                                            </div>
+                                        </div>
+                                        <div className="w-7 h-7 rounded-full bg-red-50 text-red-600 flex items-center justify-center flex-shrink-0 group-hover:bg-red-600 group-hover:text-white transition-colors">
+                                            <Plus className="w-4 h-4" />
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                {/* Product Table */}
+                {items.length > 0 ? (
+                    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                        <div className="overflow-x-auto">
+                            <DndContext
+                                sensors={sensors}
+                                collisionDetection={closestCenter}
+                                onDragEnd={handleDragEnd}
+                            >
+                                <SortableContext
+                                    items={items.map(i => i.customId)}
+                                    strategy={verticalListSortingStrategy}
+                                >
+                                    <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
+                                        <colgroup>
+                                            <col style={{ width: '4%' }} />
+                                            <col style={{ width: '32%' }} />
+                                            <col style={{ width: '16%' }} />
+                                            <col style={{ width: '12%' }} />
+                                            <col style={{ width: '14%' }} />
+                                            <col style={{ width: '16%' }} />
+                                            <col style={{ width: '6%' }} />
+                                        </colgroup>
+                                        <thead>
+                                            <tr className="bg-gray-50 border-b border-gray-200">
+                                                <th className="w-[4%]"></th>
+                                                <th className="px-3 py-2 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wide">Produk</th>
+                                                <th className="px-3 py-2 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wide">Harga Satuan</th>
+                                                <th className="px-3 py-2 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wide">Status</th>
+                                                <th className="px-3 py-2 text-center text-[11px] font-bold text-gray-500 uppercase tracking-wide">Qty</th>
+                                                <th className="px-3 py-2 text-right text-[11px] font-bold text-gray-500 uppercase tracking-wide">Subtotal</th>
+                                                <th className="px-3 py-2.5"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100">
+                                            {items.map((item) => (
+                                                <SortableRow
+                                                    key={item.customId}
+                                                    item={item}
+                                                    updateQty={updateQty}
+                                                    removeItem={removeItem}
+                                                    isLoggedIn={isLoggedIn}
+                                                />
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </SortableContext>
+                            </DndContext>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="bg-white rounded-xl border border-dashed border-gray-200 py-10 text-center shadow-sm">
+                        <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <ShoppingCart className="w-5 h-5 text-gray-300" />
+                        </div>
+                        <p className="text-gray-900 font-semibold text-sm">Daftar pesanan masih kosong</p>
+                        <p className="text-gray-500 mt-1 text-xs max-w-xs mx-auto">Tambahkan produk dari pencarian, copy-paste, atau file Excel.</p>
+                    </div>
+                )}
+            </div>
+
+            {/* Right Column: Excel Import & Summary */}
+            <div className="w-full lg:w-[260px] flex-shrink-0 flex flex-col gap-4 lg:sticky lg:top-24">
+                
+                {/* Excel Import Panel */}
+                <div
+                    onDragOver={onDragOver}
+                    onDragLeave={onDragLeave}
+                    onDrop={onDrop}
+                    className={`bg-white rounded-xl border transition-all p-4 shadow-sm ${isDragging
+                        ? "border-emerald-500 border-dashed bg-emerald-50/50 scale-[1.02] shadow-emerald-100"
+                        : "border-gray-200 border-solid"
+                        }`}
+                >
+                    <div className="flex items-center gap-2 mb-2">
+                        <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
+                            <FileSpreadsheet className="w-5 h-5" />
+                        </div>
+                        <h3 className="font-bold text-gray-900 text-sm">Impor via Excel</h3>
+                    </div>
+                    <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+                        Masukkan daftar produk dalam jumlah besar dengan format Excel (.xlsx, .csv).
+                    </p>
+                    
+                    <div className="space-y-3">
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isUploading}
+                            className="w-full inline-flex justify-center items-center gap-2 px-3 py-2 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-all shadow-sm hover:shadow-md disabled:opacity-50"
+                        >
+                            {isUploading ? "Memproses Data..." : "Pilih File Excel"}
+                        </button>
+                        <input
+                            type="file"
+                            accept=".xlsx, .xls, .csv"
+                            className="hidden"
+                            ref={fileInputRef}
+                            onChange={handleExcelUpload}
+                        />
+                        <button
+                            onClick={downloadTemplate}
+                            className="w-full inline-flex justify-center items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                            <Download className="w-4 h-4 text-gray-400" />
+                            Unduh Template
+                        </button>
+                    </div>
+                    
+                    {isDragging ? (
+                        <p className="text-xs text-center text-emerald-600 font-medium mt-4 animate-pulse">
+                            Lepaskan file di sini...
+                        </p>
+                    ) : (
+                        <p className="text-xs text-center text-gray-400 mt-4 italic">
+                            * Atau tarik & drop file ke area ini
+                        </p>
+                    )}
+                </div>
+
+                {/* Summary Panel */}
+                <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                    <h3 className="font-bold text-gray-900 mb-3 text-sm">Ringkasan Pesanan</h3>
+                    
+                    <div className="space-y-2 mb-4">
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-gray-500 text-xs">Total Macam Item</span>
+                            <span className="font-semibold text-gray-900 bg-gray-50 border border-gray-100 px-2 py-0.5 rounded text-xs">{items.length}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-gray-500 text-xs">Total Kuantitas</span>
+                            <span className="font-semibold text-gray-900 bg-gray-50 border border-gray-100 px-2 py-0.5 rounded text-xs">{totalQty}</span>
+                        </div>
+                        <div className="pt-3 mt-2 border-t border-gray-100 flex flex-col gap-0.5">
+                            <div className="flex justify-between items-end">
+                                <span className="text-gray-900 font-bold text-sm">Total</span>
+                                <span className="font-black text-red-600 text-base tracking-tight">
+                                    Rp {totalAmount.toLocaleString("id-ID")}
+                                </span>
+                            </div>
+                            <p className="text-[10px] text-gray-400 text-right">* Sudah termasuk PPN 11%</p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-3">
+                        <Button
+                            size="lg"
+                            variant="red"
+                            onClick={handleAddToCart}
+                            disabled={items.length === 0}
+                            className="w-full gap-2 h-10 rounded-lg shadow-md shadow-red-100 font-semibold text-sm transition-all hover:shadow-red-200"
+                        >
+                            <ShoppingCart className="w-5 h-5" />
+                            Masukkan Keranjang
+                        </Button>
+
+                        <div className="grid grid-cols-2 gap-2">
+                            <button
+                                onClick={downloadPDF}
+                                disabled={items.length === 0}
+                                className="inline-flex justify-center items-center gap-1.5 px-2 py-2 rounded-lg bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-100 hover:border-gray-300 transition-all disabled:opacity-50 disabled:pointer-events-none"
+                            >
+                                <FileDown className="w-4 h-4 text-red-500" />
+                                Est. PDF
+                            </button>
+                            <button
+                                onClick={downloadExcel}
+                                disabled={items.length === 0}
+                                className="inline-flex justify-center items-center gap-1.5 px-2 py-2 rounded-lg bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-100 hover:border-gray-300 transition-all disabled:opacity-50 disabled:pointer-events-none"
+                            >
+                                <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
+                                Est. Excel
+                            </button>
+                        </div>
+
+                        {items.length > 0 && (
+                            <button
+                                onClick={clearAll}
+                                className="w-full inline-flex justify-center items-center gap-1.5 px-3 py-2 mt-2 rounded-lg text-xs font-bold text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all"
+                            >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                                Bersihkan Daftar
+                            </button>
                         )}
                     </div>
                 </div>
             </div>
-
-            {/* Product Table */}
-            {items.length > 0 ? (
-                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <DndContext
-                            sensors={sensors}
-                            collisionDetection={closestCenter}
-                            onDragEnd={handleDragEnd}
-                        >
-                            <SortableContext
-                                items={items.map(i => i.customId)}
-                                strategy={verticalListSortingStrategy}
-                            >
-                                <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
-                                    <colgroup>
-                                        <col style={{ width: '4%' }} />
-                                        <col style={{ width: '32%' }} />
-                                        <col style={{ width: '16%' }} />
-                                        <col style={{ width: '12%' }} />
-                                        <col style={{ width: '14%' }} />
-                                        <col style={{ width: '16%' }} />
-                                        <col style={{ width: '6%' }} />
-                                    </colgroup>
-                                    <thead>
-                                        <tr className="bg-gray-50 border-b border-gray-200">
-                                            <th className="w-[4%]"></th>
-                                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Produk</th>
-                                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Harga Satuan</th>
-                                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
-                                            <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Qty</th>
-                                            <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Subtotal</th>
-                                            <th className="px-4 py-3"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-100">
-                                        {items.map((item) => (
-                                            <SortableRow
-                                                key={item.customId}
-                                                item={item}
-                                                updateQty={updateQty}
-                                                removeItem={removeItem}
-                                                isLoggedIn={isLoggedIn}
-                                            />
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </SortableContext>
-                        </DndContext>
-                    </div>
-
-                    {/* Footer Summary + Actions */}
-                    <div className="border-t border-gray-200 bg-gray-50 px-4 py-4">
-                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                            {/* Summary */}
-                            <div className="flex items-center gap-6 text-sm text-gray-600">
-                                <div>
-                                    <span className="text-gray-400">Total item: </span>
-                                    <span className="font-semibold text-gray-800">{items.length} baris</span>
-                                </div>
-                                <div>
-                                    <span className="text-gray-400">Total qty: </span>
-                                    <span className="font-semibold text-gray-800 tabular-nums">{totalQty}</span>
-                                </div>
-                                <div>
-                                    <span className="text-gray-400">Estimasi total: </span>
-                                    <span className="font-bold text-red-600 tabular-nums text-base">
-                                        Rp {totalAmount.toLocaleString("id-ID")}
-                                    </span>
-                                </div>
-                            </div>
-
-                            {/* Action Buttons */}
-                            <div className="flex flex-wrap items-center justify-end gap-3">
-                                <div className="flex items-center gap-2 bg-gray-100/50 p-1.5 rounded-xl border border-gray-200/50">
-                                    <button
-                                        onClick={clearAll}
-                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-red-600 hover:bg-white transition-all"
-                                        title="Bersihkan daftar"
-                                    >
-                                        <RotateCcw className="w-3.5 h-3.5" />
-                                        Bersihkan
-                                    </button>
-                                    <div className="w-px h-4 bg-gray-200 mx-1" />
-                                    <button
-                                        onClick={downloadPDF}
-                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-gray-600 hover:bg-white transition-all shadow-sm"
-                                    >
-                                        <FileDown className="w-3.5 h-3.5 text-red-500" />
-                                        Estimasi PDF
-                                    </button>
-                                    <button
-                                        onClick={downloadExcel}
-                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-gray-600 hover:bg-white transition-all shadow-sm"
-                                    >
-                                        <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500" />
-                                        Excel
-                                    </button>
-                                </div>
-                                <Button
-                                    size="lg"
-                                    variant="red"
-                                    onClick={handleAddToCart}
-                                    className="gap-2 h-11 px-6 shadow-lg shadow-red-100"
-                                >
-                                    <ShoppingCart className="w-4 h-4" />
-                                    Masukkan ke Keranjang
-                                </Button>
-                            </div>
-                        </div>
-                        <p className="text-xs text-gray-400 mt-2">* Harga estimasi sudah termasuk PPN 11%</p>
-                    </div>
-                </div>
-            ) : (
-                <div className="bg-white rounded-xl border border-dashed border-gray-200 py-16 text-center">
-                    <ShoppingCart className="w-12 h-12 mx-auto text-gray-200 mb-3" />
-                    <p className="text-gray-500 font-medium">Daftar bulk order masih kosong</p>
-                    <p className="text-sm text-gray-400 mt-1">Cari produk atau impor file Excel untuk memulai.</p>
-                </div>
-            )}
-
             {/* Custom Product Modal */}
             <Dialog open={isCustomModalOpen} onOpenChange={setIsCustomModalOpen}>
                 <DialogContent className="sm:max-w-[425px]">
@@ -1037,9 +1116,9 @@ function SortableRow({ item, updateQty, removeItem, isLoggedIn }: {
             </td>
 
             {/* Product */}
-            <td className="px-4 py-3">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gray-100 rounded-lg flex-shrink-0 relative overflow-hidden">
+            <td className="px-3 py-2">
+                <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 bg-gray-100 rounded-lg flex-shrink-0 relative overflow-hidden">
                         {item.image ? (
                             <Image src={item.image} alt={item.name} fill className="object-cover" />
                         ) : (
@@ -1047,14 +1126,14 @@ function SortableRow({ item, updateQty, removeItem, isLoggedIn }: {
                         )}
                     </div>
                     <div className="min-w-0">
-                        <p className="font-medium text-gray-900 text-sm line-clamp-1">{item.name}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">SKU: {item.sku}</p>
+                        <p className={`font-medium text-sm line-clamp-1 ${item.isNotFound ? 'text-red-500' : 'text-gray-900'}`}>{item.name}</p>
+                        <p className="text-[11px] text-gray-400 mt-0.5">SKU: {item.sku}</p>
                     </div>
                 </div>
             </td>
 
-            {/* Price — fixed width, no layout shift */}
-            <td className="px-4 py-3">
+            {/* Price — fixed width, no layout shift */}            {/* Price — fixed width, no layout shift */}
+            <td className="px-3 py-2">
                 <div className="flex flex-col">
                     {isLoggedIn && item.hasDiscount && item.isCustomerDiscount && item.originalPrice && (
                         <span className="text-xs text-gray-400 line-through leading-tight">
@@ -1068,7 +1147,7 @@ function SortableRow({ item, updateQty, removeItem, isLoggedIn }: {
             </td>
 
             {/* Stock Status */}
-            <td className="px-4 py-3">
+            <td className="px-3 py-2">
                 <div className="flex flex-col gap-1">
                     {item.stockStatus === 'READY' ? (
                         <>
@@ -1084,7 +1163,9 @@ function SortableRow({ item, updateQty, removeItem, isLoggedIn }: {
                             <span className="inline-flex items-center w-fit text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
                                 Indent
                             </span>
-                            {item.isCustom && (
+                            {item.isNotFound ? (
+                                <span className="text-[10px] text-red-500 font-bold">Tidak Tersedia</span>
+                            ) : item.isCustom && (
                                 <span className="text-[10px] text-gray-400">Produk Kustom</span>
                             )}
                         </>
@@ -1093,7 +1174,7 @@ function SortableRow({ item, updateQty, removeItem, isLoggedIn }: {
             </td>
 
             {/* Qty — fixed width stepper */}
-            <td className="px-4 py-3">
+            <td className="px-3 py-2">
                 <div className="flex items-center justify-center gap-1">
                     <button
                         onClick={() => updateQty(item.customId, -1)}
@@ -1114,14 +1195,14 @@ function SortableRow({ item, updateQty, removeItem, isLoggedIn }: {
             </td>
 
             {/* Subtotal — fixed width, tabular nums */}
-            <td className="px-4 py-3 text-right">
+            <td className="px-3 py-2 text-right">
                 <span className="text-sm font-bold text-gray-900 tabular-nums">
                     Rp {(item.finalPrice * item.qty).toLocaleString("id-ID")}
                 </span>
             </td>
 
             {/* Remove */}
-            <td className="px-4 py-3 text-center">
+            <td className="px-3 py-2 text-center">
                 <button
                     onClick={() => removeItem(item.customId)}
                     className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
