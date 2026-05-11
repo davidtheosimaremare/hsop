@@ -1102,7 +1102,6 @@ function SortableRow({ item, updateQty, removeItem, isLoggedIn }: {
 
     return (
         <tr ref={setNodeRef} style={style} className={`hover:bg-gray-50/50 transition-colors ${isDragging ? 'bg-red-50/30' : ''}`}>
-            {/* Drag Grip Handle */}
             <td className="px-2 py-3 text-center align-middle">
                 <button
                     {...attributes}
@@ -1114,8 +1113,6 @@ function SortableRow({ item, updateQty, removeItem, isLoggedIn }: {
                     <GripVertical className="w-4 h-4" />
                 </button>
             </td>
-
-            {/* Product */}
             <td className="px-3 py-2">
                 <div className="flex items-center gap-2.5">
                     <div className="w-9 h-9 bg-gray-100 rounded-lg flex-shrink-0 relative overflow-hidden">
@@ -1131,8 +1128,6 @@ function SortableRow({ item, updateQty, removeItem, isLoggedIn }: {
                     </div>
                 </div>
             </td>
-
-            {/* Price — fixed width, no layout shift */}            {/* Price — fixed width, no layout shift */}
             <td className="px-3 py-2">
                 <div className="flex flex-col">
                     {isLoggedIn && item.hasDiscount && item.isCustomerDiscount && item.originalPrice && (
@@ -1145,8 +1140,6 @@ function SortableRow({ item, updateQty, removeItem, isLoggedIn }: {
                     </span>
                 </div>
             </td>
-
-            {/* Stock Status */}
             <td className="px-3 py-2">
                 <div className="flex flex-col gap-1">
                     {item.stockStatus === 'READY' ? (
@@ -1172,8 +1165,6 @@ function SortableRow({ item, updateQty, removeItem, isLoggedIn }: {
                     )}
                 </div>
             </td>
-
-            {/* Qty — fixed width stepper */}
             <td className="px-3 py-2">
                 <div className="flex items-center justify-center gap-1">
                     <button
@@ -1193,15 +1184,11 @@ function SortableRow({ item, updateQty, removeItem, isLoggedIn }: {
                     </button>
                 </div>
             </td>
-
-            {/* Subtotal — fixed width, tabular nums */}
             <td className="px-3 py-2 text-right">
                 <span className="text-sm font-bold text-gray-900 tabular-nums">
                     Rp {(item.finalPrice * item.qty).toLocaleString("id-ID")}
                 </span>
             </td>
-
-            {/* Remove */}
             <td className="px-3 py-2 text-center">
                 <button
                     onClick={() => removeItem(item.customId)}
