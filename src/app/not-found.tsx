@@ -29,8 +29,8 @@ export default async function NotFound() {
                                 xmlns="http://www.w3.org/2000/svg" 
                                 className="w-full h-full text-slate-800"
                             >
-                                {/* Background Lingkaran Lembut Abu-abu */}
-                                <circle cx="120" cy="120" r="50" fill="#F1F5F9" />
+                                {/* Background Lingkaran Lembut Merah Muda (FEF2F2) */}
+                                <circle cx="120" cy="120" r="50" fill="#FEF2F2" />
                                 
                                 {/* Kabel Atas & Kepala Socket (Female Plug) */}
                                 <path 
@@ -63,8 +63,8 @@ export default async function NotFound() {
                     {/* SISI KANAN (Bawah di Mobile): Informasi & Aksi Utama (Sesuai Referensi) */}
                     <div className="w-full max-w-md text-center md:text-left space-y-6">
                         <div className="space-y-2">
-                            {/* Angka Giant 404 */}
-                            <h1 className="text-7xl md:text-8xl font-black text-[#2E3A59] tracking-tight leading-none">
+                            {/* Angka Giant 404 Merah */}
+                            <h1 className="text-7xl md:text-8xl font-black text-red-600 tracking-tight leading-none">
                                 404
                             </h1>
                             {/* Page Not Found Title */}
@@ -81,7 +81,7 @@ export default async function NotFound() {
                         <div className="pt-2 flex flex-col md:flex-row items-center gap-4">
                             <Link 
                                 href="/" 
-                                className="w-full md:w-auto inline-flex items-center justify-center px-8 py-3.5 bg-[#2E3A59] hover:bg-red-600 text-white rounded-full font-bold text-xs tracking-widest uppercase transition-all duration-300 shadow-md shadow-slate-900/10 active:scale-95"
+                                className="w-full md:w-auto inline-flex items-center justify-center px-8 py-3.5 bg-red-600 hover:bg-red-700 text-white rounded-full font-bold text-xs tracking-widest uppercase transition-all duration-300 shadow-lg shadow-red-600/10 active:scale-95"
                             >
                                 GO HOME
                             </Link>
@@ -102,7 +102,7 @@ export default async function NotFound() {
                                 href={waUrl} 
                                 target="_blank" 
                                 rel="noopener noreferrer" 
-                                className="font-semibold text-[#2E3A59] hover:text-red-600 transition-colors underline"
+                                className="font-semibold text-red-600 hover:text-red-700 transition-colors underline"
                             >
                                 WhatsApp Support
                             </a>
