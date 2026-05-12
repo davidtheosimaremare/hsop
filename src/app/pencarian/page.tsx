@@ -75,9 +75,9 @@ export async function generateMetadata({
     
     let titleStr = titleParts.join(" ");
     if (!titleStr) {
-        titleStr = "Katalog Produk Siemens & Electrical";
+        titleStr = "Katalog Alat Kelistrikan & Lampu Tambang | Orisinil & Garansi Resmi | PT Hokiindo Raya";
     } else {
-        titleStr = `${titleStr} | Hokiindo Raya`;
+        titleStr = `${titleStr} | Jaminan Orisinil & Garansi Resmi | PT Hokiindo Raya`;
     }
 
     // 3. Build Description with ALL active parameters
