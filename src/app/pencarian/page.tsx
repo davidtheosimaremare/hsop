@@ -75,7 +75,7 @@ export async function generateMetadata({
     
     let titleStr = titleParts.join(" ");
     if (!titleStr) {
-        titleStr = "Katalog Alat Kelistrikan & Lampu Tambang | Orisinil & Garansi Resmi | PT Hokiindo Raya";
+        titleStr = "Alat Kelistrikan & Lampu Tambang Resmi | PT Hokiindo Raya";
     } else {
         titleStr = `${titleStr} | Jaminan Orisinil & Garansi Resmi | PT Hokiindo Raya`;
     }
