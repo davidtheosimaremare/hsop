@@ -153,13 +153,25 @@ function mixProducts(products: any[], keywordGroups: string[], limit: number = 7
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  const companyDetails = await getSiteSetting("company_details") as any;
-  const siteTitle = companyDetails?.siteTitle || companyDetails?.name || "Hokiindoshop";
-  const tagline = companyDetails?.siteTagline || "Distributor Siemens Electrical Indonesia";
-  
   return {
-    title: `${siteTitle} - ${tagline}`,
-    description: companyDetails?.description || `${siteTitle} adalah distributor resmi produk Siemens Electrical di Indonesia. Temukan berbagai produk electrical berkualitas tinggi untuk kebutuhan proyek Anda.`,
+    title: "Hokiindo Raya Shop - Distributor Siemens & Portable Tower Industri",
+    description: "Hokiindo Raya adalah Distributor Siemens & Portable Tower Industri. Temukan berbagai produk electrical berkualitas tinggi untuk kebutuhan proyek Anda.",
+    keywords: [
+      "Distributor siemens",
+      "low voltage",
+      "komponen siemens",
+      "air circuit breaker",
+      "molded case circuit breaker",
+      "miniature circuit breaker",
+      "rcbo",
+      "contactor",
+      "overload relay",
+      "portable lighting",
+      "portable tower",
+      "distributor resmi siemens",
+      "alat kelistrikan industri",
+      "distributor kelistrikan jakarta"
+    ].join(", "),
     alternates: {
       canonical: 'https://shop.hokiindo.co.id',
     }

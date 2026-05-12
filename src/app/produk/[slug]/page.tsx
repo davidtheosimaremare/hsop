@@ -37,7 +37,19 @@ export async function generateMetadata(
     }
     const metaTitle = product.metaTitle || `${product.sku} - ${brandPrefix}${product.name}`;
     
-    const defaultDesc = `Katalog ${product.brand || 'Siemens'} ${product.name} (${product.sku}). Beli online produk ${product.category || 'Electrical'} terpercaya hanya di Hokiindo Raya.`;
+    let descBrandPrefix = "";
+    if (product.brand && !product.name.toLowerCase().includes(product.brand.toLowerCase())) {
+        descBrandPrefix = `${product.brand} `;
+    }
+    let defaultDesc = `Katalog ${descBrandPrefix}${product.name} (${product.sku}). Beli online produk ${product.category || 'Electrical'} terpercaya hanya di Hokiindo Raya.`;
+    if (defaultDesc.length > 155) {
+        const baseString = `Katalog  (). Beli online produk ${product.category || 'Electrical'} terpercaya hanya di Hokiindo Raya.`;
+        const availableSpace = 155 - baseString.length - product.sku.length;
+        if (availableSpace > 10) {
+            const truncatedName = product.name.slice(0, availableSpace) + "...";
+            defaultDesc = `Katalog ${descBrandPrefix}${truncatedName} (${product.sku}). Beli online produk ${product.category || 'Electrical'} terpercaya hanya di Hokiindo Raya.`;
+        }
+    }
     const metaDesc = product.metaDescription || defaultDesc;
 
     // Generate dynamic keywords from SKU, Title (Brand + Name), and Description
