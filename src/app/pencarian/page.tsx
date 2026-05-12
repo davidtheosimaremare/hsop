@@ -41,8 +41,9 @@ export async function generateMetadata({
         }
     });
     
-    const queryString = params.toString();
+    let queryString = params.toString();
     if (queryString) {
+        queryString = queryString.replace(/%20/g, "+");
         canonical += `?${queryString}`;
     }
 
