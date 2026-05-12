@@ -28,22 +28,24 @@ export async function generateMetadata({
     
     // 1. Build Canonical URL with ALL active parameters
     let canonical = 'https://shop.hokiindo.co.id/pencarian';
-    const params = new URLSearchParams();
-    const keys = ["category", "brand", "q", "pole", "ampere", "breakingCapacity", "stockStatus", "page"];
-    keys.forEach(key => {
-        const val = resolvedParams[key];
-        if (val) {
-            if (Array.isArray(val)) {
-                val.forEach(v => params.append(key, v));
-            } else {
-                params.set(key, val as string);
+    if (q) {
+        const params = new URLSearchParams();
+        const keys = ["category", "brand", "q", "pole", "ampere", "breakingCapacity", "stockStatus", "page"];
+        keys.forEach(key => {
+            const val = resolvedParams[key];
+            if (val) {
+                if (Array.isArray(val)) {
+                    val.forEach(v => params.append(key, v));
+                } else {
+                    params.set(key, val as string);
+                }
             }
+        });
+        
+        const queryString = params.toString();
+        if (queryString) {
+            canonical += `?${queryString}`;
         }
-    });
-    
-    const queryString = params.toString();
-    if (queryString) {
-        canonical += `?${queryString}`;
     }
 
     // 2. Build Title with ALL active parameters
