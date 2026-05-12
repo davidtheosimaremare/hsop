@@ -3,8 +3,9 @@ import SiteHeader from "@/components/layout/SiteHeader";
 import Footer from "@/components/layout/Footer";
 import Image from "next/image";
 import { getPublicProductBySlug, getRelatedProducts } from "@/app/actions/product-public";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import Link from "next/link";
+import { getProductSlug } from "@/lib/utils";
 
 import ProductDetailClient from "@/components/public/ProductDetailClient";
 import { getCustomerPricingData } from "@/app/actions/customer-pricing";
@@ -35,6 +36,7 @@ export async function generateMetadata(
     const metaDesc = product.metaDescription || defaultDesc;
 
     const firstImage = product.image || (product.sliderImages && product.sliderImages.length > 0 ? product.sliderImages[0] : null);
+    const productSlug = getProductSlug(product);
 
     return {
         title: { absolute: metaTitle },
@@ -42,7 +44,7 @@ export async function generateMetadata(
         openGraph: {
             title: metaTitle,
             description: metaDesc,
-            url: `https://shop.hokiindo.co.id/produk/${product.slug}`,
+            url: `https://shop.hokiindo.co.id/produk/${productSlug}`,
             type: 'website',
             images: firstImage ? [{ url: firstImage, width: 800, height: 600, alt: product.name }] : [],
         },
@@ -53,7 +55,7 @@ export async function generateMetadata(
             images: firstImage ? [firstImage] : [],
         },
         alternates: {
-            canonical: `https://shop.hokiindo.co.id/produk/${product.slug}`,
+            canonical: `https://shop.hokiindo.co.id/produk/${productSlug}`,
         }
     };
 }
@@ -64,7 +66,8 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
     const product = await getPublicProductBySlug(slug);
 
     if (!product) {
-        return notFound();
+        const cleanQuery = slug.replace(/-/g, ' ');
+        permanentRedirect(`/pencarian?q=${encodeURIComponent(cleanQuery)}`);
     }
 
     let availableToSell = product.availableToSell || 0;

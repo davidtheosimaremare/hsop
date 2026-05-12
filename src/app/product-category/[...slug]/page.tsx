@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+import { permanentRedirect } from 'next/navigation';
 
 export default async function OldCategoryRedirect({ params }: { params: Promise<{ slug: string[] }> }) {
     const { slug } = await params;
@@ -7,5 +7,5 @@ export default async function OldCategoryRedirect({ params }: { params: Promise<
     const cleanQuery = slug.join(' ').replace(/-/g, ' ');
     
     // 2. Redirect 301 (Permanen) ke sistem pencarian untuk kategori lama
-    redirect(`/pencarian?q=${encodeURIComponent(cleanQuery)}`);
+    permanentRedirect(`/pencarian?q=${encodeURIComponent(cleanQuery)}`);
 }

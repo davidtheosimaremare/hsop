@@ -7,8 +7,45 @@ import ShareButton from "@/components/public/ShareButton";
 import ProductGrid from "@/components/public/ProductGrid";
 import { getCustomerPricingData } from "@/app/actions/customer-pricing";
 import { PricingProvider } from "@/lib/PricingContext";
+import { Metadata } from "next";
 
 export const dynamic = "force-dynamic"; // Ensure fresh data on search
+
+export async function generateMetadata({
+    searchParams,
+}: {
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}): Promise<Metadata> {
+    const resolvedParams = await searchParams;
+    const category = resolvedParams.category as string;
+    const brand = resolvedParams.brand as string;
+    const q = resolvedParams.q as string;
+    
+    let canonical = 'https://shop.hokiindo.co.id/pencarian';
+    const params = new URLSearchParams();
+    if (category) params.set("category", category);
+    if (brand) params.set("brand", brand);
+    if (q) params.set("q", q);
+    
+    const queryString = params.toString();
+    if (queryString) {
+        canonical += `?${queryString}`;
+    }
+    
+    return {
+        title: category 
+            ? `${category} | Hokiindo` 
+            : brand 
+                ? `${brand} | Hokiindo` 
+                : q 
+                    ? `Cari "${q}" | Hokiindo` 
+                    : "Katalog Produk Siemens & Electrical",
+        description: getCategoryDescription(category),
+        alternates: {
+            canonical,
+        }
+    };
+}
 
 function getCategoryDescription(categoryName: string | null): string {
     if (!categoryName) {

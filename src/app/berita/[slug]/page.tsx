@@ -43,6 +43,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
             description: news.metaDescription || news.excerpt || "",
             images: news.ogImage || news.image ? [news.ogImage || news.image!] : undefined,
         },
+        alternates: {
+            canonical: `https://shop.hokiindo.co.id/berita/${slug}`,
+        }
     };
 }
 
