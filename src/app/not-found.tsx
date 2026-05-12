@@ -2,90 +2,111 @@ import Link from "next/link";
 import SiteHeader from "@/components/layout/SiteHeader";
 import Footer from "@/components/layout/Footer";
 import { getSiteSetting } from "@/app/actions/settings";
-import { Home, Search, MessageSquare, AlertTriangle } from "lucide-react";
 
 export default async function NotFound() {
-    // Ambil konfigurasi WhatsApp dinamis dari setting website
+    // Ambil konfigurasi WhatsApp dinamis untuk kebutuhan link bantuan sekunder
     const waConfig = await getSiteSetting("whatsapp_config") as Record<string, string> | null;
-    const waNumber = waConfig?.number || "+628111223344"; // Fallback default
+    const waNumber = waConfig?.number || "+628111223344";
     const waMessage = waConfig?.message || "Halo Hokiindo Raya, saya mengalami kendala link terputus (404) di website dan membutuhkan bantuan.";
     const waUrl = `https://wa.me/${waNumber.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(waMessage)}`;
 
     return (
-        <div className="flex flex-col min-h-screen bg-slate-50 text-slate-800">
+        <div className="flex flex-col min-h-screen bg-white text-slate-800">
             {/* Header Utama */}
             <SiteHeader />
 
-            {/* Konten Utama 404 */}
-            <main className="flex-grow flex items-center justify-center px-6 py-16 md:py-24">
-                <div className="max-w-xl w-full text-center space-y-8 bg-white/70 backdrop-blur-md p-8 md:p-12 rounded-3xl shadow-xl border border-slate-100">
+            {/* Konten Utama 404 (Sesuai Referensi Gambar) */}
+            <main className="flex-grow flex items-center justify-center px-6 py-12 md:py-24">
+                <div className="max-w-5xl w-full flex flex-col md:flex-row items-center justify-center gap-12 md:gap-24">
                     
-                    {/* Ilustrasi Kelistrikan / Lampu Tambang Kreatif */}
-                    <div className="relative flex justify-center items-center">
-                        {/* Glow Effect belakang */}
-                        <div className="absolute w-32 h-32 bg-red-100 rounded-full filter blur-xl opacity-70 animate-pulse"></div>
-                        
-                        {/* Custom SVG: Broken Light Bulb (Kelistrikan theme) */}
-                        <svg 
-                            className="w-28 h-28 text-red-600 relative z-10 animate-bounce" 
-                            fill="none" 
-                            viewBox="0 0 24 24" 
-                            stroke="currentColor" 
-                            strokeWidth={1.5}
-                        >
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8M12 3a7 7 0 00-6.9 8.1 4.5 4.5 0 002.5 4.2h8.8a4.5 4.5 0 002.5-4.2A7 7 0 0012 3zm0 11V5" />
-                        </svg>
+                    {/* SISI KIRI (Atas di Mobile): Ilustrasi Kabel Putus (Sesuai Referensi) */}
+                    <div className="w-full max-w-[280px] md:max-w-[360px] flex justify-center items-center">
+                        <div className="relative w-full aspect-square flex items-center justify-center">
+                            
+                            <svg 
+                                viewBox="0 0 240 240" 
+                                fill="none" 
+                                xmlns="http://www.w3.org/2000/svg" 
+                                className="w-full h-full text-slate-800"
+                            >
+                                {/* Background Lingkaran Lembut Abu-abu */}
+                                <circle cx="120" cy="120" r="50" fill="#F1F5F9" />
+                                
+                                {/* Kabel Atas & Kepala Socket (Female Plug) */}
+                                <path 
+                                    d="M 20,40 C 20,95 120,50 120,98" 
+                                    stroke="#1E293B" 
+                                    strokeWidth="4" 
+                                    strokeLinecap="round" 
+                                />
+                                {/* Detail kepala socket */}
+                                <rect x="110" y="98" width="20" height="12" rx="3" fill="#1E293B" />
+                                <rect x="114" y="110" width="12" height="4" rx="1" fill="#475569" />
+                                
+                                {/* Kabel Bawah & Kepala Steker (Male Plug) */}
+                                <path 
+                                    d="M 20,210 C 20,210 10,180 40,180 C 80,180 120,175 120,142" 
+                                    stroke="#1E293B" 
+                                    strokeWidth="4" 
+                                    strokeLinecap="round" 
+                                />
+                                {/* Detail kepala steker */}
+                                <rect x="113" y="130" width="14" height="12" rx="2.5" fill="#1E293B" />
+                                {/* Kaki colokan (Prongs) */}
+                                <rect x="115" y="124" width="2.5" height="6" rx="0.5" fill="#94A3B8" />
+                                <rect x="122.5" y="124" width="2.5" height="6" rx="0.5" fill="#94A3B8" />
+                            </svg>
 
-                        {/* Petir / Spark kecil melayang */}
-                        <div className="absolute top-1 right-20 text-yellow-500 animate-pulse text-2xl font-bold">⚡</div>
-                        <div className="absolute bottom-6 left-24 text-red-400 animate-ping text-xl">✨</div>
+                        </div>
                     </div>
 
-                    <div className="space-y-3">
-                        <span className="text-sm font-black uppercase tracking-widest text-red-600 bg-red-50 px-3 py-1.5 rounded-full">
-                            Error 404 - Halaman Tidak Ditemukan
-                        </span>
-                        <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">
-                            Oops! Sambungan Terputus
-                        </h1>
-                        <p className="text-slate-600 text-sm md:text-base leading-relaxed">
-                            Maaf, halaman yang Anda tuju tidak tersedia, telah dihapus, atau sambungan URL lama dari WordPress dipindahkan.
-                        </p>
-                    </div>
+                    {/* SISI KANAN (Bawah di Mobile): Informasi & Aksi Utama (Sesuai Referensi) */}
+                    <div className="w-full max-w-md text-center md:text-left space-y-6">
+                        <div className="space-y-2">
+                            {/* Angka Giant 404 */}
+                            <h1 className="text-7xl md:text-8xl font-black text-[#2E3A59] tracking-tight leading-none">
+                                404
+                            </h1>
+                            {/* Page Not Found Title */}
+                            <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
+                                Halaman Tidak Ditemukan
+                            </h2>
+                            {/* Desrkipsi Subtitle */}
+                            <p className="text-slate-500 text-sm md:text-base font-medium leading-relaxed max-w-sm md:max-w-none">
+                                Maaf, halaman yang Anda cari tidak dapat ditemukan. Silakan kembali ke halaman beranda.
+                            </p>
+                        </div>
 
-                    {/* Tombol Aksi Premium */}
-                    <div className="flex flex-col sm:flex-row gap-4 justify-center pt-2">
-                        <Link 
-                            href="/" 
-                            className="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 active:scale-95 transition-all shadow-lg shadow-red-600/20 text-sm"
-                        >
-                            <Home className="w-4 h-4" />
-                            Kembali ke Home
-                        </Link>
+                        {/* Tombol GO HOME - Desain Kapsul Sesuai Referensi */}
+                        <div className="pt-2 flex flex-col md:flex-row items-center gap-4">
+                            <Link 
+                                href="/" 
+                                className="w-full md:w-auto inline-flex items-center justify-center px-8 py-3.5 bg-[#2E3A59] hover:bg-red-600 text-white rounded-full font-bold text-xs tracking-widest uppercase transition-all duration-300 shadow-md shadow-slate-900/10 active:scale-95"
+                            >
+                                GO HOME
+                            </Link>
+                            
+                            {/* Link Alternatif Sekunder yang Rapi & Minimalis */}
+                            <Link 
+                                href="/pencarian" 
+                                className="text-xs font-bold text-slate-400 hover:text-red-600 transition-colors uppercase tracking-wider underline underline-offset-4"
+                            >
+                                Cari di Katalog
+                            </Link>
+                        </div>
 
-                        <Link 
-                            href="/pencarian" 
-                            className="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-50 active:scale-95 transition-all text-sm"
-                        >
-                            <Search className="w-4 h-4" />
-                            Cari Produk Lain
-                        </Link>
-
-                        <a 
-                            href={waUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold active:scale-95 transition-all shadow-lg shadow-emerald-600/10 text-sm"
-                        >
-                            <MessageSquare className="w-4 h-4" />
-                            Hubungi WA Sales
-                        </a>
-                    </div>
-
-                    {/* Footer mini bantuan */}
-                    <div className="pt-4 border-t border-slate-100 text-xs text-slate-400 flex items-center justify-center gap-1">
-                        <AlertTriangle className="w-3.5 h-3.5 text-slate-400" />
-                        Butuh bantuan mencari SKU tertentu? Sales kami siap melayani Anda.
+                        {/* Footer mini / Info bantuan WhatsApp jika membutuhkan */}
+                        <div className="pt-6 border-t border-slate-100 text-xs text-slate-400">
+                            Mengalami kendala mencari produk? Hubungi tim sales kami via {" "}
+                            <a 
+                                href={waUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="font-semibold text-[#2E3A59] hover:text-red-600 transition-colors underline"
+                            >
+                                WhatsApp Support
+                            </a>
+                        </div>
                     </div>
 
                 </div>
