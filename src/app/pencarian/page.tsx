@@ -20,27 +20,99 @@ export async function generateMetadata({
     const category = resolvedParams.category as string;
     const brand = resolvedParams.brand as string;
     const q = resolvedParams.q as string;
+    const pole = resolvedParams.pole as string;
+    const ampere = resolvedParams.ampere as string;
+    const breakingCapacity = resolvedParams.breakingCapacity as string;
+    const stockStatus = resolvedParams.stockStatus as string;
+    const page = resolvedParams.page as string;
     
+    // 1. Build Canonical URL with ALL active parameters
     let canonical = 'https://shop.hokiindo.co.id/pencarian';
     const params = new URLSearchParams();
-    if (category) params.set("category", category);
-    if (brand) params.set("brand", brand);
-    if (q) params.set("q", q);
+    const keys = ["category", "brand", "q", "pole", "ampere", "breakingCapacity", "stockStatus", "page"];
+    keys.forEach(key => {
+        const val = resolvedParams[key];
+        if (val) {
+            if (Array.isArray(val)) {
+                val.forEach(v => params.append(key, v));
+            } else {
+                params.set(key, val as string);
+            }
+        }
+    });
     
     const queryString = params.toString();
     if (queryString) {
         canonical += `?${queryString}`;
     }
+
+    // 2. Build Title with ALL active parameters
+    let titleParts: string[] = [];
+    if (q) {
+        titleParts.push(`Cari "${q}"`);
+    }
+    if (brand) {
+        titleParts.push(brand);
+    }
+    if (category) {
+        titleParts.push(category);
+    }
+    if (pole) {
+        titleParts.push(pole);
+    }
+    if (ampere) {
+        titleParts.push(`${ampere}A`);
+    }
+    if (breakingCapacity) {
+        titleParts.push(breakingCapacity);
+    }
+    if (stockStatus && stockStatus !== "all") {
+        titleParts.push(stockStatus === "ready" ? "Ready Stock" : "Indent");
+    }
+    if (page && page !== "1") {
+        titleParts.push(`Halaman ${page}`);
+    }
+    
+    let titleStr = titleParts.join(" ");
+    if (!titleStr) {
+        titleStr = "Katalog Produk Siemens & Electrical";
+    } else {
+        titleStr = `${titleStr} | Hokiindo Raya`;
+    }
+
+    // 3. Build Description with ALL active parameters
+    let descParts: string[] = [];
+    if (brand) descParts.push(brand);
+    if (category) descParts.push(category);
+    if (pole) descParts.push(pole);
+    if (ampere) descParts.push(`${ampere}A`);
+    if (breakingCapacity) descParts.push(breakingCapacity);
+    
+    let specStr = descParts.join(" ");
+    let description = "";
+    if (q) {
+        description = `Cari dan temukan produk ${q} ${specStr ? `(${specStr})` : ''} terlengkap hanya di Hokiindo Raya. Distributor resmi dengan jaminan 100% orisinil dan dukungan teknis purna jual profesional.`;
+    } else if (specStr) {
+        description = `Katalog produk ${specStr} terlengkap hanya di Hokiindo Raya. Jaminan 100% orisinil, bersertifikat resmi, dengan dukungan purna jual terpercaya untuk kebutuhan proyek Anda.`;
+    } else {
+        description = "Jelajahi produk kelistrikan industri, otomasi pabrik, hingga portable light tower terlengkap. Jaminan 100% orisinil, tersertifikasi, dengan dukungan teknis purna jual profesional hanya di Hokiindo Raya.";
+    }
+
+    // 4. Build Keywords/Tags with ALL active parameters
+    const keywordsSet = new Set<string>(["hokiindo raya", "siemens indonesia", "distributor siemens"]);
+    if (brand) keywordsSet.add(brand.toLowerCase());
+    if (category) keywordsSet.add(category.toLowerCase());
+    if (q) keywordsSet.add(q.toLowerCase());
+    if (pole) keywordsSet.add(pole.toLowerCase());
+    if (ampere) keywordsSet.add(`${ampere}a`.toLowerCase());
+    if (breakingCapacity) keywordsSet.add(breakingCapacity.toLowerCase());
+    
+    const keywords = Array.from(keywordsSet).join(", ");
     
     return {
-        title: category 
-            ? `${category} | Hokiindo` 
-            : brand 
-                ? `${brand} | Hokiindo` 
-                : q 
-                    ? `Cari "${q}" | Hokiindo` 
-                    : "Katalog Produk Siemens & Electrical",
-        description: getCategoryDescription(category),
+        title: titleStr,
+        description: description.substring(0, 160),
+        keywords,
         alternates: {
             canonical,
         }
