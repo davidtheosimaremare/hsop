@@ -37,7 +37,7 @@ export async function generateMetadata(
     }
     const metaTitle = product.metaTitle || `${product.sku} - ${brandPrefix}${product.name}`;
     
-    const defaultDesc = `Katalog ${product.brand || 'Siemens'} ${product.name} (${product.sku}). Beli online produk ${product.category || 'Electrical'} terpercaya hanya di ${siteTitle}.`;
+    const defaultDesc = `Katalog ${product.brand || 'Siemens'} ${product.name} (${product.sku}). Beli online produk ${product.category || 'Electrical'} terpercaya hanya di Hokiindo Raya.`;
     const metaDesc = product.metaDescription || defaultDesc;
 
     // Generate dynamic keywords from SKU, Title (Brand + Name), and Description
