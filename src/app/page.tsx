@@ -4,6 +4,7 @@ import HeroSlider from "@/components/home/HeroSlider";
 import CategorySection from "@/components/home/CategorySection";
 import Footer from "@/components/layout/Footer";
 import { Suspense } from "react";
+import type { Metadata } from "next";
 
 // Lazy load components that are below the fold
 const ClientPortfolioSection = dynamic(() => import("@/components/home/ClientPortfolioSection"), {
@@ -149,6 +150,20 @@ function mixProducts(products: any[], keywordGroups: string[], limit: number = 7
   }
 
   return result;
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const companyDetails = await getSiteSetting("company_details") as any;
+  const siteTitle = companyDetails?.siteTitle || companyDetails?.name || "Hokiindoshop";
+  const tagline = companyDetails?.siteTagline || "Distributor Siemens Electrical Indonesia";
+  
+  return {
+    title: `${siteTitle} - ${tagline}`,
+    description: companyDetails?.description || `${siteTitle} adalah distributor resmi produk Siemens Electrical di Indonesia. Temukan berbagai produk electrical berkualitas tinggi untuk kebutuhan proyek Anda.`,
+    alternates: {
+      canonical: 'https://shop.hokiindo.co.id',
+    }
+  };
 }
 
 export default async function Home() {
