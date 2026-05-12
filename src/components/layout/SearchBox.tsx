@@ -132,11 +132,13 @@ export default function SearchBox({ isMobile = false, onFocusChange }: SearchBox
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        setIsOpen(false);
         if (query.trim()) {
             addToHistory(query.trim());
+            router.push(`/pencarian?q=${encodeURIComponent(query.trim())}`);
+        } else {
+            router.push(`/pencarian`);
         }
-        setIsOpen(false);
-        router.push(`/pencarian?q=${encodeURIComponent(query)}`);
     };
 
     const handleHistoryClick = (term: string) => {
