@@ -91,15 +91,34 @@ export async function generateMetadata({
     let specStr = descParts.join(" ");
     let description = "";
     if (q) {
-        description = `Cari dan temukan produk ${q} ${specStr ? `(${specStr})` : ''} terlengkap hanya di Hokiindo Raya. Distributor resmi dengan jaminan 100% orisinil dan dukungan teknis purna jual profesional.`;
+        description = `Cari produk ${q} ${specStr ? `(${specStr})` : ''} terlengkap hanya di Hokiindo Raya. Jaminan 100% orisinil, tersertifikasi, dengan dukungan purna jual terpercaya.`;
     } else if (specStr) {
-        description = `Katalog produk ${specStr} terlengkap hanya di Hokiindo Raya. Jaminan 100% orisinil, bersertifikat resmi, dengan dukungan purna jual terpercaya untuk kebutuhan proyek Anda.`;
+        description = `Katalog produk ${specStr} terlengkap hanya di Hokiindo Raya. Jaminan 100% orisinil, bersertifikat resmi, untuk kebutuhan proyek kelistrikan Anda.`;
     } else {
-        description = "Jelajahi produk kelistrikan industri, otomasi pabrik, hingga portable light tower terlengkap. Jaminan 100% orisinil, tersertifikasi, dengan dukungan teknis purna jual profesional hanya di Hokiindo Raya.";
+        description = "Jelajahi produk kelistrikan industri, otomasi pabrik, hingga portable light tower terlengkap. Jaminan 100% orisinil, tersertifikasi, hanya di Hokiindo Raya.";
     }
 
     // 4. Build Keywords/Tags with ALL active parameters
-    const keywordsSet = new Set<string>(["hokiindo raya", "siemens indonesia", "distributor siemens"]);
+    const keywordsSet = new Set<string>([
+        "hokiindo raya", 
+        "siemens indonesia", 
+        "distributor siemens",
+        "distributor lampu proyek",
+        "lampu portable",
+        "lampu tambang",
+        "distributor kelistrikan",
+        "supplier electrical jakarta",
+        "distributor electrical indonesia",
+        "distributor resmi siemens",
+        "sirkuit breaker siemens",
+        "alat kelistrikan industri",
+        "otomatisasi pabrik",
+        "panel listrik",
+        "electrical contractor indonesia",
+        "portable light tower",
+        "siemens switchgear",
+        "siemens acb mccb mcb"
+    ]);
     if (brand) keywordsSet.add(brand.toLowerCase());
     if (category) keywordsSet.add(category.toLowerCase());
     if (q) keywordsSet.add(q.toLowerCase());
