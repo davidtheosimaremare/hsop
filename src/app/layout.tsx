@@ -80,7 +80,7 @@ export default async function RootLayout({
   const waConfig = await getSiteSetting("whatsapp_config") as Record<string, string> | null;
 
   return (
-    <html lang="en">
+    <html lang="id">
       <body
         className={`${inter.variable} ${geistMono.variable} font-sans antialiased`}
         suppressHydrationWarning

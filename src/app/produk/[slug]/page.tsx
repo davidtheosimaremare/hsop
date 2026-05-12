@@ -30,10 +30,49 @@ export async function generateMetadata(
     const companyDetails = await getSiteSetting("company_details") as any;
     const siteTitle = companyDetails?.siteTitle || companyDetails?.name || "Hokiindo";
 
-    const metaTitle = product.metaTitle || `${product.name} ${product.brand ? '- ' + product.brand : ''} | SKU: ${product.sku}`;
+    // Format Title: [SKU] - [BRAND prefix if not duplicate] [NAME]
+    let brandPrefix = "";
+    if (product.brand && !product.name.toLowerCase().includes(product.brand.toLowerCase())) {
+        brandPrefix = `${product.brand.toUpperCase()} `;
+    }
+    const metaTitle = product.metaTitle || `${product.sku} - ${brandPrefix}${product.name}`;
     
     const defaultDesc = `Katalog ${product.brand || 'Siemens'} ${product.name} (${product.sku}). Beli online produk ${product.category || 'Electrical'} terpercaya hanya di ${siteTitle}.`;
     const metaDesc = product.metaDescription || defaultDesc;
+
+    // Generate dynamic keywords from SKU, Title (Brand + Name), and Description
+    const keywordsSet = new Set<string>();
+    
+    // 1. Dari SKU
+    if (product.sku) {
+        keywordsSet.add(product.sku.toLowerCase());
+        // Tambahkan juga bagian-bagian SKU yang dipisah tanda strip
+        product.sku.split('-').forEach(part => {
+            if (part.length > 2) {
+                keywordsSet.add(part.toLowerCase());
+            }
+        });
+    }
+
+    // 2. Dari Brand & Kategori
+    if (product.brand) keywordsSet.add(product.brand.toLowerCase());
+    if (product.category) keywordsSet.add(product.category.toLowerCase());
+
+    // 3. Dari Nama Produk (Title)
+    product.name.toLowerCase().split(/[\s,/\-\(\)]+/).forEach((word: string) => {
+        if (word.length > 2 && !['dan', 'dengan', 'untuk', 'yang', 'dari', 'bisa', 'beli', 'murah', 'distributor', 'harga', 'jual', 'agen', 'ready', 'stock', 'original', 'orisinil', 'the', 'and', 'for', 'with'].includes(word)) {
+            keywordsSet.add(word);
+        }
+    });
+
+    // 4. Dari Deskripsi (metaDesc)
+    metaDesc.toLowerCase().split(/[\s,/\-\(\)\.]+/).forEach((word: string) => {
+        if (word.length > 3 && !['dan', 'dengan', 'untuk', 'yang', 'dari', 'bisa', 'beli', 'murah', 'distributor', 'harga', 'jual', 'agen', 'ready', 'stock', 'original', 'orisinil', 'katalog', 'terpercaya', 'hanya', 'terlengkap', 'kebutuhan', 'proyek', 'electrical', 'indonesia', 'the', 'and', 'for', 'with', 'this'].includes(word)) {
+            keywordsSet.add(word);
+        }
+    });
+
+    const keywords = Array.from(keywordsSet).slice(0, 15).join(', ');
 
     const firstImage = product.image || (product.sliderImages && product.sliderImages.length > 0 ? product.sliderImages[0] : null);
     const productSlug = getProductSlug(product);
@@ -41,6 +80,7 @@ export async function generateMetadata(
     return {
         title: { absolute: metaTitle },
         description: metaDesc.substring(0, 160),
+        keywords,
         openGraph: {
             title: metaTitle,
             description: metaDesc,
