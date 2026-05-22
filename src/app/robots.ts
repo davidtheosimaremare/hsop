@@ -23,9 +23,14 @@ export default function robots(): MetadataRoute.Robots {
           '/lupa-password',
           '/reset-password',
           '/verifikasi',
+          '/shop-2',
+          '/shop-2/',
           // Block URL dengan query params yang tidak perlu diindex
           '/*?add_to_cart=*',
+          '/*?add-to-cart=*',
           '/*?add_to_compare=*',
+          '/*?add-to-compare=*',
+          '/*?filter_cat=*',
           '/*?ref=*',
           '/*?utm_*',
         ],
@@ -34,3 +39,4 @@ export default function robots(): MetadataRoute.Robots {
     sitemap: 'https://shop.hokiindo.co.id/sitemap.xml',
   }
 }
+

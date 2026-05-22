@@ -110,6 +110,16 @@ const nextConfig: NextConfig = {
         destination: '/pencarian',
         permanent: true,
       },
+      {
+        source: '/shop-2',
+        destination: '/pencarian',
+        permanent: true,
+      },
+      {
+        source: '/shop-2/',
+        destination: '/pencarian',
+        permanent: true,
+      },
     ];
   },
   typescript: {

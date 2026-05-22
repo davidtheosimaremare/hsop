@@ -290,56 +290,63 @@ const getPublicProductBySlugCached = cache(async (slug: string) => {
         if (productByDecodedSku) return productByDecodedSku;
     }
 
-    // 3. Smart slash recovery: batch-query all possible single-hyphen-to-slash variants
-    // This handles SKUs like "TL-500-5.3m-F/P" which becomes "TL-500-5.3m-F-P" in URL
+    // 3. Smart Suffix & Slash Recovery for old links (e.g. "siemens-mcb-5sl6106-7rc" -> "5SL6106-7RC" or "5SL6106/7RC")
     if (slug.includes("-")) {
-        const hyphenPositions: number[] = [];
-        for (let i = 0; i < slug.length; i++) {
-            if (slug[i] === '-') hyphenPositions.push(i);
-        }
+        const parts = slug.split("-");
+        const candidates: string[] = [];
 
-        // Build all single-slash candidates and query in ONE batch
-        const singleSlashCandidates = hyphenPositions.map(pos =>
-            slug.substring(0, pos) + '/' + slug.substring(pos + 1)
-        );
+        // Generate suffix combinations (e.g. "siemens-mcb-5sl6106-7rc", "mcb-5sl6106-7rc", "5sl6106-7rc")
+        for (let i = 0; i < parts.length; i++) {
+            const candidate = parts.slice(i).join("-");
+            if (candidate) {
+                candidates.push(candidate);
 
-        if (singleSlashCandidates.length > 0) {
-            const found = await db.product.findFirst({
-                where: { sku: { in: singleSlashCandidates } }
-            });
-            if (found) return found;
-        }
+                // Also add single-slash and double-slash recovery for each candidate
+                if (candidate.includes("-")) {
+                    const hyphenPositions: number[] = [];
+                    for (let j = 0; j < candidate.length; j++) {
+                        if (candidate[j] === '-') hyphenPositions.push(j);
+                    }
 
-        // Try pairs of hyphens as slashes (for SKUs with 2 slashes)
-        if (hyphenPositions.length >= 2 && hyphenPositions.length <= 8) {
-            const pairCandidates: string[] = [];
-            for (let i = 0; i < hyphenPositions.length; i++) {
-                for (let j = i + 1; j < hyphenPositions.length; j++) {
-                    const chars = slug.split('');
-                    chars[hyphenPositions[i]] = '/';
-                    chars[hyphenPositions[j]] = '/';
-                    pairCandidates.push(chars.join(''));
+                    // Single-slash candidates (e.g., "5sl6106/7rc")
+                    for (const pos of hyphenPositions) {
+                        candidates.push(candidate.substring(0, pos) + '/' + candidate.substring(pos + 1));
+                    }
+
+                    // Double-slash candidates (e.g., "5sl6106/7rc/p")
+                    if (hyphenPositions.length >= 2 && hyphenPositions.length <= 5) {
+                        for (let j = 0; j < hyphenPositions.length; j++) {
+                            for (let k = j + 1; k < hyphenPositions.length; k++) {
+                                const chars = candidate.split('');
+                                chars[hyphenPositions[j]] = '/';
+                                chars[hyphenPositions[k]] = '/';
+                                candidates.push(chars.join(''));
+                            }
+                        }
+                    }
                 }
             }
-            if (pairCandidates.length > 0) {
-                const found = await db.product.findFirst({
-                    where: { sku: { in: pairCandidates } }
-                });
-                if (found) return found;
+        }
+
+        // Filter out duplicates and very short candidates (less than 3 chars) to avoid false positives
+        const uniqueCandidates = Array.from(new Set(candidates)).filter(c => c.length >= 3);
+
+        if (uniqueCandidates.length > 0) {
+            const matches = await db.product.findMany({
+                where: {
+                    OR: uniqueCandidates.map(c => ({
+                        sku: { equals: c, mode: "insensitive" }
+                    })),
+                    isVisible: true
+                }
+            });
+
+            if (matches.length > 0) {
+                // Sort matches to prioritize the one matching the longest SKU (most specific)
+                matches.sort((a, b) => b.sku.length - a.sku.length);
+                return matches[0];
             }
         }
-    }
-
-    // 4. Fallback: Siemens prefix logic for old links (e.g. "siemens-3WA1110")
-    if (slug.includes("-")) {
-        const firstHyphenIndex = slug.indexOf("-");
-        const skuFromSlug = slug.substring(firstHyphenIndex + 1);
-
-        const p = await db.product.findUnique({
-            where: { sku: skuFromSlug },
-        });
-
-        if (p) return p;
     }
 
     // 5. Last resort: search by ID
