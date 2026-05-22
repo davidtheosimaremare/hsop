@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { submitToGoogleIndexing } from "@/lib/google-indexing";
+import { submitToIndexNow, pingGoogleSitemap, pingBingSitemap } from "@/lib/google-indexing";
 
 /**
- * API route to submit main pages to Google & Bing via Indexing APIs.
+ * API route to submit main pages to Google & Bing via IndexNow and Sitemap Ping.
  * 
  * Usage: POST /api/seo/ping (from admin panel or after product updates)
  */
@@ -17,43 +17,50 @@ export async function POST() {
     
     const results: { engine: string; status: string; count?: number; error?: string }[] = [];
 
-    // 1. Submit to Google Indexing API
+    // 1. Submit to IndexNow (Bing/Yandex)
     try {
-        const googleResult = await submitToGoogleIndexing(coreUrls);
+        const indexNowResult = await submitToIndexNow(coreUrls);
         results.push({
-            engine: "Google Indexing API",
-            status: googleResult.status,
-            count: googleResult.successCount,
-            error: googleResult.errors.length > 0 ? googleResult.errors.join("; ") : undefined,
+            engine: "IndexNow (Bing/Yandex)",
+            status: indexNowResult.status,
+            count: indexNowResult.count,
+            error: indexNowResult.error,
         });
     } catch (error: any) {
         results.push({
-            engine: "Google Indexing API",
+            engine: "IndexNow (Bing/Yandex)",
             status: "error",
             error: error.message,
         });
     }
 
-    // 2. Submit to IndexNow (Bing/Yandex instant indexing)
+    // 2. Ping Google Sitemap
     try {
-        const indexNowRes = await fetch("https://api.indexnow.org/indexnow", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                host: "shop.hokiindo.co.id",
-                key: "hokiindo2026seo",
-                urlList: coreUrls,
-            }),
-            signal: AbortSignal.timeout(10000),
-        });
+        const googlePing = await pingGoogleSitemap();
         results.push({
-            engine: "IndexNow (Bing)",
-            status: indexNowRes.ok || indexNowRes.status === 202 ? "success" : `failed (${indexNowRes.status})`,
-            count: coreUrls.length,
+            engine: "Google Sitemap Ping",
+            status: googlePing.status,
+            error: googlePing.error,
         });
     } catch (error: any) {
         results.push({
-            engine: "IndexNow (Bing)",
+            engine: "Google Sitemap Ping",
+            status: "error",
+            error: error.message,
+        });
+    }
+
+    // 3. Ping Bing Sitemap
+    try {
+        const bingPing = await pingBingSitemap();
+        results.push({
+            engine: "Bing Sitemap Ping",
+            status: bingPing.status,
+            error: bingPing.error,
+        });
+    } catch (error: any) {
+        results.push({
+            engine: "Bing Sitemap Ping",
             status: "error",
             error: error.message,
         });
@@ -73,3 +80,4 @@ export async function GET() {
         usage: "POST /api/seo/ping" 
     });
 }
+
