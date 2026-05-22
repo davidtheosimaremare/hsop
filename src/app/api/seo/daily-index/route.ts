@@ -1,18 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getProductSlug } from "@/lib/utils";
-import { submitToIndexNow, pingGoogleSitemap, pingBingSitemap } from "@/lib/google-indexing";
+import { submitToGoogleIndexingAPI, submitToIndexNow, pingGoogleSitemap, pingBingSitemap } from "@/lib/google-indexing";
 
 const BASE_URL = "https://shop.hokiindo.co.id";
 const BATCH_SIZE = 500; // IndexNow allows up to 10,000 per request
+const GOOGLE_API_DAILY_LIMIT = 200; // Google Indexing API limit per hari
 
 /**
  * Daily Auto-Indexing System
  *
  * Strategi indexing:
- * 1. IndexNow → Bing, Yandex, dll. (instant, tanpa auth)
- * 2. Google & Bing Sitemap Ping → Memberitahu update sitemap
- * 3. Google Search Console → Daftarkan sitemap.xml sekali, crawl otomatis
+ * 1. Google Indexing API (OAuth2) → Priority queue Google, crawl dalam hitungan jam
+ * 2. IndexNow → Bing, Yandex, dll. (instant, tanpa auth)
+ * 3. Google & Bing Sitemap Ping → Memberitahu update sitemap
  *
  * Rotasi batch harian agar semua URL ter-submit secara bergantian.
  *
@@ -147,8 +148,12 @@ export async function POST(request: NextRequest) {
   // Gabungkan static + batch (deduplicate)
   const urlsToSubmit = [...new Set([...staticPages, ...batchUrls])];
 
+  // Static pages + batch pertama untuk Google Indexing API (max 200/hari)
+  const googleApiUrls = [...new Set([...staticPages, ...batchUrls])].slice(0, GOOGLE_API_DAILY_LIMIT);
+
   // Jalankan semua secara paralel
-  const [indexNowResult, googlePingResult, bingPingResult] = await Promise.all([
+  const [googleIndexingResult, indexNowResult, googlePingResult, bingPingResult] = await Promise.all([
+    submitToGoogleIndexingAPI(googleApiUrls),
     submitToIndexNow(urlsToSubmit),
     pingGoogleSitemap(),
     pingBingSitemap(),
@@ -160,26 +165,29 @@ export async function POST(request: NextRequest) {
     success: true,
     timestamp: new Date().toISOString(),
     duration: `${duration}ms`,
-    strategy: "IndexNow + Sitemap Ping (tanpa Google Indexing API)",
+    strategy: "Google Indexing API (priority) + IndexNow (Bing/Yandex) + Sitemap Ping",
     summary: {
       totalUrlsInSite: allUrls.length,
       totalBatches,
       todayBatch: `${batchIndex + 1}/${totalBatches}`,
+      urlsSubmittedGoogleAPI: googleIndexingResult.submitted,
       urlsSubmittedIndexNow: urlsToSubmit.length,
       allBatchesCompleteIn: `${totalBatches} hari`,
     },
     results: {
+      googleIndexingAPI: googleIndexingResult,
       indexNow: indexNowResult,
       googleSitemapPing: googlePingResult,
       bingSitemapPing: bingPingResult,
     },
     nextBatch: `Batch ${((batchIndex + 1) % totalBatches) + 1} besok`,
-    sampleUrlsSubmitted: urlsToSubmit.slice(0, 5),
-    googleNote: "Pastikan sitemap.xml sudah terdaftar di Google Search Console → Sitemaps",
+    sampleUrlsSubmitted: googleApiUrls.slice(0, 5),
+    googleNote: `Google Indexing API aktif — ${googleIndexingResult.submitted} URL masuk priority queue Googlebot`,
   };
 
   console.log(
     `[SEO Daily Index] Batch ${batchIndex + 1}/${totalBatches} | ` +
+    `Google API: ${googleIndexingResult.status} (${googleIndexingResult.submitted}/${googleApiUrls.length} URLs) | ` +
     `IndexNow: ${indexNowResult.status} (${urlsToSubmit.length} URLs) | ` +
     `Google Ping: ${googlePingResult.status} | Bing Ping: ${bingPingResult.status}`
   );

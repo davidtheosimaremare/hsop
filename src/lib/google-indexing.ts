@@ -2,19 +2,148 @@
  * SEO Indexing Utilities
  *
  * Strategy:
+ * - Google Indexing API (OAuth2) → Priority queue, crawl dalam hitungan jam
  * - IndexNow → Bing & Yandex (instant, free, no auth needed)
- * - Google Sitemap Ping → Memberitahu Google ada update sitemap baru
- * - Google Search Console → Daftarkan sitemap.xml sekali, Google crawl otomatis
+ * - Google & Bing Sitemap Ping → Memberitahu ada update sitemap baru
  *
- * Google Indexing API (service account) TIDAK dipakai karena:
- * - Resminya hanya untuk Job Posting & Live Streaming schema
- * - Butuh setup service account yang kompleks
- * - Google Search Console + Sitemap sudah cukup untuk e-commerce
+ * Google Indexing API pakai OAuth2 user token (bukan service account)
+ * karena GSC bug yang memblokir penambahan service account via UI.
  */
 
 const BASE_URL = "https://shop.hokiindo.co.id";
 const INDEXNOW_KEY = "hokiindo2026seo";
 const INDEXNOW_ENDPOINT = "https://api.indexnow.org/indexnow";
+
+// ─────────────────────────────────────────────────────────────
+// Google Indexing API via OAuth2 Refresh Token
+// Memasukkan URL ke priority queue Googlebot (crawl dalam jam)
+// Jatah: 200 URL/hari
+// ─────────────────────────────────────────────────────────────
+
+let cachedAccessToken: { token: string; expiresAt: number } | null = null;
+
+async function getGoogleAccessToken(): Promise<string> {
+  // Gunakan cache jika token masih valid (sisa > 5 menit)
+  if (cachedAccessToken && Date.now() < cachedAccessToken.expiresAt - 300000) {
+    return cachedAccessToken.token;
+  }
+
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
+
+  if (!clientId || !clientSecret || !refreshToken) {
+    throw new Error(
+      "GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, atau GOOGLE_REFRESH_TOKEN tidak ditemukan di .env"
+    );
+  }
+
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: "refresh_token",
+    }),
+    signal: AbortSignal.timeout(15000),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok || !data.access_token) {
+    throw new Error(
+      `Gagal mendapatkan access token: ${data.error_description || data.error || res.status}`
+    );
+  }
+
+  cachedAccessToken = {
+    token: data.access_token,
+    expiresAt: Date.now() + (data.expires_in || 3600) * 1000,
+  };
+
+  return cachedAccessToken.token;
+}
+
+export async function submitToGoogleIndexingAPI(
+  urls: string[],
+  maxUrls = 200 // Batas harian Google Indexing API
+): Promise<{
+  status: string;
+  submitted: number;
+  failed: number;
+  skipped: number;
+  errors: string[];
+}> {
+  if (urls.length === 0) {
+    return { status: "skipped", submitted: 0, failed: 0, skipped: 0, errors: [] };
+  }
+
+  const urlsToSubmit = urls.slice(0, maxUrls);
+  const skipped = urls.length - urlsToSubmit.length;
+
+  let accessToken: string;
+  try {
+    accessToken = await getGoogleAccessToken();
+  } catch (err: any) {
+    return {
+      status: "auth_error",
+      submitted: 0,
+      failed: 0,
+      skipped: urls.length,
+      errors: [err.message],
+    };
+  }
+
+  let submitted = 0;
+  let failed = 0;
+  const errors: string[] = [];
+
+  // Submit satu per satu (Google Indexing API tidak mendukung batch)
+  // Jalankan paralel dengan batas 10 concurrent request
+  const CONCURRENCY = 10;
+  for (let i = 0; i < urlsToSubmit.length; i += CONCURRENCY) {
+    const batch = urlsToSubmit.slice(i, i + CONCURRENCY);
+    const results = await Promise.allSettled(
+      batch.map(async (url) => {
+        const res = await fetch(
+          "https://indexing.googleapis.com/v3/urlNotifications:publish",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({ url, type: "URL_UPDATED" }),
+            signal: AbortSignal.timeout(15000),
+          }
+        );
+
+        if (!res.ok) {
+          const body = await res.text().catch(() => "");
+          throw new Error(`${url} → ${res.status}: ${body.slice(0, 100)}`);
+        }
+
+        return url;
+      })
+    );
+
+    results.forEach((result) => {
+      if (result.status === "fulfilled") {
+        submitted++;
+      } else {
+        failed++;
+        errors.push(result.reason?.message || "Unknown error");
+      }
+    });
+  }
+
+  const status =
+    failed === 0 ? "success" : submitted > 0 ? "partial" : "failed";
+
+  return { status, submitted, failed, skipped, errors: errors.slice(0, 5) };
+}
 
 // ─────────────────────────────────────────────
 // IndexNow — Bing, Yandex, Seznam, Naver, etc.
@@ -56,8 +185,6 @@ export async function submitToIndexNow(urls: string[]): Promise<{
 // ─────────────────────────────────────────────
 // Google Sitemap Ping
 // Memberitahu Google bahwa sitemap diupdate.
-// Google Search Console harus sudah mendaftarkan:
-//   https://shop.hokiindo.co.id/sitemap.xml
 // ─────────────────────────────────────────────
 export async function pingGoogleSitemap(): Promise<{
   status: string;
