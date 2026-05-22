@@ -8,12 +8,30 @@ export default async function proxy(request: NextRequest) {
     let res = await updateSession(request) || NextResponse.next();
 
     // === CACHE-CONTROL HEADERS ===
-    // Prevent browser from serving stale cached HTML pages.
-    // This fixes the "spinning forever" issue when users return after idle time.
-    // Static assets (_next/static) are NOT affected - they use immutable caching.
-    res.headers.set("Cache-Control", "no-cache, no-store, must-revalidate");
-    res.headers.set("Pragma", "no-cache");
-    res.headers.set("Expires", "0");
+    // Only apply strict no-store to private/authenticated routes.
+    // Public pages (products, categories, etc.) must be cacheable by Google for SEO.
+    const isPrivateRoute = 
+        pathname.startsWith("/admin") ||
+        pathname.startsWith("/vendor") ||
+        pathname.startsWith("/dashboard") ||
+        pathname.startsWith("/api/") ||
+        pathname === "/masuk" ||
+        pathname === "/daftar" ||
+        pathname === "/lupa-password" ||
+        pathname.startsWith("/reset-password") ||
+        pathname.startsWith("/verifikasi") ||
+        pathname.startsWith("/keranjang");
+
+    if (isPrivateRoute) {
+        // Private pages: never cache, always fresh
+        res.headers.set("Cache-Control", "no-cache, no-store, must-revalidate");
+        res.headers.set("Pragma", "no-cache");
+        res.headers.set("Expires", "0");
+    } else {
+        // Public pages: allow Google to cache, revalidate after 60s
+        // This is critical for SEO — Google needs to be able to cache your content
+        res.headers.set("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
+    }
 
     // === ADMIN/VENDOR ROUTE PROTECTION ===
     if (pathname.startsWith("/admin") || pathname.startsWith("/vendor")) {

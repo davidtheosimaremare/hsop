@@ -144,7 +144,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         },
         offers: {
             '@type': 'Offer',
-            url: `https://shop.hokiindo.co.id/produk/${encodeURIComponent(product.sku)}`,
+            url: `https://shop.hokiindo.co.id/produk/${getProductSlug(product)}`,
             priceCurrency: 'IDR',
             price: product.price,
             availability: availableToSell > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',

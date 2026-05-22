@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Calendar, User, ChevronRight, ArrowLeft, ShoppingCart } from "lucide-react";
 import { cache } from "react";
+import { getProductSlug } from "@/lib/utils";
 
 // Cache the news fetch so generateMetadata and page render share the same query
 const getNewsBySlug = cache(async (slug: string) => {
@@ -69,6 +70,7 @@ export default async function NewsDetailPage({ params }: PageProps) {
                 id: true,
                 name: true,
                 sku: true,
+                brand: true,
                 image: true,
                 price: true,
             },
@@ -161,7 +163,7 @@ export default async function NewsDetailPage({ params }: PageProps) {
                             {relatedProducts.map((product) => (
                                 <Link prefetch={false} 
                                     key={product.id}
-                                    href={`/produk/${product.sku}`}
+                                    href={`/produk/${getProductSlug(product)}`}
                                     className="group bg-white rounded-xl border overflow-hidden hover:shadow-md transition-shadow"
                                 >
                                     <div className="aspect-square bg-gray-50 overflow-hidden">

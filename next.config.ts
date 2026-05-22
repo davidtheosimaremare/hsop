@@ -4,14 +4,14 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['puppeteer', 'puppeteer-core'],
   experimental: {
     serverActions: {
-      bodySizeLimit: '1024mb',
+      // 50MB is sufficient for bulk product imports. 1024mb was dangerously high.
+      bodySizeLimit: '50mb',
     },
     staleTimes: {
-      // Both set to 0: the client-side router cache will NEVER serve stale data.
-      // This prevents the "spinning forever" issue after the user is idle for a while,
-      // because the browser won't try to revalidate a stale cached RSC payload.
+      // dynamic: 0 prevents stale auth state. static: 30 caches public pages
+      // in the client router for 30s, improving navigation speed.
       dynamic: 0,
-      static: 0,
+      static: 30,
     },
   },
   images: {
@@ -23,26 +23,27 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  // Prevent browser from aggressively caching HTML pages
-  // while still allowing Next.js to cache static assets (JS, CSS, images)
   async headers() {
     return [
       {
-        // Apply to all page routes (not static assets)
-        source: '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp|avif)).*)',
+        // Private/authenticated routes — never cache
+        source: '/(admin|vendor|dashboard|api|masuk|daftar|keranjang|lupa-password|reset-password|verifikasi)(.*)',
         headers: [
-          {
-            key: 'Cache-Control',
-            value: 'no-cache, no-store, must-revalidate',
-          },
-          {
-            key: 'Pragma',
-            value: 'no-cache',
-          },
-          {
-            key: 'Expires',
-            value: '0',
-          },
+          { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+          { key: 'Pragma', value: 'no-cache' },
+          { key: 'Expires', value: '0' },
+        ],
+      },
+      {
+        // Public pages (products, categories, news, homepage) — allow Google to cache
+        // s-maxage=60: CDN caches for 60s, stale-while-revalidate=300: serve stale for 5min while refreshing
+        source: '/((?!admin|vendor|dashboard|api|masuk|daftar|keranjang|lupa-password|reset-password|verifikasi|_next/static|_next/image|favicon.ico).*)',
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' },
+          // Security headers
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
         ],
       },
     ];
