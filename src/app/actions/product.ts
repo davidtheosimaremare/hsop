@@ -3,7 +3,7 @@
 import { db } from "@/lib/db";
 import { fetchAllProducts, fetchSingleProduct } from "@/lib/accurate";
 import { revalidatePath } from "next/cache";
-import { calculateMarkedUpPrice } from "./markup-rules";
+import { calculateMarkedUpPrice } from "@/lib/markup-utils";
 
 function calculateSortWeight(name: string): number {
     const upperName = name.toUpperCase();
