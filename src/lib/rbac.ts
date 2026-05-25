@@ -197,6 +197,7 @@ export const routePermissions: Record<string, Permission[]> = {
   "/admin/products/default-discounts": ["discounts:manage"],
   "/admin/products/price-update": ["products:view"],
   "/admin/products/brand-update": ["products:view"],
+  "/admin/products/markup-rules": ["products:view"],
   "/admin/orders": ["orders:view"],
   "/admin/orders/[id]": ["orders:view"],
   "/admin/customers": ["customers:view"],
@@ -412,6 +413,7 @@ export const sidebarMenuItems = [
       { title: "Diskon Default", href: "/admin/products/default-discounts", icon: "BadgePercent", requiredPermission: "discounts:manage" },
       { title: "Update Harga Accurate", href: "/admin/products/price-update", icon: "ArrowUpCircle", requiredPermission: "products:view" },
       { title: "Update Brand Accurate", href: "/admin/products/brand-update", icon: "Tag", requiredPermission: "products:view" },
+      { title: "Aturan Kenaikan Harga", href: "/admin/products/markup-rules", icon: "ArrowUpCircle", requiredPermission: "products:view" },
     ],
   },
 

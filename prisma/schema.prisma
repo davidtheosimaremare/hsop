@@ -123,6 +123,7 @@ model Product {
   status          String      @default("APPROVED")
   isVendorProduct Boolean     @default(false)
   vendorPrice     Float?      // Harga beli modal dari vendor
+  basePrice       Float?      @default(0) // Harga dasar asli dari Accurate
   marginType      String?     // 'PERCENTAGE', 'FIXED', 'MANUAL'
   marginValue     Float?      // Nilai dari margin (misal 10 untuk 10%, atau 50000 untuk +50k)
   indentTime      String      @default("12 - 16 Minggu")
@@ -607,4 +608,16 @@ model District {
   regency   Regency @relation(fields: [regencyId], references: [id])
 
   @@index([regencyId])
+}
+
+model PriceMarkupRule {
+  id          String   @id @default(cuid())
+  type        String   // "BRAND" or "CATEGORY"
+  targetValue String   // The name of the brand or category
+  markupType  String   // "PERCENTAGE" or "FIXED_ADDITION"
+  markupValue Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([type, targetValue])
 }

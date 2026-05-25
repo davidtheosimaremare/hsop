@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { fetchAllProducts, fetchSingleProduct } from "@/lib/accurate";
 import { revalidatePath } from "next/cache";
+import { calculateMarkedUpPrice } from "./markup-rules";
 
 function calculateSortWeight(name: string): number {
     const upperName = name.toUpperCase();
@@ -90,6 +91,9 @@ export async function syncProductsAction() {
         }
         const productsToSync = Array.from(uniqueProducts.values());
 
+        // Fetch markup rules
+        const markupRules = await db.priceMarkupRule.findMany();
+
         for (const ap of productsToSync) {
             try {
                 // Determine stock (default to 0 if missing)
@@ -111,12 +115,17 @@ export async function syncProductsAction() {
                 // Calculate sort weight for better search prioritization
                 const sortWeight = calculateSortWeight(ap.name);
 
+                // Price logic
+                const basePrice = ap.unitPrice || 0;
+                const finalPrice = calculateMarkedUpPrice(basePrice, brand, category, markupRules);
+
                 await db.product.upsert({
                     where: { accurateId: ap.id }, // Use accurateId as unique identifier for sync
                     update: {
                         name: ap.name,
                         sku: ap.no,
-                        price: ap.unitPrice || 0,
+                        basePrice: basePrice,
+                        price: finalPrice,
                         availableToSell: stock,
                         brand: brand,
                         category: category,
@@ -128,7 +137,8 @@ export async function syncProductsAction() {
                         accurateId: ap.id,
                         sku: ap.no, // Assuming 'no' is SKU
                         name: ap.name,
-                        price: ap.unitPrice || 0,
+                        basePrice: basePrice,
+                        price: finalPrice,
                         availableToSell: stock,
                         brand: brand,
                         category: category,
@@ -185,12 +195,17 @@ export async function syncSingleProductAction(itemNo: string) {
         const brand = ap.itemBrand?.name ? ap.itemBrand.name.toUpperCase() : null;
         const sortWeight = calculateSortWeight(ap.name);
 
+        const markupRules = await db.priceMarkupRule.findMany();
+        const basePrice = ap.unitPrice || 0;
+        const finalPrice = calculateMarkedUpPrice(basePrice, brand, category, markupRules);
+
         await db.product.upsert({
             where: { accurateId: ap.id },
             update: {
                 name: ap.name,
                 sku: ap.no,
-                price: ap.unitPrice || 0,
+                basePrice: basePrice,
+                price: finalPrice,
                 availableToSell: stock,
                 brand: brand,
                 category: category,
@@ -201,7 +216,8 @@ export async function syncSingleProductAction(itemNo: string) {
                 accurateId: ap.id,
                 sku: ap.no,
                 name: ap.name,
-                price: ap.unitPrice || 0,
+                basePrice: basePrice,
+                price: finalPrice,
                 availableToSell: stock,
                 brand: brand,
                 category: category,
