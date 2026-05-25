@@ -79,9 +79,9 @@ export default function HeroSlider({ banners }: HeroSliderProps) {
     };
 
     return (
-        <div className="w-full bg-white">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 md:py-6">
-                <div className="relative overflow-hidden shadow-2xl shadow-gray-200/50 rounded-2xl md:rounded-3xl bg-gray-100 group">
+        <div className="w-full bg-transparent relative z-10">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8">
+                <div className="relative overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.08)] rounded-2xl md:rounded-[2rem] bg-gray-100/50 backdrop-blur-md group border border-white/60">
                     {/* Slides Container */}
                     <div className="relative aspect-[4/1]">
                         <AnimatePresence initial={false} custom={direction} mode="popLayout">
@@ -137,10 +137,10 @@ export default function HeroSlider({ banners }: HeroSliderProps) {
                                     setIsAutoPlaying(false);
                                     setTimeout(() => setIsAutoPlaying(true), 10000);
                                 }}
-                                className="w-8 h-8 md:w-10 md:h-10 bg-black/20 backdrop-blur-sm hover:bg-black/40 rounded-full flex items-center justify-center transition-all pointer-events-auto border border-white/10"
+                                className="w-10 h-10 md:w-12 md:h-12 bg-white/10 backdrop-blur-md hover:bg-white/30 rounded-full flex items-center justify-center transition-all duration-300 pointer-events-auto border border-white/30 shadow-[0_8px_32px_rgba(0,0,0,0.12)] hover:scale-110 ml-2 md:ml-4"
                                 aria-label="Previous"
                             >
-                                <ChevronLeft className="w-4 h-4 md:w-6 md:h-6 text-white" />
+                                <ChevronLeft className="w-5 h-5 md:w-6 md:h-6 text-white drop-shadow-md" />
                             </button>
                             <button
                                 onClick={(e) => {
@@ -149,10 +149,10 @@ export default function HeroSlider({ banners }: HeroSliderProps) {
                                     setIsAutoPlaying(false);
                                     setTimeout(() => setIsAutoPlaying(true), 10000);
                                 }}
-                                className="w-8 h-8 md:w-10 md:h-10 bg-black/20 backdrop-blur-sm hover:bg-black/40 rounded-full flex items-center justify-center transition-all pointer-events-auto border border-white/10"
+                                className="w-10 h-10 md:w-12 md:h-12 bg-white/10 backdrop-blur-md hover:bg-white/30 rounded-full flex items-center justify-center transition-all duration-300 pointer-events-auto border border-white/30 shadow-[0_8px_32px_rgba(0,0,0,0.12)] hover:scale-110 mr-2 md:mr-4"
                                 aria-label="Next"
                             >
-                                <ChevronRight className="w-4 h-4 md:w-6 md:h-6 text-white" />
+                                <ChevronRight className="w-5 h-5 md:w-6 md:h-6 text-white drop-shadow-md" />
                             </button>
                         </div>
                     </div>

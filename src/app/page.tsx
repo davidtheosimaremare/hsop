@@ -191,7 +191,9 @@ export default async function Home() {
     rsLighting,
     protectionBanner,
     controlBanner,
-    lightingBanner
+    lightingBanner,
+    lowVoltageProducts,
+    motorProducts
   ] = await Promise.all([
     getSiteSetting("homepage_grid_categories"),
     getClientProjects(),
@@ -203,7 +205,34 @@ export default async function Home() {
     getReadyStockLighting(),
     getSiteSetting("homepage_banner_protection"),
     getSiteSetting("homepage_banner_control"),
-    getSiteSetting("homepage_banner_lighting")
+    getSiteSetting("homepage_banner_lighting"),
+    db.product.findMany({ 
+      where: { 
+        OR: [
+            { category: { contains: 'Low Voltage', mode: 'insensitive' } }, 
+            { name: { contains: 'Low Voltage', mode: 'insensitive' } },
+            { category: { contains: 'MCB', mode: 'insensitive' } },
+            { category: { contains: 'MCCB', mode: 'insensitive' } }
+        ],
+        brand: { contains: 'Siemens', mode: 'insensitive' },
+        isVisible: true,
+        availableToSell: { gt: 0 }
+      },
+      take: 7,
+      orderBy: { availableToSell: 'desc' }
+    }),
+    db.product.findMany({ 
+      where: { 
+        OR: [
+            { category: { contains: 'Motor', mode: 'insensitive' } }, 
+            { name: { contains: 'Motor', mode: 'insensitive' } }
+        ],
+        isVisible: true,
+        availableToSell: { gt: 0 }
+      },
+      take: 7,
+      orderBy: { availableToSell: 'desc' }
+    })
   ]);
 
   // 1. Fetch specific protection products requested by user
@@ -333,7 +362,7 @@ export default async function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-red-50/30 selection:bg-red-500 selection:text-white">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationLd) }}
@@ -373,6 +402,23 @@ export default async function Home() {
         
         <PromoBanners />
         <ClientPortfolioSection projects={clientProjects} />
+        
+        <div className="bg-transparent py-4 relative z-10">
+            <ProductGridSection 
+                title="Highlight: Siemens Low Voltage" 
+                subtitle="Komponen distribusi tegangan rendah dari Siemens dengan standar keamanan tingkat tinggi."
+                viewAllLink="/pencarian?q=low+voltage" 
+                products={lowVoltageProducts as any} 
+            />
+            <div className="h-8"></div>
+            <ProductGridSection 
+                title="Highlight: Motor Industri" 
+                subtitle="Performa maksimal untuk penggerak mesin dan kebutuhan industri Anda."
+                viewAllLink="/pencarian?q=motor" 
+                products={motorProducts as any} 
+            />
+        </div>
+
         <NewsSection news={latestNews} />
       </Suspense>
       <Footer />

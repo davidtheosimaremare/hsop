@@ -197,7 +197,7 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                 <img
                                     src={companyDetails.logo}
                                     alt={companyDetails.name || "Hokiindo Logo"}
-                                    className="hidden md:block h-10 w-auto object-contain"
+                                    className="hidden md:block h-7 w-auto object-contain"
                                 />
                             ) : (
                                 <Image
@@ -205,7 +205,7 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                     alt="Hokiindo Logo"
                                     width={160}
                                     height={50}
-                                    className="hidden md:block h-10 w-auto object-contain"
+                                    className="hidden md:block h-7 w-auto object-contain"
                                     priority
                                 />
                             )}
@@ -215,7 +215,7 @@ export default function Header({ user, menuConfig, searchSuggestions = [], custo
                                 alt="Hokiindo Logo"
                                 width={32}
                                 height={32}
-                                className="md:hidden h-8 w-auto object-contain"
+                                className="md:hidden h-6 w-auto object-contain"
                                 priority
                             />
                         </Link>
