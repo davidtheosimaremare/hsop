@@ -24,7 +24,13 @@ import {
     TrendingUp
 } from "lucide-react";
 
-export default function MarkupRulesClient() {
+export default function MarkupRulesClient({ 
+    brands, 
+    categories 
+}: { 
+    brands: string[], 
+    categories: string[] 
+}) {
     const { toast } = useToast();
     const [rules, setRules] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -139,7 +145,10 @@ export default function MarkupRulesClient() {
                         <form onSubmit={handleCreateRule} className="space-y-4">
                             <div className="space-y-2">
                                 <label className="text-sm font-bold text-slate-700">Tipe Aturan</label>
-                                <Select value={type} onValueChange={(val: RuleType) => setType(val)}>
+                                <Select value={type} onValueChange={(val: RuleType) => {
+                                    setType(val);
+                                    setTargetValue("");
+                                }}>
                                     <SelectTrigger className="h-10 rounded-xl">
                                         <SelectValue placeholder="Pilih Tipe" />
                                     </SelectTrigger>
@@ -154,13 +163,21 @@ export default function MarkupRulesClient() {
                                 <label className="text-sm font-bold text-slate-700">
                                     Nama {type === "BRAND" ? "Brand" : "Kategori"}
                                 </label>
-                                <Input 
-                                    placeholder={type === "BRAND" ? "Cth: SIEMENS" : "Cth: Kontaktor"}
-                                    value={targetValue}
-                                    onChange={e => setTargetValue(e.target.value)}
-                                    className="h-10 rounded-xl uppercase"
-                                />
-                                <p className="text-[10px] text-slate-500 font-medium">Penulisan harus persis sama (huruf besar/kecil diabaikan).</p>
+                                <Select 
+                                    value={targetValue} 
+                                    onValueChange={setTargetValue}
+                                >
+                                    <SelectTrigger className="h-10 rounded-xl">
+                                        <SelectValue placeholder={type === "BRAND" ? "Pilih Brand" : "Pilih Kategori"} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {(type === "BRAND" ? brands : categories).map(name => (
+                                            <SelectItem key={name} value={name}>
+                                                {name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
 
                             <div className="space-y-2">
