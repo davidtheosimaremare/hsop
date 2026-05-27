@@ -13,6 +13,12 @@ export interface CustomerDiscount {
     discountLightingIndent?: string;
 }
 
+export interface HidePriceRules {
+    brands: string[];
+    categories: string[];
+    contactPhone: string;
+}
+
 export interface PriceInfo {
     originalPrice: number;
     originalPriceWithPPN: number;
@@ -23,6 +29,8 @@ export interface PriceInfo {
     discounts: number[];
     discountStr?: string;
     ruleName: string | null;
+    isHidden: boolean;
+    contactPhone: string | null;
 }
 
 // Parse string discount like "10+5" into [10, 5]
@@ -37,11 +45,26 @@ export function calculatePriceInfo(
     customer: CustomerDiscount | null,
     categoryMappings: CategoryMapping[],
     availableToSell: number = 0,
-    discountRules: DiscountRule[] = []
+    discountRules: DiscountRule[] = [],
+    productBrand: string | null = null,
+    hidePriceRules: HidePriceRules | null = null
 ): PriceInfo {
     const PPN = 1.11;
     let discounts: number[] = [];
     let ruleName: string | null = null;
+    
+    // Check if price should be hidden
+    let isHidden = false;
+    let contactPhone = null;
+    if (hidePriceRules) {
+        if (productBrand && hidePriceRules.brands.includes(productBrand)) {
+            isHidden = true;
+            contactPhone = hidePriceRules.contactPhone;
+        } else if (productCategory && hidePriceRules.categories.includes(productCategory)) {
+            isHidden = true;
+            contactPhone = hidePriceRules.contactPhone;
+        }
+    }
 
     // 1. Logic Customer Discount (Priority 1)
     if (customer) {
@@ -129,6 +152,8 @@ export function calculatePriceInfo(
         isCustomerDiscount: !!(ruleName && ruleName.toLowerCase().includes("customer")),
         discounts,
         discountStr,
-        ruleName
+        ruleName,
+        isHidden,
+        contactPhone
     };
 }

@@ -23,12 +23,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export default function CartPageClient({ pricingData }: { pricingData: any }) {
+export default function CartPageClient({ pricingData, hidePriceRules }: { pricingData: any; hidePriceRules?: any }) {
     return (
         <PricingProvider
             initialCustomer={pricingData?.customer}
             initialMappings={pricingData?.categoryMappings || []}
             initialDiscountRules={pricingData?.discountRules || []}
+            initialHidePriceRules={hidePriceRules}
         >
             <CartInner />
         </PricingProvider>
@@ -391,30 +392,48 @@ function CartInner() {
                                                         <div className="space-y-1">
                                                             {/* Split Total Subtotal */}
                                                             <p className="text-xs md:text-sm font-extrabold text-slate-800 tracking-tight">
-                                                                Total: <span className="text-red-600">Rp {formatPrice(item.itemSubtotal)}</span>
+                                                                Total: <span className="text-red-600">
+                                                                    {item.readyPriceInfo.isHidden ? (
+                                                                        <span className="italic">Harga Tersembunyi</span>
+                                                                    ) : (
+                                                                        `Rp ${formatPrice(item.itemSubtotal)}`
+                                                                    )}
+                                                                </span>
                                                             </p>
                                                             {/* Split Breakdown Details */}
                                                             <div className="text-[10px] text-slate-500 font-semibold space-y-0.5 bg-slate-50/50 p-1.5 rounded-lg border border-slate-100 max-w-sm">
                                                                 <div className="flex justify-between gap-4">
                                                                     <span>• {item.readyQty} Unit Ready Stock:</span>
-                                                                    <span className="font-bold text-slate-700">Rp {formatPrice(item.readyPriceInfo.discountedPriceWithPPN)} / Unit</span>
+                                                                    <span className="font-bold text-slate-700">
+                                                                        {item.readyPriceInfo.isHidden ? "Hubungi Sales" : `Rp ${formatPrice(item.readyPriceInfo.discountedPriceWithPPN)} / Unit`}
+                                                                    </span>
                                                                 </div>
                                                                 <div className="flex justify-between gap-4">
                                                                     <span>• {item.indentQty} Unit Indent:</span>
-                                                                    <span className="font-bold text-slate-700">Rp {formatPrice(item.indentPriceInfo.discountedPriceWithPPN)} / Unit</span>
+                                                                    <span className="font-bold text-slate-700">
+                                                                        {item.indentPriceInfo.isHidden ? "Hubungi Sales" : `Rp ${formatPrice(item.indentPriceInfo.discountedPriceWithPPN)} / Unit`}
+                                                                    </span>
                                                                 </div>
                                                             </div>
                                                         </div>
                                                     ) : (
                                                         <div>
-                                                            {item.displayIsCustomerDiscount && item.displayOriginalPrice && item.displayOriginalPrice > item.displayPrice && (
-                                                                <span className="text-[10px] text-slate-400 line-through font-semibold block">
-                                                                    Rp {formatPrice(item.displayOriginalPrice)}
-                                                                </span>
+                                                            {item.readyPriceInfo.isHidden ? (
+                                                                <p className="text-xs md:text-sm font-extrabold text-red-600 tracking-tight italic">
+                                                                    Harga Tersembunyi
+                                                                </p>
+                                                            ) : (
+                                                                <>
+                                                                    {item.displayIsCustomerDiscount && item.displayOriginalPrice && item.displayOriginalPrice > item.displayPrice && (
+                                                                        <span className="text-[10px] text-slate-400 line-through font-semibold block">
+                                                                            Rp {formatPrice(item.displayOriginalPrice)}
+                                                                        </span>
+                                                                    )}
+                                                                    <p className="text-xs md:text-sm font-extrabold text-red-600 tracking-tight">
+                                                                        Rp {formatPrice(item.displayPrice)}
+                                                                    </p>
+                                                                </>
                                                             )}
-                                                            <p className="text-xs md:text-sm font-extrabold text-red-600 tracking-tight">
-                                                                Rp {formatPrice(item.displayPrice)}
-                                                            </p>
                                                         </div>
                                                     )}
                                                 </div>
@@ -505,12 +524,18 @@ function CartInner() {
                                                 {item.isSplit ? (
                                                     <span>{item.readyQty} Ready + {item.indentQty} Indent</span>
                                                 ) : (
-                                                    <span>{item.quantity} x Rp {formatPrice(item.displayPrice)}</span>
+                                                    <span>
+                                                        {item.quantity} x {item.readyPriceInfo.isHidden ? "Hubungi Sales" : `Rp ${formatPrice(item.displayPrice)}`}
+                                                    </span>
                                                 )}
                                             </p>
                                         </div>
                                         <p className="text-xs font-extrabold text-slate-700 flex-shrink-0 select-none">
-                                            Rp {formatPrice(item.itemSubtotal)}
+                                            {item.readyPriceInfo.isHidden ? (
+                                                <span className="italic text-xs font-semibold text-red-500">Hubungi Sales</span>
+                                            ) : (
+                                                `Rp ${formatPrice(item.itemSubtotal)}`
+                                            )}
                                         </p>
                                     </div>
                                 ))}

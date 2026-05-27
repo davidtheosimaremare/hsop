@@ -218,10 +218,11 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
  * and renders the full interactive product detail.
  */
 async function ProductContentWrapper({ product }: { product: any }) {
-    const [relatedProducts, pricingData, whatsappConfig] = await Promise.all([
+    const [relatedProducts, pricingData, whatsappConfig, hidePriceRules] = await Promise.all([
         getRelatedProducts(product.category || "", product.id, product.name),
         getCustomerPricingData(),
-        getSiteSetting("whatsapp_config") as Promise<Record<string, string> | null>
+        getSiteSetting("whatsapp_config") as Promise<Record<string, string> | null>,
+        getSiteSetting("hide_price_rules")
     ]);
 
     return (
@@ -229,6 +230,7 @@ async function ProductContentWrapper({ product }: { product: any }) {
             initialCustomer={pricingData.customer}
             initialMappings={pricingData.categoryMappings}
             initialDiscountRules={pricingData.discountRules}
+            initialHidePriceRules={hidePriceRules as any}
         >
             <ProductDetailClient 
                 product={product} 

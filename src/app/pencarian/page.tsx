@@ -2,6 +2,7 @@ import SiteHeader from "@/components/layout/SiteHeader";
 import Footer from "@/components/layout/Footer";
 import Link from "next/link";
 import { getCategoriesTree, getPublicProducts, getBrands, getProductSpecFilters } from "@/app/actions/product-public";
+import { getSiteSetting } from "@/app/actions/settings";
 import SidebarFilter from "@/components/public/SidebarFilter";
 import ShareButton from "@/components/public/ShareButton";
 import ProductGrid from "@/components/public/ProductGrid";
@@ -196,7 +197,7 @@ export default async function SearchPage({
     const ampere = resolvedParams.ampere as string;
     const breakingCapacity = resolvedParams.breakingCapacity as string;
 
-    const [categories, brands, { products, pagination }, pricingData, specFilters] = await Promise.all([
+    const [categories, brands, { products, pagination }, pricingData, specFilters, hidePriceRules] = await Promise.all([
         getCategoriesTree(),
         getBrands(),
         getPublicProducts({
@@ -213,6 +214,7 @@ export default async function SearchPage({
         }),
         getCustomerPricingData(),
         getProductSpecFilters({ query, category, brand }),
+        getSiteSetting("hide_price_rules")
     ]);
 
     let categoryDisplayName = category;
@@ -382,6 +384,7 @@ export default async function SearchPage({
                                      initialCustomer={pricingData.customer}
                                      initialMappings={pricingData.categoryMappings}
                                      initialDiscountRules={pricingData.discountRules}
+                                     initialHidePriceRules={hidePriceRules as any}
                                  >
                                      <ProductGrid products={products} total={pagination.total} activeFiltersNode={activeFiltersNode} />
                                  </PricingProvider>

@@ -411,6 +411,7 @@ export const sidebarMenuItems = [
       { title: "Sembunyikan Kategori", href: "/admin/products/hidden-categories", icon: "ListTree", requiredPermission: "categories:manage" },
       { title: "Pemetaan Kategori", href: "/admin/products/categories", icon: "ListTree", requiredPermission: "categories:manage" },
       { title: "Diskon Default", href: "/admin/products/default-discounts", icon: "BadgePercent", requiredPermission: "discounts:manage" },
+      { title: "Sembunyikan Harga", href: "/admin/products/hide-price", icon: "EyeOff", requiredPermission: "products:edit" },
       { title: "Update Harga Accurate", href: "/admin/products/price-update", icon: "ArrowUpCircle", requiredPermission: "products:view" },
       { title: "Update Brand Accurate", href: "/admin/products/brand-update", icon: "Tag", requiredPermission: "products:view" },
       { title: "Aturan Kenaikan Harga", href: "/admin/products/markup-rules", icon: "ArrowUpCircle", requiredPermission: "products:view" },

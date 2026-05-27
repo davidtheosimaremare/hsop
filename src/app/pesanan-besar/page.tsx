@@ -6,8 +6,13 @@ import BulkOrderClient from "@/components/bulk-order/BulkOrderClient";
 import { getCustomerPricingData } from "@/app/actions/customer-pricing";
 import { PricingProvider } from "@/lib/PricingContext";
 
+import { getSiteSetting } from "@/app/actions/settings";
+
 export default async function BulkOrderPage() {
-    const pricingData = await getCustomerPricingData();
+    const [pricingData, hidePriceRules] = await Promise.all([
+        getCustomerPricingData(),
+        getSiteSetting("hide_price_rules")
+    ]);
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -25,6 +30,7 @@ export default async function BulkOrderPage() {
                         initialCustomer={pricingData.customer}
                         initialMappings={pricingData.categoryMappings}
                         initialDiscountRules={pricingData.discountRules}
+                        initialHidePriceRules={hidePriceRules as any}
                     >
                         <BulkOrderClient />
                     </PricingProvider>

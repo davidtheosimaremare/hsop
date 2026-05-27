@@ -24,6 +24,7 @@ import { getSiteSetting } from "@/app/actions/settings";
 import { getLatestNews } from "@/app/actions/news";
 import { db } from "@/lib/db";
 import { memoryCache } from "@/lib/cache";
+import { PricingProvider } from "@/lib/PricingContext";
 
 // Cache homepage data via in-memory cache
 function getClientProjects() {
@@ -193,7 +194,8 @@ export default async function Home() {
     controlBanner,
     lightingBanner,
     lowVoltageProducts,
-    motorProducts
+    motorProducts,
+    hidePriceRules
   ] = await Promise.all([
     getSiteSetting("homepage_grid_categories"),
     getClientProjects(),
@@ -232,7 +234,8 @@ export default async function Home() {
       },
       take: 7,
       orderBy: { availableToSell: 'desc' }
-    })
+    }),
+    getSiteSetting("hide_price_rules")
   ]);
 
   // 1. Fetch specific protection products requested by user
@@ -375,7 +378,7 @@ export default async function Home() {
       <HeroSlider banners={activeBanners} />
       <Suspense fallback={<div className="h-64 flex items-center justify-center"><div className="w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin" /></div>}>
         <CategorySection categories={gridCategories} title="Kategori Utama" hideViewAll={false} />
-        
+      <PricingProvider initialCustomer={null} initialMappings={[]} initialHidePriceRules={hidePriceRules as any}>
         <div className="bg-gray-50 pb-12">
             <ProductGridSection 
                 title="Proteksi" 
@@ -420,6 +423,7 @@ export default async function Home() {
         </div>
 
         <NewsSection news={latestNews} />
+      </PricingProvider>
       </Suspense>
       <Footer />
     </div>

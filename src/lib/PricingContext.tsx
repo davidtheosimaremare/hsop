@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { calculatePriceInfo, PriceInfo, CustomerDiscount, CategoryMapping } from "@/lib/pricing";
+import { calculatePriceInfo, PriceInfo, CustomerDiscount, CategoryMapping, HidePriceRules } from "@/lib/pricing";
 import { DiscountRule } from "@prisma/client";
 
 interface PricingContextType {
@@ -9,8 +9,9 @@ interface PricingContextType {
     customerDiscount: CustomerDiscount | null;
     categoryMappings: CategoryMapping[];
     discountRules: DiscountRule[];
-    getPriceInfo: (productPrice: number, productCategory: string | null, availableToSell?: number) => PriceInfo;
+    getPriceInfo: (productPrice: number, productCategory: string | null, availableToSell?: number, productBrand?: string | null) => PriceInfo;
     loading: boolean;
+    hidePriceRules: HidePriceRules | null;
 }
 
 const PricingContext = createContext<PricingContextType | null>(null);
@@ -24,10 +25,11 @@ export function usePricing() {
             customerDiscount: null,
             categoryMappings: [],
             discountRules: [],
-            getPriceInfo: (productPrice: number, productCategory: string | null, availableToSell: number = 0) => {
-                return calculatePriceInfo(productPrice, productCategory, null, [], availableToSell, []);
+            getPriceInfo: (productPrice: number, productCategory: string | null, availableToSell: number = 0, productBrand: string | null = null) => {
+                return calculatePriceInfo(productPrice, productCategory, null, [], availableToSell, [], productBrand, null);
             },
             loading: false,
+            hidePriceRules: null,
         };
     }
     return context;
@@ -38,16 +40,18 @@ interface PricingProviderProps {
     initialCustomer: CustomerDiscount | null;
     initialMappings: CategoryMapping[];
     initialDiscountRules?: DiscountRule[];
+    initialHidePriceRules?: HidePriceRules | null;
 }
 
-export function PricingProvider({ children, initialCustomer, initialMappings, initialDiscountRules = [] }: PricingProviderProps) {
+export function PricingProvider({ children, initialCustomer, initialMappings, initialDiscountRules = [], initialHidePriceRules = null }: PricingProviderProps) {
     const [customerDiscount] = useState<CustomerDiscount | null>(initialCustomer);
     const [categoryMappings] = useState<CategoryMapping[]>(initialMappings);
     const [discountRules] = useState<DiscountRule[]>(initialDiscountRules);
+    const [hidePriceRules] = useState<HidePriceRules | null>(initialHidePriceRules);
     const [loading] = useState(false);
 
-    const getPriceInfo = (productPrice: number, productCategory: string | null, availableToSell: number = 0): PriceInfo => {
-        return calculatePriceInfo(productPrice, productCategory, customerDiscount, categoryMappings, availableToSell, discountRules);
+    const getPriceInfo = (productPrice: number, productCategory: string | null, availableToSell: number = 0, productBrand: string | null = null): PriceInfo => {
+        return calculatePriceInfo(productPrice, productCategory, customerDiscount, categoryMappings, availableToSell, discountRules, productBrand, hidePriceRules);
     };
 
     return (
@@ -59,6 +63,7 @@ export function PricingProvider({ children, initialCustomer, initialMappings, in
                 discountRules,
                 getPriceInfo,
                 loading,
+                hidePriceRules,
             }}
         >
             {children}
