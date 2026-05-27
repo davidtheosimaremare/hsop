@@ -459,6 +459,7 @@ export async function getCartProductsMetadata(skus: string[]) {
                 sku: true,
                 price: true,
                 category: true,
+                brand: true,
                 availableToSell: true
             }
         });
@@ -469,6 +470,7 @@ export async function getCartProductsMetadata(skus: string[]) {
                 sku: p.sku,
                 price: p.price,
                 category: p.category,
+                brand: p.brand,
                 availableToSell: p.availableToSell
             }))
         };

@@ -48,7 +48,7 @@ function CartInner() {
     const { toasts, removeToast, toast } = useToast();
 
     // Fetch and sync real-time metadata from DB to support stale local cart items
-    const [productsMetadata, setProductsMetadata] = useState<Record<string, { price: number; category: string | null; availableToSell: number }>>({});
+    const [productsMetadata, setProductsMetadata] = useState<Record<string, { price: number; category: string | null; brand: string | null; availableToSell: number }>>({});
 
     useEffect(() => {
         const fetchMetadata = async () => {
@@ -62,6 +62,7 @@ function CartInner() {
                     metaMap[p.sku] = {
                         price: p.price,
                         category: p.category,
+                        brand: p.brand,
                         availableToSell: p.availableToSell
                     };
                 });
@@ -100,11 +101,12 @@ function CartInner() {
         const meta = productsMetadata[item.sku];
         const basePrice = meta ? meta.price : (item.basePrice || item.price);
         const category = meta ? meta.category : (item.category || null);
+        const brand = meta ? meta.brand : (item.brand || null);
         const availableToSell = meta ? meta.availableToSell : item.availableToSell;
 
         // Calculate specific ready and indent prices using context
-        const readyPriceInfo = getPriceInfo(basePrice, category, 1);
-        const indentPriceInfo = getPriceInfo(basePrice, category, 0);
+        const readyPriceInfo = getPriceInfo(basePrice, category, 1, brand);
+        const indentPriceInfo = getPriceInfo(basePrice, category, 0, brand);
 
         // A split happens if it's a general product (no explicit split stockStatus like READY/INDENT from detail page)
         // and its cart quantity is strictly greater than available ready stock, and there is ready stock available (> 0)

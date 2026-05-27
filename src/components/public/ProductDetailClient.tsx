@@ -53,11 +53,11 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
 
     // Calculate price info
     // Standard price (mixed logic dependent on stock)
-    const priceInfo = getPriceInfo(product.price, product.category || null, product.availableToSell);
+    const priceInfo = getPriceInfo(product.price, product.category || null, product.availableToSell, product.brand || null);
 
     // Explicit prices for split scenario
-    const readyPriceInfo = getPriceInfo(product.price, product.category || null, 100); // Force ready
-    const indentPriceInfo = getPriceInfo(product.price, product.category || null, 0); // Force indent
+    const readyPriceInfo = getPriceInfo(product.price, product.category || null, 100, product.brand || null); // Force ready
+    const indentPriceInfo = getPriceInfo(product.price, product.category || null, 0, product.brand || null); // Force indent
 
     const formatPrice = (price: number) => {
         return new Intl.NumberFormat("id-ID").format(Math.round(price));

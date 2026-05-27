@@ -29,7 +29,7 @@ export default function ProductCard({ product, variant = 'default' }: ProductCar
     const { getPriceInfo } = usePricing();
     const [isAdded, setIsAdded] = useState(false);
 
-    const priceInfo = getPriceInfo(product.price, product.category || null, product.availableToSell);
+    const priceInfo = getPriceInfo(product.price, product.category || null, product.availableToSell, product.brand || null);
 
     const formatPrice = (price: number) => {
         return new Intl.NumberFormat("id-ID").format(Math.round(price));
