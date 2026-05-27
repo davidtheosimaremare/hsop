@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2, Save, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
-import { saveSiteSetting } from "@/app/actions/settings";
+import { updateSiteSetting } from "@/app/actions/settings";
 import { HidePriceRules } from "@/lib/pricing";
 
 export default function HidePriceClient({ initialRules }: { initialRules: HidePriceRules }) {
@@ -55,7 +55,7 @@ export default function HidePriceClient({ initialRules }: { initialRules: HidePr
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            const res = await saveSiteSetting("hide_price_rules", rules);
+            const res = await updateSiteSetting("hide_price_rules", rules);
             if (res.success) {
                 toast.success("Aturan sembunyikan harga berhasil disimpan.");
             } else {
