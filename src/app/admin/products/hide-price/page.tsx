@@ -2,6 +2,7 @@ import { Metadata } from "next";
 import { getSiteSetting } from "@/app/actions/settings";
 import HidePriceClient from "@/components/admin/products/HidePriceClient";
 import { HidePriceRules } from "@/lib/pricing";
+import { db } from "@/lib/db";
 
 export const metadata: Metadata = {
     title: "Sembunyikan Harga | Admin Panel",
@@ -9,7 +10,16 @@ export const metadata: Metadata = {
 };
 
 export default async function HidePricePage() {
-    const rules = await getSiteSetting("hide_price_rules") as HidePriceRules;
+    const [rules, dbBrands, dbCategories] = await Promise.all([
+        getSiteSetting("hide_price_rules"),
+        db.brand.findMany({ select: { name: true }, orderBy: { name: 'asc' } }),
+        db.category.findMany({ select: { name: true }, orderBy: { name: 'asc' } })
+    ]);
+
+    const availableBrands = dbBrands.map((b) => b.name);
+    const availableCategories = dbCategories.map((c) => c.name);
+
+    const parsedRules = rules as unknown as HidePriceRules;
 
     return (
         <div className="space-y-6">
@@ -22,7 +32,11 @@ export default async function HidePricePage() {
                 </div>
             </div>
 
-            <HidePriceClient initialRules={rules || { brands: [], categories: [], contactPhone: "" }} />
+            <HidePriceClient 
+                initialRules={parsedRules || { brands: [], categories: [], contactPhone: "" }} 
+                availableBrands={availableBrands}
+                availableCategories={availableCategories}
+            />
         </div>
     );
 }

@@ -10,7 +10,15 @@ import { useToast } from "@/components/ui/toast";
 import { updateSiteSetting } from "@/app/actions/settings";
 import { HidePriceRules } from "@/lib/pricing";
 
-export default function HidePriceClient({ initialRules }: { initialRules: HidePriceRules }) {
+export default function HidePriceClient({ 
+    initialRules,
+    availableBrands,
+    availableCategories 
+}: { 
+    initialRules: HidePriceRules,
+    availableBrands: string[],
+    availableCategories: string[]
+}) {
     const [rules, setRules] = useState<HidePriceRules>({
         brands: initialRules?.brands || [],
         categories: initialRules?.categories || [],
@@ -100,12 +108,18 @@ export default function HidePriceClient({ initialRules }: { initialRules: HidePr
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="flex gap-2">
-                        <Input 
-                            placeholder="Nama Brand" 
+                        <select 
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                             value={newBrand}
                             onChange={(e) => setNewBrand(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && handleAddBrand()}
-                        />
+                        >
+                            <option value="">-- Pilih Brand --</option>
+                            {availableBrands.map((brand) => (
+                                <option key={brand} value={brand} disabled={rules.brands.includes(brand)}>
+                                    {brand} {rules.brands.includes(brand) ? "(Sudah Ditambahkan)" : ""}
+                                </option>
+                            ))}
+                        </select>
                         <Button onClick={handleAddBrand} variant="secondary">
                             <Plus className="w-4 h-4 mr-2" />
                             Tambah
@@ -143,12 +157,18 @@ export default function HidePriceClient({ initialRules }: { initialRules: HidePr
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="flex gap-2">
-                        <Input 
-                            placeholder="Nama Kategori" 
+                        <select 
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                             value={newCategory}
                             onChange={(e) => setNewCategory(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
-                        />
+                        >
+                            <option value="">-- Pilih Kategori --</option>
+                            {availableCategories.map((cat) => (
+                                <option key={cat} value={cat} disabled={rules.categories.includes(cat)}>
+                                    {cat} {rules.categories.includes(cat) ? "(Sudah Ditambahkan)" : ""}
+                                </option>
+                            ))}
+                        </select>
                         <Button onClick={handleAddCategory} variant="secondary">
                             <Plus className="w-4 h-4 mr-2" />
                             Tambah
