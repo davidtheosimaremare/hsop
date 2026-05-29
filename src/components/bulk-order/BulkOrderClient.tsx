@@ -354,31 +354,33 @@ export default function BulkOrderClient() {
             return;
         }
         
-        const skuMap = new Map<string, number>();
+        const skuMap = new Map<string, { qty: number, originalSku: string }>();
         rawSkus.forEach(sku => {
             const cleanSku = sku.toLowerCase();
-            skuMap.set(cleanSku, (skuMap.get(cleanSku) || 0) + 1);
+            const existing = skuMap.get(cleanSku);
+            if (existing) {
+                skuMap.set(cleanSku, { ...existing, qty: existing.qty + 1 });
+            } else {
+                skuMap.set(cleanSku, { qty: 1, originalSku: sku });
+            }
         });
         
         const uniqueSkus = Array.from(skuMap.keys());
         
         try {
             const products = await searchProductsBySkus(uniqueSkus);
-            const foundSkus = new Set(products.map(p => p.sku.toLowerCase()));
             
-            // Add found products
-            products.forEach(p => {
-                const qty = skuMap.get(p.sku.toLowerCase()) || 1;
-                addItemToList(p, qty);
-            });
-            
-            // Add NOT FOUND products
+            // Add products in the exact order of their first appearance
             uniqueSkus.forEach(sku => {
-                if (!foundSkus.has(sku)) {
-                    const qty = skuMap.get(sku) || 1;
+                const mapData = skuMap.get(sku)!;
+                const product = products.find(p => p.sku.toLowerCase() === sku);
+                
+                if (product) {
+                    addItemToList(product, mapData.qty);
+                } else {
                     const notFoundProduct: BulkOrderProduct = {
                         id: `not-found-${Date.now()}-${sku}`,
-                        sku: sku,
+                        sku: mapData.originalSku,
                         name: "Tidak Ditemukan",
                         price: 0,
                         image: null,
@@ -387,7 +389,7 @@ export default function BulkOrderClient() {
                         category: "Not Found",
                         isValid: false
                     };
-                    addItemToList(notFoundProduct, qty, true, true);
+                    addItemToList(notFoundProduct, mapData.qty, true, true);
                 }
             });
             
@@ -421,21 +423,28 @@ export default function BulkOrderClient() {
                         const ws = wb.Sheets[wsname];
                         const data = XLSX.utils.sheet_to_json(ws) as any[];
 
-                        const skuMap = new Map<string, number>();
-                        const skusToFetch: string[] = [];
-
+                        const skuMap = new Map<string, { qty: number, originalSku: string }>();
+                        
                         data.forEach(row => {
                             const sku = row['SKU'] || row['sku'];
-                            const qty = parseInt(row['QTY'] || row['qty'] || '1');
+                            let qty = parseInt(row['QTY'] || row['qty']);
+                            if (isNaN(qty)) qty = 1;
+                            
                             if (sku) {
                                 const cleanSku = String(sku).trim();
                                 if (cleanSku) {
-                                    skuMap.set(cleanSku.toLowerCase(), (skuMap.get(cleanSku.toLowerCase()) || 0) + qty);
-                                    skusToFetch.push(cleanSku);
+                                    const lowerSku = cleanSku.toLowerCase();
+                                    const existing = skuMap.get(lowerSku);
+                                    if (existing) {
+                                        skuMap.set(lowerSku, { ...existing, qty: existing.qty + qty });
+                                    } else {
+                                        skuMap.set(lowerSku, { qty: qty, originalSku: cleanSku });
+                                    }
                                 }
                             }
                         });
 
+                        const skusToFetch = Array.from(skuMap.keys());
                         processFoundSkus(skusToFetch, skuMap);
                         resolve();
                     } catch (err) {
@@ -473,7 +482,7 @@ export default function BulkOrderClient() {
         }
     };
 
-    const processFoundSkus = async (skusToFetch: string[], skuMap: Map<string, number>) => {
+    const processFoundSkus = async (skusToFetch: string[], skuMap: Map<string, { qty: number, originalSku: string }>) => {
         if (skusToFetch.length === 0) {
             alert("Tidak ada SKU valid ditemukan di file.");
             return;
@@ -482,16 +491,33 @@ export default function BulkOrderClient() {
         const products = await searchProductsBySkus(skusToFetch);
 
         let addedCount = 0;
-        products.forEach(p => {
-            const qty = skuMap.get(p.sku.toLowerCase()) || 1;
-            addItemToList(p, qty);
-            addedCount++;
+        skusToFetch.forEach(sku => {
+            const mapData = skuMap.get(sku)!;
+            const product = products.find(p => p.sku.toLowerCase() === sku);
+            
+            if (product) {
+                addItemToList(product, mapData.qty);
+                addedCount++;
+            } else {
+                const notFoundProduct: BulkOrderProduct = {
+                    id: `not-found-${Date.now()}-${sku}`,
+                    sku: mapData.originalSku,
+                    name: "Tidak Ditemukan",
+                    price: 0,
+                    image: null,
+                    availableToSell: 0,
+                    brand: "-",
+                    category: "Not Found",
+                    isValid: false
+                };
+                addItemToList(notFoundProduct, mapData.qty, true, true);
+            }
         });
 
         if (addedCount === 0) {
             alert("Tidak ada produk yang cocok dengan SKU di database.");
         } else {
-            alert(`Berhasil impor ${addedCount} produk.`);
+            alert(`Berhasil impor ${addedCount} produk yang ditemukan.`);
         }
     };
 
