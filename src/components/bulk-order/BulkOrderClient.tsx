@@ -271,7 +271,9 @@ export default function BulkOrderClient() {
         const indentPriceInfo = getPriceInfo(product.price, product.category, 0);
 
         setItems(prev => {
-            let newItems = [...prev];
+            // Use immutable map to avoid mutating original state objects
+            // (React Strict Mode double-invokes updater functions, direct mutation causes double-counting)
+            const newItems = prev.map(item => ({ ...item }));
             const itemsToAdd: BulkItem[] = [];
 
             const createItem = (
@@ -295,7 +297,7 @@ export default function BulkOrderClient() {
                 const customId = isNotFound ? `not-found-${product.sku}` : `custom-${product.sku}`;
                 const existingIdx = newItems.findIndex(p => p.customId === customId);
                 if (existingIdx > -1) {
-                    newItems[existingIdx].qty += qty;
+                    newItems[existingIdx] = { ...newItems[existingIdx], qty: newItems[existingIdx].qty + qty };
                 } else {
                     itemsToAdd.push({
                         ...product,
@@ -320,7 +322,7 @@ export default function BulkOrderClient() {
                     if (availableForReady > 0) {
                         const toAddReady = Math.min(remainingQty, availableForReady);
                         if (existingReadyIdx > -1) {
-                            newItems[existingReadyIdx].qty += toAddReady;
+                            newItems[existingReadyIdx] = { ...newItems[existingReadyIdx], qty: newItems[existingReadyIdx].qty + toAddReady };
                         } else {
                             itemsToAdd.push(createItem('READY', toAddReady, readyPriceInfo));
                         }
@@ -332,7 +334,7 @@ export default function BulkOrderClient() {
                 if (remainingQty > 0) {
                     const existingIndentIdx = newItems.findIndex(p => p.customId === `${product.id}-INDENT`);
                     if (existingIndentIdx > -1) {
-                        newItems[existingIndentIdx].qty += remainingQty;
+                        newItems[existingIndentIdx] = { ...newItems[existingIndentIdx], qty: newItems[existingIndentIdx].qty + remainingQty };
                     } else {
                         itemsToAdd.push(createItem('INDENT', remainingQty, indentPriceInfo));
                     }
@@ -348,20 +350,34 @@ export default function BulkOrderClient() {
         if (!pasteContent.trim()) return;
         setIsProcessingPaste(true);
         
-        const rawSkus = pasteContent.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
-        if (rawSkus.length === 0) {
+        // Split by newlines or commas, filter empty lines
+        const rawLines = pasteContent.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+        if (rawLines.length === 0) {
             setIsProcessingPaste(false);
             return;
         }
         
         const skuMap = new Map<string, { qty: number, originalSku: string }>();
-        rawSkus.forEach(sku => {
-            const cleanSku = sku.toLowerCase();
+        rawLines.forEach(line => {
+            // Support format: "SKU QTY" (e.g. "5SU1336-6FP16 2")
+            // The last token is QTY if it's a number, otherwise default to 1
+            const parts = line.trim().split(/\s+/);
+            let skuRaw: string;
+            let qty: number;
+            if (parts.length >= 2 && /^\d+$/.test(parts[parts.length - 1])) {
+                qty = parseInt(parts[parts.length - 1], 10);
+                skuRaw = parts.slice(0, -1).join(' ');
+            } else {
+                qty = 1;
+                skuRaw = line.trim();
+            }
+            if (!skuRaw) return;
+            const cleanSku = skuRaw.toLowerCase();
             const existing = skuMap.get(cleanSku);
             if (existing) {
-                skuMap.set(cleanSku, { ...existing, qty: existing.qty + 1 });
+                skuMap.set(cleanSku, { ...existing, qty: existing.qty + qty });
             } else {
-                skuMap.set(cleanSku, { qty: 1, originalSku: sku });
+                skuMap.set(cleanSku, { qty, originalSku: skuRaw });
             }
         });
         
@@ -785,7 +801,7 @@ export default function BulkOrderClient() {
                             <textarea
                                 value={pasteContent}
                                 onChange={e => setPasteContent(e.target.value)}
-                                placeholder="Paste daftar SKU di sini (pisahkan dengan koma atau baris baru)...&#10;Contoh:&#10;SKU-A&#10;SKU-B&#10;SKU-C"
+                                placeholder="Paste daftar SKU di sini (pisahkan dengan koma atau baris baru)... Contoh:&#10;SKU-A 2&#10;SKU-B 3&#10;SKU-C"
                                 className="w-full h-24 p-2.5 text-xs border border-gray-300 rounded-lg focus:ring-1 focus:ring-red-500 focus:border-red-500 resize-none"
                             />
                             <div className="flex justify-between items-center">
