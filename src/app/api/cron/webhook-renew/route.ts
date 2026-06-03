@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { generateAccurateAuthHeaders } from "@/lib/accurate";
 
 /**
  * Cron Job: Auto-renew Accurate webhook subscription
  *
- * Accurate webhook token expires — ini memanggil endpoint renewal otomatis.
- * Jadwalkan via Coolify / cron-job.org setiap 5 hari sekali.
+ * Accurate memerlukan header X-Api-Signature (HMAC SHA256) di setiap request.
+ * Endpoint ini memanggil renewal otomatis setiap 5 hari sekali via Coolify.
  *
  * GET /api/cron/webhook-renew?secret=YOUR_CRON_SECRET
  */
 
 const CRON_SECRET = process.env.SEO_CRON_SECRET || "";
-const ACCURATE_BEARER_TOKEN = process.env.ACCURATE_BEARER_TOKEN || "";
 const ACCURATE_BASE_URL = "https://account.accurate.id";
 
 export async function GET(request: NextRequest) {
@@ -20,24 +20,23 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!ACCURATE_BEARER_TOKEN) {
-        return NextResponse.json(
-            { error: "ACCURATE_BEARER_TOKEN tidak dikonfigurasi di environment variables" },
-            { status: 500 }
-        );
-    }
-
     try {
         console.log("[CRON] Memulai renewal webhook Accurate...");
 
-        // 2. Panggil endpoint renewal webhook Accurate
+        // 2. Generate headers lengkap: Authorization + X-Api-Signature + X-Api-Timestamp
+        const headers = await generateAccurateAuthHeaders();
+        if (!headers) {
+            return NextResponse.json(
+                { error: "Kredensial Accurate tidak dikonfigurasi (ACCURATE_SECRET_KEY / ACCURATE_BEARER_TOKEN)" },
+                { status: 500 }
+            );
+        }
+
+        // 3. Panggil endpoint renewal webhook Accurate
         const renewUrl = `${ACCURATE_BASE_URL}/api/webhook-renew.do`;
         const response = await fetch(renewUrl, {
             method: "POST",
-            headers: {
-                "Authorization": `Bearer ${ACCURATE_BEARER_TOKEN}`,
-                "Content-Type": "application/json",
-            },
+            headers: headers as HeadersInit,
         });
 
         const responseText = await response.text();
@@ -48,16 +47,18 @@ export async function GET(request: NextRequest) {
             responseData = { raw: responseText };
         }
 
-        if (!response.ok) {
-            console.error(
-                `[CRON] Webhook renew gagal: HTTP ${response.status}`,
-                responseData
-            );
+        // Accurate mengembalikan { s: true/false, d: ... }
+        if (!response.ok || responseData?.s === false) {
+            const errMsg = Array.isArray(responseData?.d)
+                ? responseData.d.join(", ")
+                : responseData?.d || `HTTP ${response.status}`;
+
+            console.error(`[CRON] Webhook renew gagal: ${errMsg}`);
             return NextResponse.json(
                 {
                     success: false,
-                    error: `Accurate API merespons dengan status ${response.status}`,
-                    details: responseData,
+                    error: errMsg,
+                    accurateResponse: responseData,
                     timestamp: new Date().toISOString(),
                 },
                 { status: 502 }
@@ -84,3 +85,4 @@ export async function GET(request: NextRequest) {
         );
     }
 }
+
