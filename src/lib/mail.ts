@@ -575,3 +575,50 @@ export async function sendUpgradeRequestNotification(data: UpgradeRequestNotific
         return { success: false, error: "Failed to send email" };
     }
 }
+
+export async function sendTestEmail(email: string) {
+    const smtpHost = process.env.SMTP_HOST;
+    const smtpPort = parseInt(process.env.SMTP_PORT || "587");
+    const smtpUser = process.env.SMTP_USER;
+    const smtpPass = process.env.SMTP_PASSWORD;
+    const smtpFrom = process.env.SMTP_FROM || '"Hokiindo Shop" <no-reply@hokiindo.co.id>';
+
+    if (!smtpHost || !smtpUser || !smtpPass) {
+        return { success: false, error: "SMTP config missing in .env" };
+    }
+
+    const transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpPort === 465,
+        auth: { user: smtpUser, pass: smtpPass },
+    });
+
+    const body = `
+        <h2 style="color: #0f172a; margin-bottom: 16px; text-align: center;">Test Email Berhasil! 🎉</h2>
+        <div style="background-color: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
+            <p style="color: #334155; font-size: 15px; line-height: 1.6; margin-top: 0;">
+                Jika Anda menerima email ini, berarti konfigurasi SMTP Google Workspace di website Hokiindo Shop Anda sudah berfungsi dengan sempurna.
+            </p>
+            <hr style="border: 0; border-top: 1px solid #cbd5e1; margin: 16px 0;" />
+            <p style="color: #475569; font-size: 13px; margin: 4px 0;"><strong>SMTP Host:</strong> ${smtpHost}</p>
+            <p style="color: #475569; font-size: 13px; margin: 4px 0;"><strong>Dikirim Sebagai:</strong> ${smtpFrom}</p>
+            <p style="color: #475569; font-size: 13px; margin: 4px 0;"><strong>Dikirim Melalui:</strong> ${smtpUser}</p>
+        </div>
+    `;
+
+    const htmlContent = await getEmailWrapper(body, "Test Koneksi SMTP");
+
+    try {
+        await transporter.sendMail({
+            from: smtpFrom,
+            to: email,
+            subject: "✅ Berhasil: Test Koneksi Email Hokiindo Shop",
+            html: htmlContent,
+        });
+        return { success: true };
+    } catch (error: any) {
+        console.error("[Mail] Test email failed:", error);
+        return { success: false, error: error.message };
+    }
+}

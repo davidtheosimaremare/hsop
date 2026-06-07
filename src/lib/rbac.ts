@@ -508,8 +508,9 @@ export const sidebarMenuItems = [
     requiredPermission: "developer:view",
     children: [
       { title: "Webhook Simulator", href: "/admin/developer/webhooks", icon: "Webhook", requiredPermission: "webhooks:view" },
-      { title: "Backup Data", href: "/admin/developer/backup", icon: "Activity", requiredPermission: "developer:view" },
+      { title: "Email Tester", href: "/admin/developer/email-test", icon: "Mail", requiredPermission: "developer:view" },
       { title: "API Docs Mobile", href: "/admin/developer/api-docs", icon: "FileText", requiredPermission: "developer:view" },
+      { title: "Backup Data", href: "/admin/developer/backup", icon: "Activity", requiredPermission: "developer:view" },
     ],
   },
   ];
