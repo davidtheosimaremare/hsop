@@ -1,0 +1,254 @@
+{
+  "info": {
+    "name": "Hokiindo Mobile API",
+    "description": "Dokumentasi REST API lengkap untuk integrasi aplikasi mobile HokiShop.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://shop.hokiindo.co.id/api/mobile",
+      "type": "string"
+    },
+    {
+      "key": "api_key",
+      "value": "hokiindo-mobile-dev-key",
+      "type": "string"
+    },
+    {
+      "key": "jwt_token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Autentikasi",
+      "item": [
+        {
+          "name": "Login/Daftar via Google",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "x-api-key", "value": "{{api_key}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"idToken\": \"eyJhbGciOiJSU...\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/auth/google", "host": ["{{base_url}}"], "path": ["auth", "google"] }
+          }
+        },
+        {
+          "name": "Request OTP WhatsApp",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "x-api-key", "value": "{{api_key}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"phone\": \"08123456789\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/auth/phone/request", "host": ["{{base_url}}"], "path": ["auth", "phone", "request"] }
+          }
+        },
+        {
+          "name": "Verifikasi OTP WhatsApp",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "x-api-key", "value": "{{api_key}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"phone\": \"08123456789\",\n    \"otp\": \"123456\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/auth/phone/verify", "host": ["{{base_url}}"], "path": ["auth", "phone", "verify"] }
+          }
+        },
+        {
+          "name": "Lengkapi Profil (Onboarding)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "x-api-key", "value": "{{api_key}}", "type": "text" },
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"isCompany\": \"false\",\n    \"name\": \"Budi Santoso\",\n    \"companyName\": \"\",\n    \"businessType\": \"\",\n    \"address\": \"Jalan Kebon Jeruk No 1\",\n    \"email\": \"budi@example.com\",\n    \"phone\": \"08123456789\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/auth/onboarding", "host": ["{{base_url}}"], "path": ["auth", "onboarding"] }
+          }
+        },
+        {
+          "name": "Register Email",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "x-api-key", "value": "{{api_key}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Budi Santoso\",\n    \"email\": \"budi@example.com\",\n    \"password\": \"password123\",\n    \"phone\": \"08123456789\",\n    \"company\": \"PT. Contoh\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/auth/register", "host": ["{{base_url}}"], "path": ["auth", "register"] }
+          }
+        },
+        {
+          "name": "Login Email",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "x-api-key", "value": "{{api_key}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"budi@example.com\",\n    \"password\": \"password123\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/auth/login", "host": ["{{base_url}}"], "path": ["auth", "login"] }
+          }
+        },
+        {
+          "name": "Get Profil Saya (Me)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "x-api-key", "value": "{{api_key}}", "type": "text" },
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text" }
+            ],
+            "url": { "raw": "{{base_url}}/auth/me", "host": ["{{base_url}}"], "path": ["auth", "me"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Katalog & Brand",
+      "item": [
+        {
+          "name": "List Kategori",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "x-api-key", "value": "{{api_key}}", "type": "text" }
+            ],
+            "url": { "raw": "{{base_url}}/categories", "host": ["{{base_url}}"], "path": ["categories"] }
+          }
+        },
+        {
+          "name": "List Brand",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "x-api-key", "value": "{{api_key}}", "type": "text" }
+            ],
+            "url": { "raw": "{{base_url}}/brands", "host": ["{{base_url}}"], "path": ["brands"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Produk",
+      "item": [
+        {
+          "name": "Daftar Produk (Dengan Filter)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "x-api-key", "value": "{{api_key}}", "type": "text" }
+            ],
+            "url": { 
+                "raw": "{{base_url}}/products?page=1&limit=20&search=SIEMENS&category=Low Voltage", 
+                "host": ["{{base_url}}"], 
+                "path": ["products"],
+                "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "20" },
+                    { "key": "search", "value": "SIEMENS", "disabled": true },
+                    { "key": "category", "value": "Low Voltage", "disabled": true },
+                    { "key": "brand", "value": "SIEMENS", "disabled": true },
+                    { "key": "stockStatus", "value": "all", "disabled": true }
+                ]
+            }
+          }
+        },
+        {
+          "name": "Detail Produk by SKU",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "x-api-key", "value": "{{api_key}}", "type": "text" }
+            ],
+            "url": { "raw": "{{base_url}}/products/3RV2011-0JA10", "host": ["{{base_url}}"], "path": ["products", "3RV2011-0JA10"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Transaksi / RFQ",
+      "item": [
+        {
+          "name": "Simpan Estimasi",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "x-api-key", "value": "{{api_key}}", "type": "text" },
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"notes\": \"Proyek Gedung A\",\n    \"items\": [\n        { \"sku\": \"3RV2011-0JA10\", \"name\": \"SIEMENS Motor Starter\", \"brand\": \"SIEMENS\", \"quantity\": 2, \"price\": 1500000, \"stockStatus\": \"READY\" }\n    ]\n}"
+            },
+            "url": { "raw": "{{base_url}}/estimations", "host": ["{{base_url}}"], "path": ["estimations"] }
+          }
+        },
+        {
+          "name": "Riwayat Estimasi",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "x-api-key", "value": "{{api_key}}", "type": "text" },
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text" }
+            ],
+            "url": { "raw": "{{base_url}}/estimations?page=1&limit=20", "host": ["{{base_url}}"], "path": ["estimations"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }] }
+          }
+        },
+        {
+          "name": "Kirim RFQ",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "x-api-key", "value": "{{api_key}}", "type": "text" },
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"notes\": \"Butuh untuk proyek bulan depan\",\n    \"shippingAddress\": \"Jl. Contoh No. 1, Jakarta\",\n    \"items\": [\n        { \"sku\": \"3RV2011-0JA10\", \"name\": \"SIEMENS Motor Starter\", \"brand\": \"SIEMENS\", \"quantity\": 5, \"price\": 1500000, \"stockStatus\": \"READY\" }\n    ]\n}"
+            },
+            "url": { "raw": "{{base_url}}/requests", "host": ["{{base_url}}"], "path": ["requests"] }
+          }
+        },
+        {
+          "name": "Riwayat RFQ",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "x-api-key", "value": "{{api_key}}", "type": "text" },
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text" }
+            ],
+            "url": { "raw": "{{base_url}}/requests?page=1", "host": ["{{base_url}}"], "path": ["requests"], "query": [{ "key": "page", "value": "1" }] }
+          }
+        }
+      ]
+    }
+  ]
+}
