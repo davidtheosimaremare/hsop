@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
   if (apiKeyError) return apiKeyError;
 
   try {
-    const banners = await db.banner.findMany({
+    const banners = await db.appBanner.findMany({
       where: { isActive: true },
       orderBy: { order: "asc" },
       select: {

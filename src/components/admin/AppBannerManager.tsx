@@ -1,0 +1,473 @@
+"use client";
+
+import { useState, useTransition, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import { createAppBanner, deleteAppBanner, toggleAppBannerStatus, reorderAppBanners } from "@/app/actions/app-banners";
+
+import {
+    Loader2,
+    Plus,
+    Trash2,
+    Link as LinkIcon,
+    Image as ImageIcon,
+    LayoutTemplate,
+    ExternalLink,
+    Info,
+    Upload,
+    X
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    DragEndEvent
+} from '@dnd-kit/core';
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    rectSortingStrategy,
+    useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { GripVertical } from "lucide-react";
+
+interface AppBanner {
+    id: string;
+    title: string | null;
+    image: string;
+    link: string | null;
+    order: number;
+    isActive: boolean;
+}
+
+interface AppBannerManagerProps {
+    initialBanners: AppBanner[];
+}
+
+export function AppBannerManager({ initialBanners }: AppBannerManagerProps) {
+    const [banners, setBanners] = useState<AppBanner[]>(initialBanners);
+    const [title, setTitle] = useState("");
+    const [link, setLink] = useState("");
+    const [isActive, setIsActive] = useState(true);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const [isCreating, startCreate] = useTransition();
+    const [isReordering, startReorder] = useTransition();
+    const router = useRouter();
+
+    useState(() => {
+        setBanners(initialBanners);
+    });
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8,
+            },
+        }),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+
+        if (over && active.id !== over.id) {
+            const oldIndex = banners.findIndex((b) => b.id === active.id);
+            const newIndex = banners.findIndex((b) => b.id === over.id);
+
+            const newBanners = arrayMove(banners, oldIndex, newIndex);
+            setBanners(newBanners);
+
+            startReorder(async () => {
+                const res = await reorderAppBanners(newBanners.map(b => b.id));
+                if (res.success) {
+                    toast.success("Urutan banner disimpan");
+                } else {
+                    toast.error("Gagal menyimpan urutan");
+                    setBanners(initialBanners);
+                }
+            });
+        }
+    };
+
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setSelectedFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setPreviewUrl(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const clearFile = () => {
+        setSelectedFile(null);
+        setPreviewUrl(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+
+    const handleCreate = () => {
+        if (!selectedFile) {
+            toast.error("Silakan pilih gambar banner.");
+            return;
+        }
+        startCreate(async () => {
+            try {
+                const formData = new FormData();
+                formData.append("file", selectedFile);
+                
+                const response = await fetch("/api/upload?folder=assets/app-banners", {
+                    method: "POST",
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Upload failed with status ${response.status}`);
+                }
+
+                const uploadRes = await response.json();
+
+                if (!uploadRes.success || !uploadRes.url) {
+                    toast.error(uploadRes.error || "Gagal mengupload gambar.");
+                    return;
+                }
+
+                const res = await createAppBanner({
+                    title,
+                    image: uploadRes.url,
+                    link,
+                    isActive
+                });
+
+                if (res.success) {
+                    setTitle("");
+                    setLink("");
+                    clearFile();
+                    setIsActive(true);
+                    toast.success("Banner berhasil ditambahkan");
+                    router.refresh();
+                } else {
+                    toast.error("Gagal membuat banner.");
+                }
+            } catch (error) {
+                console.error(error);
+                toast.error("Terjadi kesalahan sistem");
+            }
+        });
+    };
+
+    return (
+        <div className="space-y-8">
+            <Card className="border-none shadow-sm rounded-2xl overflow-hidden bg-white">
+                <CardHeader className="bg-emerald-50/50 border-b border-gray-50 px-6 py-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+                            <Plus className="w-4 h-4 text-emerald-600" />
+                        </div>
+                        <div>
+                            <CardTitle className="text-base font-black text-gray-900 uppercase tracking-tight">Tambah Banner Mobile App Baru</CardTitle>
+                            <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Unggah banner khusus untuk aplikasi Android/iOS</CardDescription>
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent className="p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                        <div className="md:col-span-8 space-y-6">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                                    <ImageIcon className="w-3 h-3" /> Gambar Banner App (Wajib)
+                                </label>
+
+                                {!previewUrl ? (
+                                    <div
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="border-2 border-dashed border-gray-200 rounded-2xl p-8 flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100/50 hover:border-emerald-200 transition-all cursor-pointer group"
+                                    >
+                                        <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm mb-3 group-hover:scale-110 transition-transform">
+                                            <Upload className="w-6 h-6 text-gray-400 group-hover:text-emerald-500" />
+                                        </div>
+                                        <p className="text-sm font-bold text-gray-600">Klik untuk upload gambar</p>
+                                        <p className="text-[11px] text-gray-400 mt-1 font-medium text-center">Rekomendasi rasio khusus aplikasi mobile (misalnya: 16:9 atau 2:1)</p>
+                                        <input
+                                            type="file"
+                                            ref={fileInputRef}
+                                            onChange={handleFileSelect}
+                                            accept="image/*"
+                                            className="hidden"
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="relative aspect-[2/1] md:aspect-[16/9] rounded-2xl overflow-hidden border border-gray-100 shadow-inner group">
+                                        <img
+                                            src={previewUrl}
+                                            alt="Preview"
+                                            className="w-full h-full object-cover"
+                                        />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                            <Button
+                                                variant="destructive"
+                                                size="sm"
+                                                onClick={clearFile}
+                                                className="rounded-full h-10 px-4 font-black text-xs uppercase"
+                                            >
+                                                <X className="w-4 h-4 mr-2" /> Ganti Gambar
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                                        <LayoutTemplate className="w-3 h-3" /> Judul Banner
+                                    </label>
+                                    <Input
+                                        placeholder="Promo Spesial..."
+                                        value={title}
+                                        onChange={(e) => setTitle(e.target.value)}
+                                        className="bg-gray-50 border-gray-100 rounded-xl focus:ring-emerald-500/20 h-11 text-sm font-medium"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                                        <LinkIcon className="w-3 h-3" /> Link Tujuan (In-App)
+                                    </label>
+                                    <Input
+                                        placeholder="hsop://kategori/lighting"
+                                        value={link}
+                                        onChange={(e) => setLink(e.target.value)}
+                                        className="bg-gray-50 border-gray-100 rounded-xl focus:ring-emerald-500/20 h-11 text-sm font-medium"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="md:col-span-4 flex flex-col justify-between space-y-4">
+                            <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 h-full">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Status Aktif</span>
+                                    <Switch checked={isActive} onCheckedChange={setIsActive} />
+                                </div>
+                                <p className="text-[11px] text-gray-500 leading-relaxed font-medium italic">
+                                    <Info className="w-3 h-3 inline mr-1 text-blue-500" />
+                                    Jika aktif, banner akan langsung muncul di slider halaman depan aplikasi.
+                                </p>
+                            </div>
+                            <Button
+                                onClick={handleCreate}
+                                disabled={isCreating}
+                                className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-emerald-500/20 transition-all"
+                            >
+                                {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Plus className="w-4 h-4 mr-2" /> Simpan Banner</>}
+                            </Button>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                <div className="flex items-center gap-2">
+                    <LayoutTemplate className="w-5 h-5 text-gray-400" />
+                    <div>
+                        <h3 className="text-sm font-black text-gray-900 uppercase tracking-tight flex items-center gap-2">
+                            Daftar Banner App Aktif
+                            {isReordering && <Loader2 className="w-3 h-3 animate-spin text-emerald-500" />}
+                        </h3>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Drag dan drop untuk mengatur urutan</p>
+                    </div>
+                </div>
+                <Badge variant="outline" className="rounded-lg text-[10px] font-black bg-gray-50 text-gray-500 border-gray-200">
+                    {banners.length} TOTAL BANNER
+                </Badge>
+            </div>
+
+            {banners.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 bg-gray-50/50 rounded-[2rem] border border-dashed border-gray-200">
+                    <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-sm mb-4">
+                        <ImageIcon className="w-8 h-8 text-gray-200" />
+                    </div>
+                    <h4 className="text-sm font-bold text-gray-900">Belum ada banner aplikasi</h4>
+                    <p className="text-xs text-gray-400 mt-1 font-medium">Tambahkan banner baru melalui form di atas.</p>
+                </div>
+            ) : (
+                <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                >
+                    <SortableContext
+                        items={banners.map(b => b.id)}
+                        strategy={rectSortingStrategy}
+                    >
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                            {banners.map((banner) => (
+                                <SortableBannerItem key={banner.id} banner={banner} />
+                            ))}
+                        </div>
+                    </SortableContext>
+                </DndContext>
+            )}
+        </div>
+    );
+}
+
+function SortableBannerItem({ banner }: { banner: AppBanner }) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging
+    } = useSortable({ id: banner.id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        zIndex: isDragging ? 50 : undefined,
+        opacity: isDragging ? 0.5 : 1,
+    };
+
+    return (
+        <div ref={setNodeRef} style={style}>
+            <BannerItem banner={banner} dragHandleProps={{ ...attributes, ...listeners }} />
+        </div>
+    );
+}
+
+function BannerItem({ banner, dragHandleProps }: { banner: AppBanner, dragHandleProps?: any }) {
+    const [isDeleting, startDelete] = useTransition();
+    const [isToggling, startToggle] = useTransition();
+    const router = useRouter();
+
+    const handleDelete = () => {
+        if (!confirm("Hapus banner ini permanen?")) return;
+        startDelete(async () => {
+            try {
+                await deleteAppBanner(banner.id);
+                toast.success("Banner berhasil dihapus");
+                router.refresh();
+            } catch {
+                toast.error("Gagal menghapus banner");
+            }
+        });
+    };
+
+    const handleToggle = (checked: boolean) => {
+        startToggle(async () => {
+            try {
+                await toggleAppBannerStatus(banner.id, checked);
+                toast.success(`Banner telah ${checked ? "diaktifkan" : "dinonaktifkan"}`);
+                router.refresh();
+            } catch {
+                toast.error("Gagal memperbarui status");
+            }
+        });
+    };
+
+    return (
+        <Card className="overflow-hidden group relative border border-gray-100 shadow-sm hover:shadow-xl hover:border-emerald-100 rounded-[1.5rem] transition-all duration-300 flex flex-col bg-white">
+            <div 
+                {...dragHandleProps} 
+                className="absolute top-3 right-3 z-30 w-8 h-8 rounded-lg bg-white/90 backdrop-blur shadow-sm border border-gray-100 flex items-center justify-center cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+                <GripVertical className="w-4 h-4 text-gray-400" />
+            </div>
+
+            <div className="aspect-[2/1] relative overflow-hidden bg-gray-50">
+                <div className={cn(
+                    "absolute inset-0 z-10 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300",
+                    !banner.isActive && "opacity-100 bg-gray-900/40"
+                )} />
+
+                <div className="absolute top-3 left-3 z-20">
+                    <Badge className={cn(
+                        "rounded-lg px-2 py-0.5 text-[9px] font-black uppercase border-none shadow-sm",
+                        banner.isActive ? "bg-emerald-500 text-white" : "bg-gray-500 text-white"
+                    )}>
+                        {banner.isActive ? "AKTIF" : "NON-AKTIF"}
+                    </Badge>
+                </div>
+
+                <img
+                    src={banner.image}
+                    alt={banner.title || "Banner"}
+                    className={cn(
+                        "object-cover w-full h-full transition-transform duration-700 group-hover:scale-110",
+                        !banner.isActive && "grayscale opacity-60"
+                    )}
+                    onError={(e) => (e.currentTarget.src = "https://placehold.co/800x400?text=No+Image")}
+                />
+
+                <div className="absolute inset-0 z-20 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-4 group-hover:translate-y-0">
+                    <a
+                        href={banner.image}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-10 h-10 rounded-full bg-white text-gray-900 flex items-center justify-center shadow-lg hover:bg-emerald-600 hover:text-white transition-colors"
+                        title="Lihat Gambar Full"
+                    >
+                        <ExternalLink className="w-4 h-4" />
+                    </a>
+                </div>
+            </div>
+
+            <CardContent className="p-5 flex-1 flex flex-col gap-4">
+                <div className="space-y-1 min-w-0">
+                    <h4 className="font-black text-gray-900 truncate tracking-tight text-sm uppercase">
+                        {banner.title || "TANPA JUDUL"}
+                    </h4>
+                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-gray-400 truncate">
+                        <LinkIcon className="w-3 h-3 shrink-0" />
+                        {banner.link ? (
+                            <span className="text-emerald-600/70 hover:underline cursor-pointer">{banner.link}</span>
+                        ) : (
+                            <span className="italic">Tidak ada link</span>
+                        )}
+                    </div>
+                </div>
+
+                <div className="mt-auto pt-4 flex items-center justify-between border-t border-gray-50">
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100">
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Status</span>
+                            <Switch
+                                checked={banner.isActive}
+                                onCheckedChange={handleToggle}
+                                disabled={isToggling}
+                                className="scale-75 data-[state=checked]:bg-emerald-500"
+                            />
+                        </div>
+                    </div>
+
+                    <Button
+                        size="icon"
+                        variant="ghost"
+                        className="w-9 h-9 rounded-xl text-gray-300 hover:text-red-600 hover:bg-red-50 transition-all"
+                        onClick={handleDelete}
+                        disabled={isDeleting}
+                    >
+                        {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                    </Button>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}

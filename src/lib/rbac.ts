@@ -62,6 +62,7 @@ export type Permission =
   | "format_file:manage"
   | "footer:manage"
   | "brands:manage"
+  | "app_banners:manage"
   | "developer:view";
 
 // Define permissions for each role
@@ -95,6 +96,7 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
     "format_file:manage",
     "footer:manage",
     "brands:manage",
+    "app_banners:manage",
     "developer:view",
   ],
   ADMIN: [
@@ -125,6 +127,7 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
     "format_file:manage",
     "footer:manage",
     "brands:manage",
+    "app_banners:manage",
     // No access to: webhooks, users:manage, developer
   ],
   MANAGER: [
@@ -243,6 +246,7 @@ export const routePermissions: Record<string, Permission[]> = {
   "/admin/settings/format-file": ["format_file:manage"],
   "/admin/settings/footer": ["footer:manage"],
   "/admin/settings/brands": ["brands:manage"],
+  "/admin/settings/app-banners": ["app_banners:manage"],
   "/admin/settings/seo": ["settings:edit"],
   // Users & Dev
   "/admin/users": ["users:view"],
@@ -454,7 +458,8 @@ export const sidebarMenuItems = [
     icon: "LayoutTemplate",
     requiredPermission: "settings:view",
     children: [
-      { title: "Banner Slide", href: "/admin/settings/banners", icon: "ImageIcon", requiredPermission: "banners:manage" },
+      { title: "Banner Web", href: "/admin/settings/banners", icon: "ImageIcon", requiredPermission: "banners:manage" },
+      { title: "Banner App Mobile", href: "/admin/settings/app-banners", icon: "ImageIcon", requiredPermission: "app_banners:manage" },
       { title: "Kategori Utama", href: "/admin/settings/categories", icon: "ListTree", requiredPermission: "categories:manage" },
       { title: "Kategori Dropdown", href: "/admin/settings/categories-menu", icon: "ListTree", requiredPermission: "categories_menu:manage" },
       { title: "Home CTA", href: "/admin/settings/cta", icon: "LayoutTemplate", requiredPermission: "cta:manage" },
@@ -736,9 +741,15 @@ export const permissionCategories = [
   },
   {
     id: "banners",
-    label: "Banners",
-    description: "Banner homepage",
+    label: "Banners Web",
+    description: "Banner homepage website",
     icon: "🖼️",
+  },
+  {
+    id: "app_banners",
+    label: "Banners Mobile App",
+    description: "Banner homepage mobile app",
+    icon: "📱",
   },
   {
     id: "categories_menu",
