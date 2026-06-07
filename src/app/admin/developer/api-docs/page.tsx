@@ -42,6 +42,38 @@ const API_SECTIONS: Section[] = [
     endpoints: [
       {
         method: "POST",
+        path: "/api/mobile/auth/google",
+        description: "Login atau Daftar menggunakan Google Sign-In. Menerima idToken dari client dan merespon dengan JWT token mobile.",
+        auth: "api-key",
+        requestBody: { idToken: "eyJhbGciOiJSU..." },
+        response: { success: true, token: "<jwt_token>", user: { id: "...", name: "Budi", email: "budi@gmail.com", role: "CUSTOMER" } },
+      },
+      {
+        method: "POST",
+        path: "/api/mobile/auth/phone/request",
+        description: "Meminta pengiriman kode OTP via WhatsApp. Sistem akan membuat akun dummy jika nomor belum terdaftar.",
+        auth: "api-key",
+        requestBody: { phone: "08123456789" },
+        response: { success: true, message: "OTP berhasil dikirim ke WhatsApp Anda.", phone: "628123456789" },
+      },
+      {
+        method: "POST",
+        path: "/api/mobile/auth/phone/verify",
+        description: "Memverifikasi kode OTP. Mengembalikan JWT token dan indikator apakah profil perlu dilengkapi (needsOnboarding).",
+        auth: "api-key",
+        requestBody: { phone: "08123456789", otp: "123456" },
+        response: { success: true, token: "<jwt_token>", user: { id: "...", phone: "628123456789" }, needsOnboarding: true },
+      },
+      {
+        method: "POST",
+        path: "/api/mobile/auth/onboarding",
+        description: "Melengkapi profil pengguna (setelah login dengan HP/Google). Menyinkronkan data ke Accurate dan memperbarui token.",
+        auth: "api-key+jwt",
+        requestBody: { isCompany: "false", name: "Budi", address: "Jakarta", phone: "08123456789" },
+        response: { success: true, token: "<new_jwt_token>", user: { id: "...", customerId: "CO-0001" } },
+      },
+      {
+        method: "POST",
         path: "/api/mobile/auth/register",
         description: "Daftarkan akun baru. Mengembalikan JWT token untuk digunakan di request selanjutnya.",
         auth: "api-key",
@@ -51,7 +83,7 @@ const API_SECTIONS: Section[] = [
       {
         method: "POST",
         path: "/api/mobile/auth/login",
-        description: "Login dan dapatkan JWT token. Token berlaku 30 hari.",
+        description: "Login dengan email dan password. Mendapatkan JWT token yang berlaku 30 hari.",
         auth: "api-key",
         requestBody: { email: "budi@example.com", password: "password123" },
         response: { success: true, token: "<jwt_token>", user: { id: "...", name: "Budi Santoso", customer: { discountCP: "10+5" } } },
