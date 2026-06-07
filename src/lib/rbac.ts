@@ -500,7 +500,7 @@ export const sidebarMenuItems = [
   // ═══ SECTION DIVIDER: Developer ═══
   { title: "__divider__", href: "__developer__", icon: "", label: "Developer" },
 
-  // ── Developer ───────────────────────────────────────────────────────────
+  // ── Developer ───────────────────────────────────────────────────────────────
   {
     title: "Developer",
     href: "/admin/developer/webhooks",
@@ -509,6 +509,7 @@ export const sidebarMenuItems = [
     children: [
       { title: "Webhook Simulator", href: "/admin/developer/webhooks", icon: "Webhook", requiredPermission: "webhooks:view" },
       { title: "Backup Data", href: "/admin/developer/backup", icon: "Activity", requiredPermission: "developer:view" },
+      { title: "API Docs Mobile", href: "/admin/developer/api-docs", icon: "FileText", requiredPermission: "developer:view" },
     ],
   },
   ];
