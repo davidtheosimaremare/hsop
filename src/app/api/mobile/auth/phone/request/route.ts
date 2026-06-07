@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { validateApiKey, mobileResponse } from "@/lib/mobile-api-auth";
-import { sendOTP } from "@/lib/fontee";
+import { sendFonteeOTP } from "@/lib/fontee";
 import { hash } from "bcryptjs";
 
 export async function OPTIONS(request: NextRequest) {
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Send OTP via WhatsApp
-        const fonteeResponse = await sendOTP(phone, otp);
+        const fonteeResponse = await sendFonteeOTP(phone, otp);
         if (!fonteeResponse.status) {
             return mobileResponse({ success: false, error: "Gagal mengirim pesan WhatsApp. Coba lagi." }, 500);
         }
