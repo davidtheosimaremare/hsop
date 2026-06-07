@@ -24,7 +24,10 @@ export async function POST(request: NextRequest) {
 
         const ticket = await googleClient.verifyIdToken({
             idToken: idToken,
-            audience: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+            audience: [
+                process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID as string,
+                "183412848330-i7ofbds6ovgeoaa7q42qeorl8jupf0fb.apps.googleusercontent.com" // ID dari Firebase Mobile
+            ],
         });
 
         const payload = ticket.getPayload();
