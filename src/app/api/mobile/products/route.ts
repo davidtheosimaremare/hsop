@@ -41,15 +41,36 @@ export async function GET(request: NextRequest) {
       status: "APPROVED",
     };
 
+    if (!where.AND) where.AND = [];
+
     // Full-text search: match ALL words in name or SKU
     if (search.trim()) {
       const terms = search.trim().split(/\s+/).filter(Boolean);
-      where.AND = terms.map((term: string) => ({
+      const searchConditions = terms.map((term: string) => ({
         OR: [
           { name: { contains: term, mode: "insensitive" } },
           { sku: { contains: term, mode: "insensitive" } },
         ],
       }));
+      where.AND.push(...searchConditions);
+    }
+
+    // Specification filtering using JSON fields (e.g., ?spec_Pole=1P)
+    searchParams.forEach((value, key) => {
+      if (key.startsWith("spec_")) {
+        const specName = key.replace("spec_", "");
+        where.AND.push({
+          specifications: {
+            path: [specName],
+            equals: value
+          }
+        });
+      }
+    });
+
+    // Cleanup empty AND array to prevent Prisma errors if empty
+    if (where.AND.length === 0) {
+      delete where.AND;
     }
 
     if (category) where.category = { equals: category, mode: "insensitive" };
@@ -73,10 +94,12 @@ export async function GET(request: NextRequest) {
           brand: true,
           category: true,
           image: true,
+          sliderImages: true,
           availableToSell: true,
           itemType: true,
           indentTime: true,
           description: true,
+          specifications: true,
         },
       }),
       db.product.count({ where }),

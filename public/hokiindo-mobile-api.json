@@ -155,6 +155,31 @@
       ]
     },
     {
+      "name": "Halaman Depan",
+      "item": [
+        {
+          "name": "Grid Kategori",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "x-api-key", "value": "{{api_key}}", "type": "text" }
+            ],
+            "url": { "raw": "{{base_url}}/grid-categories", "host": ["{{base_url}}"], "path": ["grid-categories"] }
+          }
+        },
+        {
+          "name": "Banners",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "x-api-key", "value": "{{api_key}}", "type": "text" }
+            ],
+            "url": { "raw": "{{base_url}}/banners", "host": ["{{base_url}}"], "path": ["banners"] }
+          }
+        }
+      ]
+    },
+    {
       "name": "Produk",
       "item": [
         {
@@ -165,7 +190,7 @@
               { "key": "x-api-key", "value": "{{api_key}}", "type": "text" }
             ],
             "url": { 
-                "raw": "{{base_url}}/products?page=1&limit=20&search=SIEMENS&category=Low Voltage", 
+                "raw": "{{base_url}}/products?page=1&limit=20&search=SIEMENS&category=Low Voltage&spec_Pole=1P&spec_Ampere=10A", 
                 "host": ["{{base_url}}"], 
                 "path": ["products"],
                 "query": [
@@ -174,7 +199,9 @@
                     { "key": "search", "value": "SIEMENS", "disabled": true },
                     { "key": "category", "value": "Low Voltage", "disabled": true },
                     { "key": "brand", "value": "SIEMENS", "disabled": true },
-                    { "key": "stockStatus", "value": "all", "disabled": true }
+                    { "key": "stockStatus", "value": "all", "disabled": true },
+                    { "key": "spec_Pole", "value": "1P", "description": "Filter by Specification (Prefix spec_)", "disabled": true },
+                    { "key": "spec_Ampere", "value": "10A", "description": "Filter by Specification (Prefix spec_)", "disabled": true }
                 ]
             }
           }
