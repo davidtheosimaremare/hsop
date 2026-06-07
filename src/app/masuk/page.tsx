@@ -12,6 +12,8 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import GoogleLoginButton from "@/components/auth/GoogleLoginButton";
+import PhoneLoginForm from "@/components/auth/PhoneLoginForm";
 
 const memberBenefits = [
     { num: "1", title: "Potongan Harga Eksklusif", desc: "Penawaran harga spesial untuk member terdaftar." },
@@ -20,11 +22,80 @@ const memberBenefits = [
     { num: "4", title: "Prioritas Konsultasi Tim", desc: "Akses langsung ke tim ahli kami." },
 ];
 
+function EmailLoginForm({ state, formAction, isPending, showPassword, setShowPassword }: any) {
+    return (
+        <form action={formAction} className="space-y-4">
+            {/* Email */}
+            <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Email
+                </label>
+                <Input
+                    name="email"
+                    type="email"
+                    placeholder="contoh@email.com"
+                    className="h-10 text-sm"
+                    defaultValue={state?.email || ""}
+                    required
+                />
+            </div>
+
+            {/* Password */}
+            <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Kata Sandi
+                </label>
+                <div className="relative">
+                    <Input
+                        name="password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Masukkan kata sandi"
+                        className="h-10 text-sm pr-10"
+                        required
+                    />
+                    <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                </div>
+            </div>
+
+            {/* Remember Me & Forgot Password */}
+            <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                        name="remember"
+                        type="checkbox"
+                        className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                    />
+                    <span className="text-xs text-gray-600">Tetap Masuk</span>
+                </label>
+                <Link prefetch={false}  href="/lupa-password" className="text-xs text-red-600 hover:underline">
+                    Lupa Kata Sandi?
+                </Link>
+            </div>
+
+            {/* Submit Button */}
+            <Button
+                type="submit"
+                disabled={isPending}
+                className="w-full h-10 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg disabled:opacity-70"
+            >
+                {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Masuk"}
+            </Button>
+        </form>
+    );
+}
+
 function LoginForm() {
     const searchParams = useSearchParams();
     const router = useRouter(); 
     const registered = searchParams.get("registered");
     const [showPassword, setShowPassword] = useState(false);
+    const [tab, setTab] = useState<"email" | "phone">("email");
 
     // Initial state for the action
     const initialState: any = { error: "", unverified: false, email: "", success: false, redirectUrl: "" };
@@ -89,77 +160,60 @@ function LoginForm() {
                 </div>
             )}
 
-            <form action={formAction} className="space-y-4">
-                {/* Email */}
-                <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                        Email
-                    </label>
-                    <Input
-                        name="email"
-                        type="email"
-                        placeholder="contoh@email.com"
-                        className="h-10 text-sm"
-                        defaultValue={state?.email || ""}
-                        required
-                    />
-                </div>
-
-                {/* Password */}
-                <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                        Kata Sandi
-                    </label>
-                    <div className="relative">
-                        <Input
-                            name="password"
-                            type={showPassword ? "text" : "password"}
-                            placeholder="Masukkan kata sandi"
-                            className="h-10 text-sm pr-10"
-                            required
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                        >
-                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                    </div>
-                </div>
-
-                {/* Remember Me & Forgot Password */}
-                <div className="flex items-center justify-between">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                            name="remember"
-                            type="checkbox"
-                            className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
-                        />
-                        <span className="text-xs text-gray-600">Tetap Masuk</span>
-                    </label>
-                    <Link prefetch={false}  href="/lupa-password" className="text-xs text-red-600 hover:underline">
-                        Lupa Kata Sandi?
-                    </Link>
-                </div>
-
-                {/* Submit Button */}
-                <Button
-                    type="submit"
-                    disabled={isPending}
-                    className="w-full h-10 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg disabled:opacity-70"
+            {/* TABS */}
+            <div className="flex border-b border-gray-200 mb-5">
+                <button
+                    type="button"
+                    onClick={() => setTab("email")}
+                    className={`flex-1 py-2 text-sm font-semibold text-center border-b-2 transition-colors ${
+                        tab === "email" ? "border-red-600 text-red-600" : "border-transparent text-gray-500 hover:text-gray-700"
+                    }`}
                 >
-                    {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Masuk"}
-                </Button>
+                    Email
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setTab("phone")}
+                    className={`flex-1 py-2 text-sm font-semibold text-center border-b-2 transition-colors ${
+                        tab === "phone" ? "border-red-600 text-red-600" : "border-transparent text-gray-500 hover:text-gray-700"
+                    }`}
+                >
+                    Nomor HP
+                </button>
+            </div>
 
-                {/* Register Link */}
-                <p className="text-center text-xs text-gray-600">
-                    Belum punya akun?{" "}
-                    <Link prefetch={false}  href="/daftar" className="text-red-600 font-semibold hover:underline">
-                        Daftar Sekarang
-                    </Link>
-                </p>
-            </form>
+            <div className="min-h-[220px]">
+                {tab === "email" ? (
+                    <EmailLoginForm 
+                        state={state} 
+                        formAction={formAction} 
+                        isPending={isPending} 
+                        showPassword={showPassword} 
+                        setShowPassword={setShowPassword} 
+                    />
+                ) : (
+                    <PhoneLoginForm />
+                )}
+            </div>
+
+            <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-200"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                    <span className="px-2 bg-white text-gray-500 text-xs">Atau masuk dengan</span>
+                </div>
+            </div>
+
+            <GoogleLoginButton />
+
+            {/* Register Link */}
+            <p className="text-center text-xs text-gray-600 mt-6">
+                Belum punya akun?{" "}
+                <Link prefetch={false}  href="/daftar" className="text-red-600 font-semibold hover:underline">
+                    Daftar Sekarang
+                </Link>
+            </p>
         </div>
     );
 }

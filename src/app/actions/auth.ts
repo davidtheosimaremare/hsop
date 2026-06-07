@@ -267,3 +267,194 @@ export async function getCurrentUserWithCustomer() {
         return null;
     }
 }
+
+// --- NEW AUTH METHODS (Google & Phone) ---
+import { OAuth2Client } from "google-auth-library";
+
+const googleClient = new OAuth2Client(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
+
+export async function requestPhoneOtpAction(prevState: any, formData: FormData) {
+    const rawPhone = formData.get("phone") as string;
+    if (!rawPhone) return { error: "Nomor HP wajib diisi." };
+
+    let phone = rawPhone.replace(/\D/g, "");
+    if (phone.startsWith("0")) phone = "62" + phone.slice(1);
+
+    try {
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+        // Check if user exists
+        let user = await db.user.findFirst({
+            where: { phone }
+        });
+
+        if (!user) {
+            // Create temporary incomplete user
+            const dummyEmail = `phone_${phone}_${Date.now()}@hokiindo.local`;
+            const randomPassword = await hash(Math.random().toString(36), 12);
+            
+            user = await db.user.create({
+                data: {
+                    email: dummyEmail,
+                    password: randomPassword,
+                    phone: phone,
+                    role: "CUSTOMER",
+                    isActive: true,
+                    isVerified: false,
+                    otp,
+                    otpExpiresAt
+                }
+            });
+        } else {
+            await db.user.update({
+                where: { id: user.id },
+                data: { otp, otpExpiresAt }
+            });
+        }
+
+        const sent = await sendFonteeOTP(phone, otp);
+        if (sent) {
+            return { success: true, phone, message: "OTP telah dikirim ke WhatsApp Anda." };
+        } else {
+            return { error: "Gagal mengirim OTP ke WhatsApp. Coba lagi nanti." };
+        }
+    } catch (error) {
+        console.error("requestPhoneOtp error:", error);
+        return { error: "Terjadi kesalahan sistem." };
+    }
+}
+
+export async function verifyPhoneOtpAction(prevState: any, formData: FormData) {
+    const phone = formData.get("phone") as string;
+    const otp = formData.get("otp") as string;
+
+    if (!phone || !otp) return { error: "Nomor HP dan OTP wajib diisi." };
+
+    try {
+        const user = await db.user.findFirst({
+            where: { phone },
+            include: { customer: true }
+        });
+
+        if (!user || user.otp !== otp || !user.otpExpiresAt || user.otpExpiresAt < new Date()) {
+            return { error: "OTP salah atau sudah kedaluwarsa." };
+        }
+
+        // Activate user
+        await db.user.update({
+            where: { id: user.id },
+            data: { 
+                isVerified: true,
+                otp: null,
+                otpExpiresAt: null
+            }
+        });
+
+        // Set Session
+        const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days default
+        const sessionData = {
+            user: {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                role: user.role,
+                customerId: user.customerId
+            },
+            expires
+        };
+
+        const session = await encrypt(sessionData);
+        const cookieStore = await cookies();
+        cookieStore.set("session", session, { 
+            expires, 
+            httpOnly: true, 
+            path: "/",
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax"
+        });
+
+        // Redirect to profile completion if no customerId
+        if (!user.customerId || !user.customer?.name || !user.customer?.phone) {
+            return { success: true, redirectUrl: "/lengkapi-profil" };
+        }
+
+        return { success: true, redirectUrl: "/" };
+    } catch (error) {
+        console.error("verifyPhoneOtp error:", error);
+        return { error: "Terjadi kesalahan sistem saat memverifikasi." };
+    }
+}
+
+export async function googleLoginAction(token: string) {
+    if (!token) return { error: "Token tidak valid." };
+
+    try {
+        const ticket = await googleClient.verifyIdToken({
+            idToken: token,
+            audience: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+        });
+        
+        const payload = ticket.getPayload();
+        if (!payload || !payload.email) {
+            return { error: "Data Google tidak lengkap." };
+        }
+
+        const { email, name, picture } = payload;
+
+        let user = await db.user.findUnique({
+            where: { email },
+            include: { customer: true }
+        });
+
+        if (!user) {
+            // Create new incomplete user
+            const randomPassword = await hash(Math.random().toString(36), 12);
+            user = await db.user.create({
+                data: {
+                    email,
+                    name: name || "",
+                    password: randomPassword,
+                    role: "CUSTOMER",
+                    isActive: true,
+                    isVerified: true, // Google emails are already verified
+                },
+                include: { customer: true }
+            });
+        }
+
+        // Set Session
+        const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); 
+        const sessionData = {
+            user: {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                role: user.role,
+                customerId: user.customerId
+            },
+            expires
+        };
+
+        const session = await encrypt(sessionData);
+        const cookieStore = await cookies();
+        cookieStore.set("session", session, { 
+            expires, 
+            httpOnly: true, 
+            path: "/",
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax"
+        });
+
+        // Redirect to profile completion if incomplete
+        if (!user.customerId || !user.customer?.name || !user.customer?.phone) {
+            return { success: true, redirectUrl: "/lengkapi-profil" };
+        }
+
+        return { success: true, redirectUrl: "/" };
+    } catch (error) {
+        console.error("googleLogin error:", error);
+        return { error: "Autentikasi Google gagal. Cek konfigurasi Client ID." };
+    }
+}
+
