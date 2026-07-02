@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { fetchAllCustomers, createAccurateCustomer } from "@/lib/accurate";
+import { searchAccurateCustomers, fetchAllCustomers, createAccurateCustomer } from "@/lib/accurate";
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { hash } from "bcryptjs";
@@ -524,5 +524,67 @@ export async function deleteCustomerAction(id: string) {
     } catch (error) {
         console.error("Delete Customer Error:", error);
         return { success: false, error: "Gagal menghapus customer: " + (error as Error).message };
+    }
+}
+
+
+export async function searchCustomersForSales(query: string) {
+    if (!query || query.trim().length < 2) return [];
+    
+    try {
+        // Run both searches in parallel
+        const [localData, accurateData] = await Promise.all([
+            db.customer.findMany({
+                where: {
+                    OR: [
+                        { company: { contains: query, mode: "insensitive" } },
+                        { name: { contains: query, mode: "insensitive" } },
+                        { accurateCustomerCode: { contains: query, mode: "insensitive" } }
+                    ]
+                },
+                select: {
+                    id: true,
+                    accurateId: true,
+                    name: true,
+                    company: true,
+                    accurateCustomerCode: true,
+                    address: true,
+                    phone: true,
+                    email: true
+                },
+                take: 15
+            }).catch(() => []),
+            searchAccurateCustomers(query).catch(() => [])
+        ]);
+
+        // Map accurate data
+        const mappedAccurate = accurateData.map(c => ({
+            id: c.id.toString(),
+            accurateId: c.id.toString(),
+            name: c.name,
+            company: c.name,
+            accurateCustomerCode: c.no,
+            accurateNo: c.no, // For compatibility
+            address: c.billAddress || c.address || "",
+            phone: c.contactInfo?.mobile || c.contactInfo?.workPhone || "",
+            email: c.contactInfo?.email || ""
+        }));
+
+        // Merge and deduplicate by accurateCustomerCode
+        const merged = [...localData];
+        for (const ac of mappedAccurate) {
+            if (!merged.find(m => m.accurateCustomerCode === ac.accurateCustomerCode)) {
+                merged.push({
+                    ...ac,
+                    accurateNo: ac.accurateCustomerCode // ensure compatibility
+                });
+            }
+        }
+
+        // Return top 15
+        return merged.slice(0, 15);
+    } catch (err) {
+        console.error("Accurate customer search error:", err);
+        return [];
     }
 }
