@@ -605,6 +605,7 @@ export async function createAccurateHSQ(quotation: any) {
                     quantity: item.quantity,
                     itemDiscPercent: item.discountStr || itemDiscPercent,
                     detailName: item.productName,
+                    detailNotes: item.detailNotes,
                     tax1Name: "PPN" // Automatically apply PPN
                 };
             }) || []

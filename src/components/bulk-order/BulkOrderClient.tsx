@@ -660,7 +660,8 @@ export default function BulkOrderClient() {
                         price: Math.round(discountedPrice),
                         basePrice: Math.round(discountedPrice),
                         quantity: i.qty,
-                        isAvailable: i.stockStatus !== 'INDENT',
+                        isAvailable: true, // Send all items
+                        detailNotes: i.stockStatus === 'READY' ? 'STOCK' : 'NO STOCK',
                         discountStr: undefined
                     };
                 }
@@ -679,7 +680,8 @@ export default function BulkOrderClient() {
                     price: discountedPrice,
                     basePrice: userRole === 'SALES' ? Math.ceil(i.price / 1000) * 1000 : i.finalPrice,
                     quantity: i.qty,
-                    isAvailable: i.stockStatus !== 'INDENT',
+                    isAvailable: true, // Send all items
+                    detailNotes: i.stockStatus === 'READY' ? 'STOCK' : 'NO STOCK',
                     discountStr: itemDiscStr
                 };
             }), customerInfo, 0, notes);
