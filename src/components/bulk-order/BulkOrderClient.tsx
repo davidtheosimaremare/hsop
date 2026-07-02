@@ -1,10 +1,12 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Search, Download, Trash2, ShoppingCart, Plus, Minus, AlertCircle, FileSpreadsheet, X, FileDown, RotateCcw, GripVertical } from "lucide-react";
+import { Search, ShoppingCart, Trash2, CheckCircle2, ChevronRight, FileSpreadsheet, X, UploadCloud, Download, GripVertical, Plus, Minus, RotateCcw, Edit2, RotateCw, AlertCircle, FileDown } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useCart } from "@/lib/useCart";
-import { searchProductBySku, searchProductsBySkus, searchBulkProducts, getBulkOrderCategories, BulkOrderProduct } from "@/app/actions/bulk-order";
+import { searchCustomersForSales } from "@/app/actions/customer";
+import { searchProductBySku, searchProductsBySkus, searchBulkProducts, getBulkOrderCategories, BulkOrderProduct, createSalesQuotationAccurate, getNextQuotationNumber } from "@/app/actions/bulk-order";
+import { getProductSpecFilters } from "@/app/actions/product-public";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
@@ -43,6 +45,8 @@ interface BulkItem extends BulkOrderProduct {
     customId: string;
     isCustom?: boolean;
     isNotFound?: boolean;
+    salesDiscount1?: number;
+    salesDiscount2?: number;
 }
 
 export default function BulkOrderClient() {
@@ -68,6 +72,11 @@ export default function BulkOrderClient() {
 
 
     // Custom Product Modal State
+    const [notes, setNotes] = useState("Status STOCK tidak mengikat\nStatus NO STOCK indent 14-16 weeks\nPrice Loco Jabodetabek\nValidity for a month");
+    const [customerQuery, setCustomerQuery] = useState("");
+    const [customerSearchResults, setCustomerSearchResults] = useState<any[]>([]);
+    const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
+    const [isSearchingCustomer, setIsSearchingCustomer] = useState(false);
     const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
     const [customProduct, setCustomProduct] = useState({
         sku: "",
@@ -76,13 +85,63 @@ export default function BulkOrderClient() {
         qty: 1
     });
 
+    // Replace Product Modal State
+    const [replaceState, setReplaceState] = useState<{isOpen: boolean, customId: string | null}>({isOpen: false, customId: null});
+    const [replaceInput, setReplaceInput] = useState("");
+    const [replaceCategory, setReplaceCategory] = useState("all");
+    const [replaceStock, setReplaceStock] = useState<"all" | "ready">("all");
+    const [replacePole, setReplacePole] = useState("");
+    const [replaceAmpere, setReplaceAmpere] = useState("");
+    const [replaceKa, setReplaceKa] = useState("");
+    const [categories, setCategories] = useState<string[]>([]);
+    const [availableSpecs, setAvailableSpecs] = useState<{ poles: string[]; amperes: string[]; breakingCapacities: string[]; }>({ poles: [], amperes: [], breakingCapacities: [] });
+    const [replaceSuggestions, setReplaceSuggestions] = useState<BulkOrderProduct[]>([]);
+    const [isSearchingReplace, setIsSearchingReplace] = useState(false);
+    const replaceDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
     const fileInputRef = useRef<HTMLInputElement>(null);
     const searchContainerRef = useRef<HTMLDivElement>(null);
     const debounceRef = useRef<NodeJS.Timeout | null>(null);
     const { addItem } = useCart();
     const router = useRouter();
-    const { getPriceInfo, isLoggedIn, customerDiscount, categoryMappings, discountRules } = usePricing();
+    const { getPriceInfo, isLoggedIn, customerDiscount, categoryMappings, discountRules, userRole } = usePricing();
 
+    const [isCreatingAccurateSq, setIsCreatingAccurateSq] = useState(false);
+    const [nextHsqNo, setNextHsqNo] = useState<string>("");
+    const [isSyncingHsq, setIsSyncingHsq] = useState(false);
+
+    const fetchNextHsq = async () => {
+        setIsSyncingHsq(true);
+        try {
+            const num = await getNextQuotationNumber();
+            setNextHsqNo(num);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsSyncingHsq(false);
+        }
+    };
+
+    useEffect(() => {
+        if (userRole === 'SALES') {
+            fetchNextHsq();
+        }
+    }, [userRole]);
+
+    const updateItemDiscount = (id: string, field: 'd1' | 'd2', value: number) => {
+        setItems(prev => prev.map(item => {
+            if (item.customId === id) {
+                return { 
+                    ...item, 
+                    salesDiscount1: field === 'd1' ? value : item.salesDiscount1,
+                    salesDiscount2: field === 'd2' ? value : item.salesDiscount2
+                };
+            }
+            return item;
+        }));
+    };
+    
+    
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
@@ -106,9 +165,28 @@ export default function BulkOrderClient() {
         }
     };
 
+    // Customer search useEffect - calls server action
+    useEffect(() => {
+        if (!customerQuery || customerQuery.trim().length < 2) {
+            setCustomerSearchResults([]);
+            return;
+        }
+        const timer = setTimeout(async () => {
+            setIsSearchingCustomer(true);
+            try {
+                const data = await searchCustomersForSales(customerQuery);
+                setCustomerSearchResults(Array.isArray(data) ? data : []);
+            } catch (e) {
+                console.error("Customer search error:", e);
+                setCustomerSearchResults([]);
+            } finally {
+                setIsSearchingCustomer(false);
+            }
+        }, 350);
+        return () => clearTimeout(timer);
+    }, [customerQuery]);
 
-
-    // Recalculate prices of all items when pricing context is loaded or changed
+    
     useEffect(() => {
         if (items.length === 0) return;
         
@@ -206,6 +284,53 @@ export default function BulkOrderClient() {
         await addProductBySku(skuInput);
     };
 
+    // Fetch categories on mount
+    useEffect(() => {
+        getBulkOrderCategories().then(setCategories).catch(console.error);
+    }, []);
+
+    // Debounced search for replace modal
+    useEffect(() => {
+        if (replaceDebounceRef.current) clearTimeout(replaceDebounceRef.current);
+
+        const hasMinQuery = replaceInput.trim().length >= 2 || replaceCategory !== 'all' || replacePole !== '' || replaceAmpere !== '' || replaceKa !== '';
+
+        if (hasMinQuery) {
+            setIsSearchingReplace(true);
+            replaceDebounceRef.current = setTimeout(async () => {
+                try {
+                    const [results, specs] = await Promise.all([
+                        searchBulkProducts({
+                            query: replaceInput,
+                            category: replaceCategory,
+                            stockFilter: replaceStock,
+                            pole: replacePole || undefined,
+                            ampere: replaceAmpere || undefined,
+                            breakingCapacity: replaceKa || undefined
+                        }),
+                        getProductSpecFilters({
+                            query: replaceInput,
+                            category: replaceCategory,
+                        })
+                    ]);
+                    setReplaceSuggestions(results);
+                    setAvailableSpecs(specs);
+                } catch (error) {
+                    console.error("Replace suggestion error:", error);
+                } finally {
+                    setIsSearchingReplace(false);
+                }
+            }, 300);
+        } else {
+            setReplaceSuggestions([]);
+            setAvailableSpecs({ poles: [], amperes: [], breakingCapacities: [] });
+        }
+
+        return () => {
+            if (replaceDebounceRef.current) clearTimeout(replaceDebounceRef.current);
+        };
+    }, [replaceInput, replaceCategory, replacePole, replaceAmpere, replaceKa, replaceStock]);
+
     const handleSuggestionClick = (suggestion: BulkOrderProduct) => {
         setShowSuggestions(false);
         setSkuInput("");
@@ -263,7 +388,6 @@ export default function BulkOrderClient() {
 
     const addItemToList = (product: BulkOrderProduct, qty: number, isCustom: boolean = false, isNotFound: boolean = false) => {
         const stock = Number(product.availableToSell || 0);
-        console.log(`Adding product ${product.sku}: Qty ${qty}, Stock ${stock}`);
 
         // Ready Price (Stock > 0)
         const readyPriceInfo = getPriceInfo(product.price, product.category, 100);
@@ -271,8 +395,6 @@ export default function BulkOrderClient() {
         const indentPriceInfo = getPriceInfo(product.price, product.category, 0);
 
         setItems(prev => {
-            // Use immutable map to avoid mutating original state objects
-            // (React Strict Mode double-invokes updater functions, direct mutation causes double-counting)
             const newItems = prev.map(item => ({ ...item }));
             const itemsToAdd: BulkItem[] = [];
 
@@ -289,11 +411,12 @@ export default function BulkOrderClient() {
                 isCustomerDiscount: pInfo.isCustomerDiscount,
                 stockStatus: type,
                 customId: `${product.id}-${type}`,
-                isCustom
+                isCustom,
+                salesDiscount1: userRole === 'SALES' ? 30 : undefined,
+                salesDiscount2: userRole === 'SALES' ? 37 : undefined
             });
 
             if (isCustom) {
-                // Custom products are always "Indent" as they aren't in DB
                 const customId = isNotFound ? `not-found-${product.sku}` : `custom-${product.sku}`;
                 const existingIdx = newItems.findIndex(p => p.customId === customId);
                 if (existingIdx > -1) {
@@ -302,18 +425,19 @@ export default function BulkOrderClient() {
                     itemsToAdd.push({
                         ...product,
                         qty,
-                        finalPrice: Math.ceil((product.price * 1.11) / 1000) * 1000, // Manual price + PPN for custom, rounded up to nearest thousand
+                        finalPrice: Math.ceil((product.price * 1.11) / 1000) * 1000,
                         hasDiscount: false,
                         stockStatus: 'INDENT',
                         customId,
                         isCustom: true,
-                        isNotFound
+                        isNotFound,
+                        salesDiscount1: userRole === 'SALES' ? 30 : undefined,
+                        salesDiscount2: userRole === 'SALES' ? 37 : undefined
                     });
                 }
             } else {
                 let remainingQty = qty;
 
-                // 1. Fill Ready Stock first
                 if (stock > 0) {
                     const existingReadyIdx = newItems.findIndex(p => p.customId === `${product.id}-READY`);
                     const currentListReadyQty = existingReadyIdx > -1 ? newItems[existingReadyIdx].qty : 0;
@@ -330,7 +454,6 @@ export default function BulkOrderClient() {
                     }
                 }
 
-                // 2. Excess goes to Indent
                 if (remainingQty > 0) {
                     const existingIndentIdx = newItems.findIndex(p => p.customId === `${product.id}-INDENT`);
                     if (existingIndentIdx > -1) {
@@ -345,12 +468,37 @@ export default function BulkOrderClient() {
         });
     };
 
+    const handleReplaceSuggestionClick = (suggestion: BulkOrderProduct) => {
+        if (!replaceState.customId) return;
+        
+        // Find the old item to keep its quantity
+        const oldItem = items.find(i => i.customId === replaceState.customId);
+        const qtyToKeep = oldItem ? oldItem.qty : 1;
+
+        // Remove the old item
+        removeItem(replaceState.customId);
+
+        // Add the new item
+        addItemToList(suggestion, qtyToKeep);
+
+        // Close and reset
+        setReplaceState({ isOpen: false, customId: null });
+        setReplaceInput("");
+        setReplaceSuggestions([]);
+    };
+
+    const removeItem = (id: string) => {
+        setItems(prev => prev.filter(item => item.customId !== id));
+    };
+
+    const clearAll = () => {
+        setItems([]);
+    };
 
     const handleProcessPaste = async () => {
         if (!pasteContent.trim()) return;
         setIsProcessingPaste(true);
         
-        // Split by newlines or commas, filter empty lines
         const rawLines = pasteContent.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
         if (rawLines.length === 0) {
             setIsProcessingPaste(false);
@@ -359,8 +507,6 @@ export default function BulkOrderClient() {
         
         const skuMap = new Map<string, { qty: number, originalSku: string }>();
         rawLines.forEach(line => {
-            // Support format: "SKU QTY" (e.g. "5SU1336-6FP16 2")
-            // The last token is QTY if it's a number, otherwise default to 1
             const parts = line.trim().split(/\s+/);
             let skuRaw: string;
             let qty: number;
@@ -386,7 +532,6 @@ export default function BulkOrderClient() {
         try {
             const products = await searchProductsBySkus(uniqueSkus);
             
-            // Add products in the exact order of their first appearance
             uniqueSkus.forEach(sku => {
                 const mapData = skuMap.get(sku)!;
                 const product = products.find(p => p.sku.toLowerCase() === sku);
@@ -416,6 +561,61 @@ export default function BulkOrderClient() {
             alert("Terjadi kesalahan saat memproses SKU.");
         } finally {
             setIsProcessingPaste(false);
+        }
+    };
+
+    const handleCreateAccurateSq = async () => {
+        if (items.length === 0) return;
+        setIsCreatingAccurateSq(true);
+        try {
+            if (!selectedCustomer) {
+                alert("Silakan pilih Pelanggan terlebih dahulu sebelum membuat Penawaran Accurate.");
+                setIsCreatingAccurateSq(false);
+                return;
+            }
+
+            const customerInfo = {
+                name: selectedCustomer.company || selectedCustomer.name,
+                address: selectedCustomer.address || '',
+                customer: selectedCustomer
+            };
+            
+            const res = await createSalesQuotationAccurate(items.map(i => {
+                const basePrice = userRole === 'SALES' ? Math.ceil(i.price / 1000) * 1000 : i.finalPrice;
+                const d1 = i.salesDiscount1 || 0;
+                const d2 = i.salesDiscount2 || 0;
+                const combinedDiscount = 1 - (1 - d1 / 100) * (1 - d2 / 100);
+                const discountedPrice = basePrice - (basePrice * combinedDiscount);
+                
+                let itemDiscStr = undefined;
+                if (d1 > 0 && d2 > 0) {
+                     itemDiscStr = `${d1}+${d2}`;
+                } else if (d1 > 0) {
+                     itemDiscStr = `${d1}`;
+                } else if (d2 > 0) {
+                     itemDiscStr = `${d2}`;
+                }
+                return {
+                    productSku: i.sku,
+                    productName: i.name,
+                    price: discountedPrice,
+                    basePrice: userRole === 'SALES' ? Math.ceil(i.price / 1000) * 1000 : i.finalPrice,
+                    quantity: i.qty,
+                    isAvailable: i.stockStatus !== 'INDENT',
+                    discountStr: itemDiscStr
+                };
+            }), customerInfo, 0, notes);
+
+            if (res.success) {
+                alert(`Berhasil membuat Penawaran di Accurate: ${res.quotationNo}`);
+            } else {
+                alert(`Terjadi kesalahan: ${res.message}`);
+            }
+        } catch (error: any) {
+            alert(error.message || "Gagal membuat penawaran.");
+        } finally {
+            setIsCreatingAccurateSq(false);
+            fetchNextHsq();
         }
     };
 
@@ -558,7 +758,6 @@ export default function BulkOrderClient() {
             "Subtotal (Rp)": item.finalPrice * item.qty,
         }));
 
-        // Append total row
         rows.push({
             "Nama Produk": "",
             "SKU": "",
@@ -584,7 +783,6 @@ export default function BulkOrderClient() {
         XLSX.writeFile(wb, `bulk-order-hasil-${new Date().toISOString().slice(0, 10)}.xlsx`);
     };
 
-    // Link Ready and Indent rows for the same product
     const updateQty = (id: string, delta: number) => {
         setItems(prev => {
             const item = prev.find(i => i.customId === id);
@@ -594,7 +792,6 @@ export default function BulkOrderClient() {
                 return prev.map(i => i.customId === id ? { ...i, qty: Math.max(1, i.qty + delta) } : i);
             }
 
-            // Find all rows for this specific product (Ready & Indent)
             const baseId = item.id;
             const relatedItems = prev.filter(i => i.id === baseId && !i.isCustom);
             const currentTotalQty = relatedItems.reduce((sum, i) => sum + i.qty, 0);
@@ -606,10 +803,8 @@ export default function BulkOrderClient() {
             const newReadyQty = Math.min(newTotalQty, stock);
             const newIndentQty = newTotalQty - newReadyQty;
 
-            // Update existing rows and potentially remove/add
             let newItems = [...prev];
 
-            // 1. Update/Remove Ready Row
             const readyId = `${baseId}-READY`;
             const readyIdx = newItems.findIndex(i => i.customId === readyId);
             if (newReadyQty > 0) {
@@ -634,7 +829,6 @@ export default function BulkOrderClient() {
                 newItems.splice(readyIdx, 1);
             }
 
-            // 2. Update/Remove Indent Row
             const indentId = `${baseId}-INDENT`;
             const indentIdx = newItems.findIndex(i => i.customId === indentId);
             if (newIndentQty > 0) {
@@ -661,14 +855,6 @@ export default function BulkOrderClient() {
 
             return newItems;
         });
-    };
-
-    const removeItem = (id: string) => {
-        setItems(prev => prev.filter(item => item.customId !== id));
-    };
-
-    const clearAll = () => {
-        setItems([]);
     };
 
     const downloadPDF = async () => {
@@ -735,14 +921,19 @@ export default function BulkOrderClient() {
         router.push("/keranjang");
     };
 
-    const totalAmount = items.reduce((sum, item) => sum + (item.finalPrice * item.qty), 0);
+    let totalAmount = items.reduce((sum, item) => {
+        const basePrice = userRole === 'SALES' ? Math.ceil(item.price / 1000) * 1000 : item.finalPrice;
+        const d1 = item.salesDiscount1 || 0;
+        const d2 = item.salesDiscount2 || 0;
+        const combined = 1 - (1 - d1/100) * (1 - d2/100);
+        const discountedPrice = basePrice - (basePrice * combined);
+        return sum + (discountedPrice * item.qty);
+    }, 0);
     const totalQty = items.reduce((sum, item) => sum + item.qty, 0);
 
     return (
         <div className="flex flex-col lg:flex-row gap-6 items-start">
-            {/* Left Column: Search & Product List */}
             <div className="flex-1 space-y-4 w-full min-w-0">
-                {/* Info Banner */}
                 <div className="bg-blue-50/50 border border-blue-100/50 rounded-lg py-2 px-3 flex items-center gap-2 text-xs text-blue-800">
                     <AlertCircle className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
                     <p>
@@ -750,9 +941,66 @@ export default function BulkOrderClient() {
                         Cari produk satu per satu, copy-paste list SKU, atau unggah Excel di panel samping. Produk dengan stok terbatas otomatis dipisah (Ready/Indent).
                     </p>
                 </div>
-
-                {/* SKU Search */}
-                                <div className="bg-white rounded-xl border border-gray-200 p-3.5 shadow-sm relative" ref={searchContainerRef}>
+                
+                {userRole === 'SALES' && (
+                    <div className="mb-3 relative">
+                        <Label className="text-[10px] text-red-500 font-bold mb-1 block">Pelanggan (Wajib diisi)</Label>
+                        {selectedCustomer ? (
+                            <div className="flex items-center justify-between p-2 bg-gray-50 border border-gray-200 rounded text-xs">
+                                <div>
+                                    <p className="font-semibold">{selectedCustomer.company || selectedCustomer.name}</p>
+                                    <p className="text-gray-500 text-[10px]">{selectedCustomer.accurateCustomerCode || selectedCustomer.phone}</p>
+                                </div>
+                                <button onClick={() => setSelectedCustomer(null)} className="text-gray-400 hover:text-red-500"><X className="w-4 h-4" /></button>
+                            </div>
+                        ) : (
+                            <div className="relative">
+                                <Input
+                                    placeholder="Cari nama / kode pelanggan..."
+                                    value={customerQuery}
+                                    onChange={(e) => setCustomerQuery(e.target.value)}
+                                    className="h-8 text-xs bg-white"
+                                />
+                                {customerQuery.trim().length >= 2 && (
+                                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                                        {isSearchingCustomer ? (
+                                            <div className="p-2 text-center text-xs text-gray-400">Mencari...</div>
+                                        ) : customerSearchResults.length > 0 ? (
+                                            customerSearchResults.map(c => (
+                                                <div
+                                                    key={c.id}
+                                                    onClick={() => {
+                                                        setSelectedCustomer(c);
+                                                        setCustomerQuery("");
+                                                        setCustomerSearchResults([]);
+                                                    }}
+                                                    className="p-2 hover:bg-gray-50 cursor-pointer text-xs border-b border-gray-100 last:border-0"
+                                                >
+                                                    <p className="font-bold">{c.company || c.name}</p>
+                                                    <p className="text-[10px] text-gray-500">{c.accurateCustomerCode} - {c.name}</p>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="p-2 text-center text-xs text-gray-400">Tidak ditemukan</div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        
+                        <div className="mt-4">
+                            <Label className="text-[10px] text-gray-700 font-bold mb-1 block">Keterangan / Notes (Opsional)</Label>
+                            <textarea
+                                className="w-full text-xs p-2 border border-gray-200 rounded min-h-[80px]"
+                                value={notes}
+                                onChange={(e) => setNotes(e.target.value)}
+                                placeholder="Keterangan penawaran..."
+                            />
+                        </div>
+                    </div>
+                )}
+                
+                <div className="bg-white rounded-xl border border-gray-200 p-3.5 shadow-sm relative" ref={searchContainerRef}>
                     <div className="flex items-center p-1 bg-gray-100/80 rounded-lg w-fit mb-3">
                         <button 
                             className={`text-xs font-semibold px-4 py-1.5 rounded-md transition-all ${activeTab === 'search' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
@@ -818,7 +1066,6 @@ export default function BulkOrderClient() {
                         </div>
                     )}
 
-                    {/* Suggestions Dropdown */}
                     {activeTab === 'search' && showSuggestions && (suggestions.length > 0 || isSearchingSuggestions) && (
                         <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 z-50 max-h-80 overflow-y-auto overflow-x-hidden">
                             {isSearchingSuggestions && (
@@ -854,12 +1101,14 @@ export default function BulkOrderClient() {
                                                 </span>
                                             </div>
                                             <div className="flex items-center gap-2 mt-1">
-                                                {priceInfo.hasDiscount && priceInfo.isCustomerDiscount && (
+                                                {userRole !== 'SALES' && priceInfo.hasDiscount && priceInfo.isCustomerDiscount && (
                                                     <span className="text-xs text-gray-400 line-through leading-tight">
                                                         Rp {priceInfo.originalPriceWithPPN.toLocaleString("id-ID")}
                                                     </span>
                                                 )}
-                                                <p className="text-xs font-bold text-red-600">Rp {priceInfo.discountedPriceWithPPN.toLocaleString("id-ID")}</p>
+                                                <p className="text-xs font-bold text-red-600">
+                                                    Rp {(userRole === 'SALES' ? (Math.ceil(suggestion.price / 1000) * 1000) : priceInfo.discountedPriceWithPPN).toLocaleString("id-ID")}
+                                                </p>
                                             </div>
                                         </div>
                                         <div className="w-7 h-7 rounded-full bg-red-50 text-red-600 flex items-center justify-center flex-shrink-0 group-hover:bg-red-600 group-hover:text-white transition-colors">
@@ -872,7 +1121,6 @@ export default function BulkOrderClient() {
                     )}
                 </div>
 
-                {/* Product Table */}
                 {items.length > 0 ? (
                     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
                         <div className="overflow-x-auto">
@@ -888,11 +1136,17 @@ export default function BulkOrderClient() {
                                     <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
                                         <colgroup>
                                             <col style={{ width: '4%' }} />
-                                            <col style={{ width: '32%' }} />
-                                            <col style={{ width: '16%' }} />
-                                            <col style={{ width: '12%' }} />
+                                            <col style={{ width: userRole === 'SALES' ? '24%' : '32%' }} />
                                             <col style={{ width: '14%' }} />
-                                            <col style={{ width: '16%' }} />
+                                            <col style={{ width: '12%' }} />
+                                            <col style={{ width: '12%' }} />
+                                            {userRole === 'SALES' && (
+                                                <>
+                                                    <col style={{ width: '10%' }} />
+                                                    <col style={{ width: '10%' }} />
+                                                </>
+                                            )}
+                                            <col style={{ width: '14%' }} />
                                             <col style={{ width: '6%' }} />
                                         </colgroup>
                                         <thead>
@@ -902,6 +1156,12 @@ export default function BulkOrderClient() {
                                                 <th className="px-3 py-2 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wide">Harga Satuan</th>
                                                 <th className="px-3 py-2 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wide">Status</th>
                                                 <th className="px-3 py-2 text-center text-[11px] font-bold text-gray-500 uppercase tracking-wide">Qty</th>
+                                                {userRole === 'SALES' && (
+                                                    <>
+                                                        <th className="px-2 py-2 text-center text-[11px] font-bold text-gray-500 uppercase tracking-wide">Diskon 1</th>
+                                                        <th className="px-2 py-2 text-center text-[11px] font-bold text-gray-500 uppercase tracking-wide">Diskon 2</th>
+                                                    </>
+                                                )}
                                                 <th className="px-3 py-2 text-right text-[11px] font-bold text-gray-500 uppercase tracking-wide">Subtotal</th>
                                                 <th className="px-3 py-2.5"></th>
                                             </tr>
@@ -914,6 +1174,9 @@ export default function BulkOrderClient() {
                                                     updateQty={updateQty}
                                                     removeItem={removeItem}
                                                     isLoggedIn={isLoggedIn}
+                                                    userRole={userRole}
+                                                    updateItemDiscount={updateItemDiscount}
+                                                    onReplaceClick={(id) => setReplaceState({ isOpen: true, customId: id })}
                                                 />
                                             ))}
                                         </tbody>
@@ -933,10 +1196,7 @@ export default function BulkOrderClient() {
                 )}
             </div>
 
-            {/* Right Column: Excel Import & Summary */}
             <div className="w-full lg:w-[260px] flex-shrink-0 flex flex-col gap-4 lg:sticky lg:top-24">
-                
-                {/* Excel Import Panel */}
                 <div
                     onDragOver={onDragOver}
                     onDragLeave={onDragLeave}
@@ -991,7 +1251,6 @@ export default function BulkOrderClient() {
                     )}
                 </div>
 
-                {/* Summary Panel */}
                 <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
                     <h3 className="font-bold text-gray-900 mb-3 text-sm">Ringkasan Pesanan</h3>
                     
@@ -1005,13 +1264,38 @@ export default function BulkOrderClient() {
                             <span className="font-semibold text-gray-900 bg-gray-50 border border-gray-100 px-2 py-0.5 rounded text-xs">{totalQty}</span>
                         </div>
                         <div className="pt-3 mt-2 border-t border-gray-100 flex flex-col gap-0.5">
-                            <div className="flex justify-between items-end">
-                                <span className="text-gray-900 font-bold text-sm">Total</span>
-                                <span className="font-black text-red-600 text-base tracking-tight">
-                                    Rp {totalAmount.toLocaleString("id-ID")}
-                                </span>
-                            </div>
-                            <p className="text-[10px] text-gray-400 text-right">* Sudah termasuk PPN 11%</p>
+                            {userRole === 'SALES' ? (
+                                <>
+                                    <div className="flex justify-between items-end mb-1">
+                                        <span className="text-gray-900 font-bold text-sm">Subtotal</span>
+                                        <span className="font-bold text-gray-900 text-sm tracking-tight">
+                                            Rp {totalAmount.toLocaleString("id-ID")}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-end mb-2">
+                                        <span className="text-gray-500 font-bold text-sm">PPN 11%</span>
+                                        <span className="font-bold text-gray-500 text-sm tracking-tight">
+                                            Rp {Math.ceil(totalAmount * 0.11).toLocaleString("id-ID")}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-end pt-2 border-t border-gray-100">
+                                        <span className="text-gray-900 font-bold text-sm">Total Akhir</span>
+                                        <span className="font-black text-red-600 text-base tracking-tight">
+                                            Rp {Math.ceil(totalAmount * 1.11).toLocaleString("id-ID")}
+                                        </span>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="flex justify-between items-end">
+                                        <span className="text-gray-900 font-bold text-sm">Total</span>
+                                        <span className="font-black text-red-600 text-base tracking-tight">
+                                            Rp {totalAmount.toLocaleString("id-ID")}
+                                        </span>
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 text-right">* Sudah termasuk PPN 11%</p>
+                                </>
+                            )}
                         </div>
                     </div>
 
@@ -1046,6 +1330,40 @@ export default function BulkOrderClient() {
                             </button>
                         </div>
 
+                        {userRole === 'SALES' && (
+                            <>
+                                <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-100">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <span className="text-xs font-semibold text-red-800">No. Quotation Berikutnya</span>
+                                        <button 
+                                            onClick={fetchNextHsq} 
+                                            disabled={isSyncingHsq}
+                                            className="text-xs flex items-center gap-1 text-red-600 hover:text-red-700 bg-white px-2 py-1 rounded border border-red-200 shadow-sm"
+                                        >
+                                            <RotateCcw className={`w-3 h-3 ${isSyncingHsq ? 'animate-spin' : ''}`} />
+                                            Sync
+                                        </button>
+                                    </div>
+                                    <div className="font-mono text-sm font-bold text-red-900 bg-white px-2 py-1.5 rounded border border-red-200">
+                                        {nextHsqNo || "Loading..."}
+                                    </div>
+                                    <p className="text-[10px] text-red-600/80 mt-1.5 leading-tight">
+                                        *Nomor di-generate otomatis. Tekan Sync jika ada tim sales lain yang baru membuat penawaran.
+                                    </p>
+                                </div>
+                                <Button
+                                    size="lg"
+                                    variant="outline"
+                                    onClick={handleCreateAccurateSq}
+                                    disabled={items.length === 0 || isCreatingAccurateSq || !selectedCustomer}
+                                    className="w-full gap-2 h-10 rounded-lg shadow-sm font-semibold text-sm transition-all border-red-500 text-red-600 hover:bg-red-50 mt-2"
+                                >
+                                    <ShoppingCart className="w-4 h-4" />
+                                    {isCreatingAccurateSq ? "Memproses..." : "Buat Penawaran Accurate"}
+                                </Button>
+                            </>
+                        )}
+
                         {items.length > 0 && (
                             <button
                                 onClick={clearAll}
@@ -1058,7 +1376,7 @@ export default function BulkOrderClient() {
                     </div>
                 </div>
             </div>
-            {/* Custom Product Modal */}
+
             <Dialog open={isCustomModalOpen} onOpenChange={setIsCustomModalOpen}>
                 <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
@@ -1116,16 +1434,170 @@ export default function BulkOrderClient() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <Dialog open={replaceState.isOpen} onOpenChange={(open) => {
+                setReplaceState(prev => ({ ...prev, isOpen: open }));
+                if (!open) {
+                    setReplaceInput("");
+                    setReplaceCategory("all");
+                    setReplaceStock("all");
+                    setReplacePole("");
+                    setReplaceAmpere("");
+                    setReplaceKa("");
+                    setReplaceSuggestions([]);
+                }
+            }}>
+                <DialogContent className="sm:max-w-[800px] w-full max-h-[90vh] flex flex-col overflow-hidden">
+                    <DialogHeader className="flex flex-row justify-between items-start pr-8">
+                        <div>
+                            <DialogTitle>Ganti Produk</DialogTitle>
+                            <p className="text-sm text-gray-500 mt-1">
+                                Cari produk baru untuk menggantikan item di baris ini.
+                            </p>
+                        </div>
+                        <div className="mt-1">
+                            <button
+                                type="button"
+                                onClick={() => setReplaceStock(prev => prev === "all" ? "ready" : "all")}
+                                className={`text-xs border rounded-md py-1.5 px-3 whitespace-nowrap font-medium transition-colors ${
+                                    replaceStock === "ready" 
+                                    ? "bg-green-50 border-green-200 text-green-700" 
+                                    : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                                }`}
+                            >
+                                {replaceStock === "ready" ? "✓ Ready Stock" : "Ready Stock Only"}
+                            </button>
+                        </div>
+                    </DialogHeader>
+                    <div className="flex-1 overflow-hidden flex flex-col py-2">
+                        {/* FILTER SECTION */}
+                        <div className="flex flex-wrap gap-2 mb-3 flex-shrink-0">
+                            <select
+                                value={replaceCategory}
+                                onChange={(e) => setReplaceCategory(e.target.value)}
+                                className="text-xs border border-gray-200 rounded-md py-1.5 px-2 bg-white"
+                            >
+                                <option value="all">Semua Kategori</option>
+                                {categories.map(c => (
+                                    <option key={c} value={c}>{c}</option>
+                                ))}
+                            </select>
+                            
+                            <select
+                                value={replacePole}
+                                onChange={(e) => setReplacePole(e.target.value)}
+                                className="text-xs border border-gray-200 rounded-md py-1.5 px-2 bg-white"
+                            >
+                                <option value="">Pole (Semua)</option>
+                                {availableSpecs.poles.map(p => (
+                                    <option key={p} value={p}>{p}</option>
+                                ))}
+                            </select>
+
+                            <select
+                                value={replaceAmpere}
+                                onChange={(e) => setReplaceAmpere(e.target.value)}
+                                className="text-xs border border-gray-200 rounded-md py-1.5 px-2 bg-white"
+                            >
+                                <option value="">Ampere (Semua)</option>
+                                {availableSpecs.amperes.map(a => (
+                                    <option key={a} value={a}>{a}</option>
+                                ))}
+                            </select>
+
+                            <select
+                                value={replaceKa}
+                                onChange={(e) => setReplaceKa(e.target.value)}
+                                className="text-xs border border-gray-200 rounded-md py-1.5 px-2 bg-white"
+                            >
+                                <option value="">Breaking Cap (Semua)</option>
+                                {availableSpecs.breakingCapacities.map(k => (
+                                    <option key={k} value={k}>{k}</option>
+                                ))}
+                            </select>
+
+                        </div>
+
+                        <div className="relative mb-4 flex-shrink-0">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <Input
+                                type="text"
+                                placeholder="Ketik SKU atau Nama Produk..."
+                                value={replaceInput}
+                                onChange={(e) => setReplaceInput(e.target.value)}
+                                className="pl-9 bg-gray-50 border-gray-200"
+                                autoFocus
+                            />
+                            {isSearchingReplace && (
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                            )}
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto pr-1">
+                            {replaceSuggestions.length > 0 ? (
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 pb-2">
+                                    {replaceSuggestions.map((prod) => (
+                                        <button
+                                            key={prod.id}
+                                            onClick={() => handleReplaceSuggestionClick(prod)}
+                                            className="flex flex-col text-left bg-white border border-gray-200 rounded-xl hover:border-red-300 hover:shadow-md transition-all overflow-hidden group"
+                                        >
+                                            <div className="w-full aspect-square bg-gray-50 relative border-b border-gray-100">
+                                                {prod.image ? (
+                                                    <Image src={prod.image} alt={prod.name} fill className="object-cover group-hover:scale-105 transition-transform duration-300" />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">No Image</div>
+                                                )}
+                                            </div>
+                                            <div className="p-3 flex flex-col flex-1 w-full">
+                                                <p className="text-xs text-gray-500 mb-1">{prod.sku}</p>
+                                                <p className="text-xs font-medium text-gray-900 line-clamp-2 mb-3 leading-tight flex-1">{prod.name}</p>
+                                                
+                                                <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-50">
+                                                    <p className="text-sm font-bold text-red-600">
+                                                        Rp {prod.price.toLocaleString('id-ID')}
+                                                    </p>
+                                                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${Number(prod.availableToSell || 0) > 0 ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
+                                                        {Number(prod.availableToSell || 0) > 0 ? 'Ready' : 'Indent'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            ) : replaceInput.trim().length >= 2 && !isSearchingReplace ? (
+                                <div className="py-8 text-center text-sm text-gray-500 bg-gray-50 rounded-lg border border-gray-100">
+                                    Tidak ada produk ditemukan untuk "{replaceInput}"
+                                </div>
+                            ) : (
+                                <div className="py-12 flex flex-col items-center justify-center text-gray-400">
+                                    <Search className="w-8 h-8 mb-3 opacity-20" />
+                                    <p className="text-sm">Ketik untuk mulai mencari produk pengganti</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
 
-function SortableRow({ item, updateQty, removeItem, isLoggedIn }: {
+function SortableRow({ item, updateQty, removeItem, isLoggedIn, userRole, updateItemDiscount, onReplaceClick }: {
     item: BulkItem;
     updateQty: (id: string, delta: number) => void;
     removeItem: (id: string) => void;
     isLoggedIn: boolean;
+    userRole: string | null;
+    updateItemDiscount: (id: string, field: 'd1' | 'd2', value: number) => void;
+    onReplaceClick?: (id: string) => void;
 }) {
+    const basePrice = userRole === 'SALES' ? Math.ceil(item.price / 1000) * 1000 : item.finalPrice;
+                const d1 = item.salesDiscount1 || 0;
+                const d2 = item.salesDiscount2 || 0;
+                const combined = 1 - (1 - d1/100) * (1 - d2/100);
+                const discountedPrice = basePrice - (basePrice * combined);
+
     const {
         attributes,
         listeners,
@@ -1172,13 +1644,13 @@ function SortableRow({ item, updateQty, removeItem, isLoggedIn }: {
             </td>
             <td className="px-3 py-2">
                 <div className="flex flex-col">
-                    {isLoggedIn && item.hasDiscount && item.isCustomerDiscount && item.originalPrice && (
+                    {userRole !== 'SALES' && isLoggedIn && item.hasDiscount && item.isCustomerDiscount && item.originalPrice && (
                         <span className="text-xs text-gray-400 line-through leading-tight">
                             Rp {item.originalPrice.toLocaleString("id-ID")}
                         </span>
                     )}
                     <span className="text-sm font-semibold text-red-600 leading-tight">
-                        Rp {item.finalPrice.toLocaleString("id-ID")}
+                        Rp {(userRole === 'SALES' ? Math.ceil(item.price / 1000) * 1000 : item.finalPrice).toLocaleString("id-ID")}
                     </span>
                 </div>
             </td>
@@ -1186,11 +1658,11 @@ function SortableRow({ item, updateQty, removeItem, isLoggedIn }: {
                 <div className="flex flex-col gap-1">
                     {item.stockStatus === 'READY' ? (
                         <>
-                            <span className="inline-flex items-center w-fit text-[11px] font-medium px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">
+                            <span className="inline-flex items-center w-fit whitespace-nowrap text-[11px] font-medium px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">
                                 Ready Stock
                             </span>
                             {!item.isCustom && (
-                                <span className="text-[10px] text-gray-400">Tersedia: {item.availableToSell}</span>
+                                <span className="text-[10px] text-gray-400 mt-0.5">Tersedia: {item.availableToSell}</span>
                             )}
                         </>
                     ) : (
@@ -1226,18 +1698,52 @@ function SortableRow({ item, updateQty, removeItem, isLoggedIn }: {
                     </button>
                 </div>
             </td>
+            {userRole === 'SALES' && (
+                <>
+                    <td className="px-2 py-2">
+                        <Input 
+                            type="number"
+                            className="h-8 text-xs text-center px-1 font-mono"
+                            value={item.salesDiscount1 || ''}
+                            onChange={(e) => updateItemDiscount(item.customId, 'd1', parseFloat(e.target.value) || 0)}
+                            placeholder="%"
+                        />
+                    </td>
+                    <td className="px-2 py-2">
+                        <Input 
+                            type="number"
+                            className="h-8 text-xs text-center px-1 font-mono"
+                            value={item.salesDiscount2 || ''}
+                            onChange={(e) => updateItemDiscount(item.customId, 'd2', parseFloat(e.target.value) || 0)}
+                            placeholder="%"
+                        />
+                    </td>
+                </>
+            )}
             <td className="px-3 py-2 text-right">
                 <span className="text-sm font-bold text-gray-900 tabular-nums">
-                    Rp {(item.finalPrice * item.qty).toLocaleString("id-ID")}
+                    Rp {(discountedPrice * item.qty).toLocaleString("id-ID")}
                 </span>
             </td>
             <td className="px-3 py-2 text-center">
-                <button
-                    onClick={() => removeItem(item.customId)}
-                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                >
-                    <Trash2 className="w-3.5 h-3.5" />
-                </button>
+                <div className="flex items-center justify-center gap-1.5">
+                    {onReplaceClick && (
+                        <button
+                            onClick={() => onReplaceClick(item.customId)}
+                            title="Ganti Produk"
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                        >
+                            <RotateCw className="w-3.5 h-3.5" />
+                        </button>
+                    )}
+                    <button
+                        onClick={() => removeItem(item.customId)}
+                        title="Hapus Produk"
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                        <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                </div>
             </td>
         </tr>
     );

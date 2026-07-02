@@ -583,9 +583,9 @@ export async function createAccurateHSQ(quotation: any) {
             transDate: `${dd}/${mm}/${yyyy}`,
             customerNo: quotation.customer?.accurateNo || quotation.customer?.accurateCustomerCode || quotation.clientName || "C.0001",
             currencyNo: "IDR",
-            taxable: false,
+            taxable: true,
             inclusiveTax: false,
-            description: "",
+            description: quotation.notes || "",
             toAddress: quotation.customer?.address || quotation.shippingAddress || "",
             paymentTermNo: "", 
             paymentTerm: null,
@@ -604,7 +604,8 @@ export async function createAccurateHSQ(quotation: any) {
                     unitPrice: basePrice,
                     quantity: item.quantity,
                     itemDiscPercent: item.discountStr || itemDiscPercent,
-                    detailName: item.productName
+                    detailName: item.productName,
+                    tax1Name: "PPN" // Automatically apply PPN
                 };
             }) || []
         };
@@ -616,11 +617,15 @@ export async function createAccurateHSQ(quotation: any) {
         });
 
         const result = await response.json();
-        if (!result.s) return null;
+        if (!result.s) {
+            console.error("Accurate Create HSQ Error:", JSON.stringify(result));
+            return { error: true, message: result.d?.[0] || JSON.stringify(result) };
+        }
         return result.r;
     } catch (err: any) {
-        console.error('Failed to create HRSQ in Accurate:', err.message);
-        return null;
+        console.error('Failed to create HRSQ in Accurate:', err);
+        const errMsg = err.cause ? err.cause.message : err.message;
+        return { error: true, message: errMsg || "Unknown fetch error" };
     }
 }
 
@@ -885,3 +890,34 @@ export async function updateAccurateItemBrand(sku: string, accurateId: number | 
     }
 }
 
+
+
+export async function searchAccurateCustomers(query: string): Promise<AccurateCustomer[]> {
+    const host = process.env.ACCURATE_API_HOST || "https://zeus.accurate.id";
+    const endpoint = `${host}/accurate/api/customer/list.do`;
+    const url = new URL(endpoint);
+
+    const fields = ['id', 'no', 'name', 'contactInfo', 'billAddress', 'category'].join(',');
+    url.searchParams.append('fields', fields);
+    url.searchParams.append('filter.keywords', query);
+    url.searchParams.append('sp.page', '1');
+    url.searchParams.append('sp.pageSize', '15');
+
+    try {
+        const headers = await generateAccurateAuthHeaders();
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: headers as HeadersInit,
+            next: { revalidate: 0 } // No cache for search
+        });
+
+        if (!response.ok) throw new Error(`Accurate API error: ${response.status}`);
+        const result = await response.json();
+        if (!result.s) throw new Error(`Accurate API returned unsuccessful response: ${result.d || result.message}`);
+
+        return result.d || [];
+    } catch (err) {
+        console.error('API call failed for customer search', err);
+        return [];
+    }
+}

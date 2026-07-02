@@ -4,6 +4,9 @@ import { db } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 // @ts-ignore
 import pdf from "pdf-parse/lib/pdf-parse.js";
+import { getSession } from "@/lib/auth";
+import { generateAccurateAuthHeaders } from "@/lib/accurate";
+import { createAccurateHSQ } from "@/lib/accurate";
 
 export interface BulkOrderProduct {
     id: string;
@@ -23,6 +26,9 @@ export interface BulkSearchFilters {
     query: string;
     category?: string;
     stockFilter?: 'all' | 'ready' | 'indent';
+    pole?: string;
+    ampere?: string;
+    breakingCapacity?: string;
 }
 
 export async function searchBulkProducts(filters: BulkSearchFilters): Promise<BulkOrderProduct[]> {
@@ -63,6 +69,24 @@ export async function searchBulkProducts(filters: BulkSearchFilters): Promise<Bu
         where.availableToSell = { gt: 0 };
     } else if (stockFilter === 'indent') {
         where.availableToSell = { lte: 0 };
+    }
+
+    const specConditions: any[] = [];
+    if (filters.pole) {
+        specConditions.push({ name: { contains: `, ${filters.pole},`, mode: "insensitive" } });
+    }
+    if (filters.ampere) {
+        specConditions.push({ name: { contains: filters.ampere, mode: "insensitive" } });
+    }
+    if (filters.breakingCapacity) {
+        specConditions.push({ name: { contains: filters.breakingCapacity, mode: "insensitive" } });
+    }
+
+    if (specConditions.length > 0) {
+        where.AND = [
+            ...(Array.isArray(where.AND) ? where.AND : (where.AND ? [where.AND] : [])),
+            ...specConditions
+        ];
     }
 
     const products = await db.product.findMany({
@@ -252,5 +276,98 @@ export async function parsePdfBulkOrder(formData: FormData): Promise<{ sku: stri
     } catch (error: any) {
         console.error("PDF Parse error:", error);
         throw new Error(`Failed to parse PDF: ${error.message || String(error)}`);
+    }
+}
+
+export async function getNextQuotationNumber(): Promise<string> {
+    const now = new Date();
+    const yy = String(now.getFullYear()).slice(-2);
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const yearPrefix = `HSQ/${yy}/`;
+    
+    let highestNum = 0;
+
+    // 1. Fetch from Accurate API as the main source of truth
+    try {
+        const headers = await generateAccurateAuthHeaders();
+        const endpoint = `${process.env.ACCURATE_API_HOST || "https://zeus.accurate.id"}/accurate/api/sales-quotation/list.do`;
+        
+        const url = new URL(endpoint);
+        url.searchParams.append('fields', 'id,number');
+        url.searchParams.append('sp.sortMode', 'DESC');
+        url.searchParams.append('sp.pageSize', '100');
+        
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: headers,
+            cache: 'no-store'
+        });
+        
+        const res = await response.json();
+        if (res.s && res.d && res.d.length > 0) {
+            for (const item of res.d) {
+                if (item.number && item.number.startsWith(yearPrefix)) {
+                    const parts = item.number.split('/');
+                    const lastPart = parts[parts.length - 1];
+                    const match = lastPart.match(/^(\d+)/);
+                    if (match) {
+                        const num = parseInt(match[1]);
+                        if (!isNaN(num) && num > highestNum) {
+                            highestNum = num;
+                        }
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.error("Failed to fetch latest SQ from accurate", e);
+    }
+
+    const increment = highestNum + 1;
+    return `HSQ/${yy}/${mm}/${String(increment).padStart(3, '0')}`;
+}
+
+export async function createSalesQuotationAccurate(items: any[], customerInfo: any, specialDiscount: number, notes?: string) {
+    const session = await getSession();
+    if (!session || session.user?.role !== 'SALES') {
+        throw new Error("Unauthorized");
+    }
+
+    try {
+        const quotationNo = await getNextQuotationNumber();
+        
+        let totalAmount = 0;
+        const validItems = items.filter(item => item.isAvailable !== false);
+        validItems.forEach(item => {
+            totalAmount += (item.price * item.quantity);
+        });
+        
+        if (specialDiscount > 0) {
+             totalAmount = totalAmount - (totalAmount * specialDiscount / 100);
+        }
+
+        // Push to Accurate directly without saving locally
+        const accuratePayload = {
+            quotationNo,
+            clientName: customerInfo.name || 'CASH',
+            shippingAddress: customerInfo.address || '',
+            items: validItems,
+            specialDiscount,
+            notes: notes || '',
+            customer: customerInfo.customer
+        };
+
+        const accurateRes = await createAccurateHSQ(accuratePayload);
+
+        if (accurateRes && !accurateRes.error && accurateRes.id) {
+            return { success: true, quotationNo, accurateId: accurateRes.id };
+        } else {
+            // If failed to push to Accurate
+            const accurateErrMsg = accurateRes?.message || "Unknown error";
+            return { success: false, message: `Gagal membuat penawaran di Accurate: ${accurateErrMsg}`, quotationNo };
+        }
+    } catch (err: any) {
+        console.error("Error creating Sales Quotation:", err);
+        throw new Error(err.message || "Gagal membuat penawaran Sales.");
     }
 }
