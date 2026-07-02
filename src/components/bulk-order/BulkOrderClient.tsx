@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Search, ShoppingCart, Trash2, CheckCircle2, ChevronRight, FileSpreadsheet, X, UploadCloud, Download, GripVertical, Plus, Minus, RotateCcw, Edit2, RotateCw, AlertCircle, FileDown } from "lucide-react";
 import * as XLSX from "xlsx";
+import { toast } from "sonner";
 import { useCart } from "@/lib/useCart";
 import { searchCustomersForSales } from "@/app/actions/customer";
 import { searchProductBySku, searchProductsBySkus, searchBulkProducts, getBulkOrderCategories, BulkOrderProduct, createSalesQuotationAccurate, getNextQuotationNumber } from "@/app/actions/bulk-order";
@@ -194,6 +195,7 @@ export default function BulkOrderClient() {
                         customId: indentId,
                     };
                     newList.splice(readyIdx + 1, 0, indentItem);
+                    toast.info(`Pesanan total ${qty} melebihi stok Ready (${stock}). Sisa ${indentQty} otomatis dialihkan ke status Indent.`);
                 }
             } else {
                 // Remove INDENT row if it exists and we no longer need it
