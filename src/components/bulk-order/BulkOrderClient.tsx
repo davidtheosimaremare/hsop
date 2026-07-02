@@ -945,10 +945,10 @@ export default function BulkOrderClient() {
             title: "PENAWARAN PENJUALAN", // from image
             typeLabel: "Nomor", // from image
             totalAmount: totalAmount, // subtotal
-            customerName: customerInfo.name || "Customer",
-            customerAddress: customerInfo.address || "-",
-            customerPhone: customerInfo.phone || "-",
-            customerAttention: customerInfo.name || "Customer",
+            customerName: selectedCustomer?.name || "Customer",
+            customerAddress: selectedCustomer?.detail?.address || "-",
+            customerPhone: selectedCustomer?.detail?.mobileNo || "-",
+            customerAttention: selectedCustomer?.name || "Customer",
             paymentTerm: "Cash Before Delivery", // match image
             subTotal: totalAmount,
             discountAmount: 0, // currently bulk order UI doesn't have a global discount field beyond the items
@@ -985,17 +985,40 @@ export default function BulkOrderClient() {
             quotationNo: `EST-${new Date().getTime()}`,
             createdAt: new Date().toISOString(),
             status: "ESTIMASI",
-            title: "ESTIMASI HARGA",
-            typeLabel: "Nomor Estimasi",
-            totalAmount: totalAmount,
-            items: items.filter(i => !i.isNotFound).map(item => ({
-                productSku: item.sku,
-                productName: item.name,
-                brand: item.brand || "",
-                quantity: item.qty,
-                price: item.finalPrice,
-                stockStatus: item.stockStatus === 'READY' ? 'READY' : 'INDENT'
-            }))
+            title: "PENAWARAN PENJUALAN", // from image
+            typeLabel: "Nomor", // from image
+            totalAmount: totalAmount, // subtotal
+            customerName: selectedCustomer?.name || "Customer",
+            customerAddress: selectedCustomer?.detail?.address || "-",
+            customerPhone: selectedCustomer?.detail?.mobileNo || "-",
+            customerAttention: selectedCustomer?.name || "Customer",
+            paymentTerm: "Cash Before Delivery", // match image
+            subTotal: totalAmount,
+            discountAmount: 0,
+            taxAmount: Math.ceil(totalAmount * 0.11),
+            otherFees: 0,
+            grandTotal: Math.ceil(totalAmount * 1.11),
+            items: items.filter(i => !i.isNotFound).map(item => {
+                const basePrice = userRole === 'SALES' ? Math.ceil(item.price / 1000) * 1000 : item.finalPrice;
+                const d1 = item.salesDiscount1 || 0;
+                const d2 = item.salesDiscount2 || 0;
+                let itemDiscStr = "%"; // Default or calculated
+                if (d1 > 0 && d2 > 0) itemDiscStr = `${d1}+${d2}%`;
+                else if (d1 > 0) itemDiscStr = `${d1}%`;
+                else if (d2 > 0) itemDiscStr = `${d2}%`;
+
+                return {
+                    productSku: item.sku,
+                    productName: item.name,
+                    brand: item.brand || "",
+                    quantity: item.qty,
+                    price: basePrice, // show base price in the table
+                    finalPrice: item.finalPrice, // total harga
+                    stockStatus: item.stockStatus === 'READY' ? 'READY' : 'INDENT',
+                    note: item.stockStatus === 'READY' ? 'STOCK' : 'NO STOCK',
+                    discountStr: hideDiscountInAccurate ? undefined : itemDiscStr
+                };
+            })
         };
         await exportQuotationExcel(data);
     };

@@ -434,38 +434,38 @@ export async function exportQuotationExcel(q: QuotationExportData, _template?: E
     titleCell.alignment = { horizontal: 'center' };
 
     // Details
+    // Details
     const detailsStart = titleRowIdx + 2;
-    worksheet.getCell(detailsStart, 1).value = q.typeLabel || "Nomor Estimasi";
-    worksheet.getCell(detailsStart, 2).value = q.quotationNo;
 
-    worksheet.getCell(detailsStart + 1, 1).value = "Tanggal";
-    worksheet.getCell(detailsStart + 1, 2).value = formatDate(q.createdAt);
+    // Left: Kepada
+    worksheet.getCell(detailsStart, 1).value = "Kepada";
+    worksheet.getCell(detailsStart, 1).font = { bold: true };
+    worksheet.getCell(detailsStart + 1, 1).value = q.customerName || "Customer";
+    worksheet.getCell(detailsStart + 1, 1).font = { bold: true };
+    worksheet.getCell(detailsStart + 2, 1).value = q.customerAddress || "-";
+    worksheet.getCell(detailsStart + 4, 1).value = `Attn: Bapak ${q.customerAttention || q.customerName || "-"}`;
 
-    worksheet.getCell(detailsStart + 2, 1).value = "Status";
-    worksheet.getCell(detailsStart + 2, 2).value = q.status || "ESTIMASI";
-
-    if (q.clientName) {
-        worksheet.getCell(detailsStart + 3, 1).value = "Proyek";
-        worksheet.getCell(detailsStart + 3, 2).value = q.clientName;
-    }
+    // Right: PENAWARAN PENJUALAN
+    worksheet.getCell(detailsStart, 6).value = "PENAWARAN PENJUALAN";
+    worksheet.getCell(detailsStart, 6).font = { bold: true, size: 12 };
+    
+    worksheet.getCell(detailsStart + 2, 5).value = "Nomor";
+    worksheet.getCell(detailsStart + 2, 6).value = `: ${q.quotationNo}`;
+    worksheet.getCell(detailsStart + 3, 5).value = "Tanggal";
+    worksheet.getCell(detailsStart + 3, 6).value = `: ${formatDate(q.createdAt)}`;
+    worksheet.getCell(detailsStart + 4, 5).value = "Pembayaran";
+    worksheet.getCell(detailsStart + 4, 6).value = `: ${q.paymentTerm || "Cash Before Delivery"}`;
 
     // Table Header
-    const tableHeaderIdx = detailsStart + 5;
+    const tableHeaderIdx = detailsStart + 7;
     const headerRow = worksheet.getRow(tableHeaderIdx);
-    headerRow.values = ["#", "SKU", "Produk", "Status", "Qty", "Harga Satuan", "Subtotal"];
+    headerRow.values = ["NO", "KODE BARANG", "NAMA BARANG", "NOTE", "QTY", "HARGA/UNIT", "DISKON", "TOTAL HARGA"];
     headerRow.eachCell((cell) => {
-        cell.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: 'FFDC2626' }
-        };
-        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.font = { bold: true };
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
         cell.border = {
-            top: { style: 'thin' },
-            left: { style: 'thin' },
-            bottom: { style: 'thin' },
-            right: { style: 'thin' }
+            top: { style: 'thin' }, left: { style: 'thin' },
+            bottom: { style: 'thin' }, right: { style: 'thin' }
         };
     });
 
@@ -477,53 +477,75 @@ export async function exportQuotationExcel(q: QuotationExportData, _template?: E
             idx + 1,
             item.productSku,
             item.productName,
-            formatStockStatus(item.stockStatus),
+            item.note || formatStockStatus(item.stockStatus),
             item.quantity,
             item.price,
-            item.price * item.quantity
+            item.discountStr || "%",
+            item.finalPrice !== undefined ? item.finalPrice * item.quantity : item.price * item.quantity
         ];
 
         // Rp Formatting
         row.getCell(6).numFmt = '"Rp" #,##0';
-        row.getCell(7).numFmt = '"Rp" #,##0';
+        row.getCell(8).numFmt = '"Rp" #,##0';
 
         row.eachCell((cell) => {
             cell.border = {
-                top: { style: 'thin' },
-                left: { style: 'thin' },
-                bottom: { style: 'thin' },
-                right: { style: 'thin' }
+                top: { style: 'thin' }, left: { style: 'thin' },
+                bottom: { style: 'thin' }, right: { style: 'thin' }
             };
             cell.alignment = { vertical: 'middle' };
         });
         row.getCell(1).alignment = { horizontal: 'center' };
-        row.getCell(6).alignment = { horizontal: 'center' };
+        row.getCell(4).alignment = { horizontal: 'center' };
+        row.getCell(5).alignment = { horizontal: 'center' };
+        row.getCell(7).alignment = { horizontal: 'center' };
     });
 
-    // Total Row
-    const totalRowIdx = currentIdx + 1;
-    const totalRow = worksheet.getRow(totalRowIdx);
-    totalRow.getCell(6).value = "Total:";
-    totalRow.getCell(6).font = { bold: true };
-    totalRow.getCell(7).value = q.totalAmount;
-    totalRow.getCell(7).font = { bold: true, color: { argb: 'FFDC2626' } };
-    totalRow.getCell(7).numFmt = '"Rp" #,##0';
+    // Totals Section
+    const totalsStartIdx = currentIdx + 2;
+    
+    // Notes Left
+    worksheet.getCell(totalsStartIdx, 1).value = "Keterangan :";
+    const notesLines = (q.notes || `Status STOCK tidak mengikat\nStatus NO STOCK indent 14-16 weeks\nPrice Loco Jabodetabek\nValidity for a month`).split('\n');
+    notesLines.forEach((line, idx) => {
+        worksheet.getCell(totalsStartIdx + 1 + idx, 1).value = line;
+    });
 
-    // VAT Note
-    const vatRowIdx = totalRowIdx + 1;
-    const vatRow = worksheet.getRow(vatRowIdx);
-    vatRow.getCell(1).value = "* Harga sudah termasuk PPN 11%";
-    vatRow.getCell(1).font = { italic: true, size: 9, color: { argb: 'FF888888' } };
+    // Totals Right
+    const addTotalRow = (rowOffset: number, label: string, value: number, isBold: boolean = false) => {
+        const r = worksheet.getRow(totalsStartIdx + rowOffset);
+        r.getCell(6).value = label;
+        r.getCell(7).value = ":";
+        r.getCell(8).value = value;
+        r.getCell(8).numFmt = '"Rp" #,##0';
+        
+        [6, 7, 8].forEach(col => {
+            r.getCell(col).border = {
+                top: { style: 'thin' }, left: { style: 'thin' },
+                bottom: { style: 'thin' }, right: { style: 'thin' }
+            };
+            if (isBold) r.getCell(col).font = { bold: true };
+        });
+        r.getCell(7).alignment = { horizontal: 'center' };
+    };
+
+    addTotalRow(0, "Sub Total", q.subTotal || q.totalAmount);
+    addTotalRow(1, "Diskon", q.discountAmount || 0);
+    addTotalRow(2, "Total", (q.subTotal || q.totalAmount) - (q.discountAmount || 0));
+    addTotalRow(3, "PPN (11%)", q.taxAmount || 0);
+    addTotalRow(4, "Biaya Lain-lain", q.otherFees || 0);
+    addTotalRow(5, "Grand Total", q.grandTotal || q.totalAmount, true);
 
     // Column Widths
     worksheet.columns = [
-        { width: 5 },   // #
-        { width: 22 },  // SKU
-        { width: 50 },  // Produk
-        { width: 15 },  // Status
-        { width: 10 },  // Qty
-        { width: 22 },  // Harga Satuan
-        { width: 22 },  // Subtotal
+        { width: 5 },   // NO
+        { width: 22 },  // KODE
+        { width: 50 },  // NAMA
+        { width: 12 },  // NOTE
+        { width: 8 },   // QTY
+        { width: 22 },  // HARGA/UNIT
+        { width: 10 },  // DISKON
+        { width: 22 },  // TOTAL HARGA
     ];
 
     // Export
