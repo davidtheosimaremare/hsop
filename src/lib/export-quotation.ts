@@ -7,10 +7,20 @@ export interface QuotationExportData {
     quotationNo: string;
     createdAt: string;
     status: string;
-    totalAmount: number;
+    totalAmount: number; // Subtotal
     clientName?: string; // Project name
     title?: string;      // Custom title (e.g. PENAWARAN HARGA)
     typeLabel?: string;  // Custom label for the ID (e.g. Nomor Penawaran)
+    customerName?: string;
+    customerAddress?: string;
+    customerPhone?: string;
+    customerAttention?: string;
+    paymentTerm?: string;
+    subTotal?: number;
+    discountAmount?: number;
+    taxAmount?: number;
+    otherFees?: number;
+    grandTotal?: number;
     items: {
         productSku: string;
         productName: string;
@@ -18,6 +28,8 @@ export interface QuotationExportData {
         quantity: number;
         price: number;
         stockStatus?: string;
+        note?: string;
+        discountStr?: string;
     }[];
 }
 
@@ -146,234 +158,217 @@ function drawWhatsAppIcon(doc: jsPDF, x: number, y: number, size: number = 2.5) 
 export async function exportQuotationPDF(q: QuotationExportData, template?: ExportTemplate) {
     const doc = new jsPDF("p", "mm", "a4");
     const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 15;
     let y = margin;
 
     // Fetch company details from database
     const company = await fetchCompanyDetails();
 
-    // Load siemens badge
-    const siemensBadge = await loadImageAsBase64("/siemens-auth.png");
+    // Default font to Helvetica (Arial equivalent)
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(0, 0, 0);
 
-    // ── Header (White/Light background) ──
-    if (template?.headerImage) {
-        const img = await loadImageAsBase64(template.headerImage);
-        if (img) {
-            const imgWidth = pageWidth - margin * 2;
-            const imgHeight = (img.height / img.width) * imgWidth;
-            doc.addImage(img.data, "PNG", margin, y, imgWidth, Math.min(imgHeight, 35));
-            y += Math.min(imgHeight, 35) + 5;
-        } else {
-            y = await drawHeader(doc, pageWidth, margin, company);
+    // ── Header Logo & Company Info ──
+    let logoWidth = 0;
+    if (company.logo) {
+        const logoImg = await loadImageAsBase64(company.logo);
+        if (logoImg) {
+            const logoHeight = 16;
+            logoWidth = (logoImg.width / logoImg.height) * logoHeight;
+            doc.addImage(logoImg.data, "PNG", margin, y, logoWidth, logoHeight);
         }
-    } else {
-        y = await drawHeader(doc, pageWidth, margin, company);
     }
 
-    // ── Title Section ──
-    y += 5;
-
-    // Red accent line
-    doc.setDrawColor(220, 38, 38);
-    doc.setLineWidth(1);
-    doc.line(margin, y, margin + 40, y);
-    y += 8;
-
-    doc.setTextColor(30, 30, 30);
-    doc.setFontSize(18);
+    const companyTextX = margin + logoWidth + 5;
+    let companyY = y + 4;
+    
+    doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text(q.title || "ESTIMASI HARGA", margin, y);
-    y += 12;
-
-    // ── Quotation Info ──
-    doc.setFontSize(9);
-    doc.setTextColor(80, 80, 80);
-
-    const infoData: [string, string][] = [
-        [q.typeLabel || "Nomor Estimasi", q.quotationNo],
-        ["Tanggal", formatDate(q.createdAt)],
-        ["Status", q.status || "ESTIMASI"],
+    doc.text("PT HOKIINDO RAYA", companyTextX, companyY);
+    
+    companyY += 5;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    
+    const addressLines = [
+        "Ruko Golden Boulevard BSD Blok Q No. 50",
+        "Jl. Raya Serpong KM 7, Lengkong Karya, Kec. Serpong Utara",
+        "Kota Tangerang Selatan Banten 15310",
+        "Telp : 021 - 7568-6000",
+        "Email : info@hokiindo.co.id"
     ];
-
-    // Add project name if available
-    if (q.clientName) {
-        infoData.push(["Proyek", q.clientName]);
-    }
-
-    infoData.forEach(([label, value]) => {
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(100, 100, 100);
-        doc.text(`${label}:`, margin, y);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(30, 30, 30);
-        doc.text(value, margin + 35, y);
-        y += 6;
+    
+    addressLines.forEach(line => {
+        doc.text(line, companyTextX, companyY);
+        companyY += 4;
     });
 
-    y += 8;
+    y = companyY > y + 16 ? companyY + 8 : y + 24;
+
+    // ── Customer (Kepada) & Document Info ──
+    const leftWidth = 85;
+    const rightX = pageWidth - margin - 85;
+    const rightWidth = 85;
+
+    // Left: Kepada
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text("Kepada", margin, y);
+    y += 2;
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, margin + leftWidth, y);
+    y += 5;
+    
+    doc.setFont("helvetica", "bold");
+    doc.text(q.customerName || "Customer", margin, y);
+    y += 5;
+    
+    doc.setFont("helvetica", "normal");
+    const addressSplit = doc.splitTextToSize(q.customerAddress || "-", leftWidth);
+    doc.text(addressSplit, margin, y);
+    y += (addressSplit.length * 4) + 4;
+
+    doc.text(`Attn: Bapak   ${q.customerAttention || q.customerName || "-"}`, margin, y);
+    
+    // Right: PENAWARAN PENJUALAN
+    let rightY = y - (addressSplit.length * 4) - 14;
+    
+    doc.setLineWidth(0.5);
+    doc.line(rightX, rightY, rightX + rightWidth, rightY);
+    rightY += 5;
+    
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    const titleText = q.title || "PENAWARAN PENJUALAN";
+    const titleWidth = doc.getTextWidth(titleText);
+    doc.text(titleText, rightX + (rightWidth - titleWidth) / 2, rightY);
+    rightY += 3;
+    
+    doc.line(rightX, rightY, rightX + rightWidth, rightY);
+    rightY += 6;
+    
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    
+    const docInfo = [
+        ["Nomor", ":", q.quotationNo],
+        ["Tanggal", ":", formatDate(q.createdAt)],
+        ["Pembayaran", ":", q.paymentTerm || "Cash Before Delivery"]
+    ];
+    
+    docInfo.forEach(([lbl, colon, val]) => {
+        doc.text(lbl, rightX, rightY);
+        doc.text(colon, rightX + 25, rightY);
+        doc.text(val, rightX + 28, rightY);
+        rightY += 5;
+    });
+
+    y = Math.max(y, rightY) + 5;
 
     // ── Items Table ──
     const tableData = q.items.map((item, idx) => [
         String(idx + 1),
         item.productSku,
-        `${item.brand} - ${item.productName}`,
-        formatStockStatus(item.stockStatus),
+        item.productName,
+        item.note || formatStockStatus(item.stockStatus),
         String(item.quantity),
-        `Rp ${formatPrice(item.price)}`,
-        `Rp ${formatPrice(item.price * item.quantity)}`,
+        formatPrice(item.price),
+        item.discountStr || "%",
+        formatPrice(item.finalPrice !== undefined ? item.finalPrice * item.quantity : item.price * item.quantity),
     ]);
 
     autoTable(doc, {
         startY: y,
-        head: [["#", "SKU", "Produk", "Status", "Qty", "Harga Satuan", "Subtotal"]],
+        head: [["NO", "KODE BARANG", "NAMA BARANG", "NOTE", "QTY", "HARGA/UNIT", "DISKON", "TOTAL HARGA"]],
         body: tableData,
         margin: { left: margin, right: margin },
-        theme: "striped",
+        theme: "plain",
         headStyles: {
-            fillColor: [220, 38, 38],
-            textColor: 255,
-            fontSize: 8,
+            fillColor: [255, 255, 255],
+            textColor: [0, 0, 0],
+            fontSize: 9,
             fontStyle: "bold",
             halign: "center",
-            cellPadding: 4,
+            valign: "middle",
+            lineWidth: 0.5,
+            lineColor: [0, 0, 0]
         },
         bodyStyles: {
-            fontSize: 8,
-            textColor: [50, 50, 50],
-            cellPadding: 3,
+            fontSize: 9,
+            textColor: [0, 0, 0],
+            lineWidth: 0.5,
+            lineColor: [0, 0, 0]
         },
         columnStyles: {
-            0: { halign: "center", cellWidth: 10 },
-            1: { cellWidth: 25 },
+            0: { halign: "center", cellWidth: 8 },
+            1: { halign: "center", cellWidth: 28 },
             2: { cellWidth: "auto" },
-            3: { halign: "center", cellWidth: 20 },
-            4: { halign: "center", cellWidth: 16 },
-            5: { halign: "right", cellWidth: 28 },
-            6: { halign: "right", cellWidth: 28 },
-        },
-        alternateRowStyles: {
-            fillColor: [250, 250, 250],
-        },
+            3: { halign: "center", cellWidth: 16 },
+            4: { halign: "center", cellWidth: 10 },
+            5: { halign: "right", cellWidth: 26 },
+            6: { halign: "center", cellWidth: 14 },
+            7: { halign: "right", cellWidth: 28 },
+        }
     });
 
-    const finalY = (doc as any).lastAutoTable.finalY + 8;
+    let finalY = (doc as any).lastAutoTable.finalY;
 
-    // ── Total Section ──
-    const totalBoxWidth = 70;
-    const totalBoxX = pageWidth - margin - totalBoxWidth;
-
-    doc.setFillColor(220, 38, 38);
-    doc.roundedRect(totalBoxX, finalY, totalBoxWidth, 12, 2, 2, "F");
-
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(255, 255, 255);
-    doc.text("Total Estimasi:", totalBoxX + 4, finalY + 8);
+    // ── Footer Section ──
+    
+    // Left: Keterangan
+    doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
-    doc.text(`Rp ${formatPrice(q.totalAmount)}`, totalBoxX + totalBoxWidth - 4, finalY + 8, { align: "right" });
+    doc.text("Keterangan :", margin, finalY + 5);
+    
+    const notesText = q.notes || `Status STOCK tidak mengikat\nStatus NO STOCK indent 14-16 weeks\nPrice Loco Jabodetabek\nValidity for a month`;
+    const notesLines = notesText.split('\n');
+    let noteY = finalY + 10;
+    notesLines.forEach(line => {
+        doc.text(line, margin, noteY);
+        noteY += 4.5;
+    });
 
-    // ── VAT Note ──
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "italic");
-    doc.setTextColor(120, 120, 120);
-    doc.text("* Harga sudah termasuk PPN 11%", totalBoxX + totalBoxWidth, finalY + 18, { align: "right" });
+    // Right: Totals Sub-Table
+    const totalsWidth = 70;
+    const totalsX = pageWidth - margin - totalsWidth;
+    
+    const totalsData = [
+        ["Sub Total", ":", formatPrice(q.subTotal || q.totalAmount)],
+        ["Diskon", ":", formatPrice(q.discountAmount || 0)],
+        ["Total", ":", formatPrice((q.subTotal || q.totalAmount) - (q.discountAmount || 0))],
+        ["PPN (11%)", ":", formatPrice(q.taxAmount || 0)],
+        ["Biaya Lain-lain", ":", formatPrice(q.otherFees || 0)],
+        ["Grand Total", ":", formatPrice(q.grandTotal || q.totalAmount)]
+    ];
 
-    // ── Footer (Red background) ──
-    drawFooter(doc, pageWidth, pageHeight, company, siemensBadge);
+    autoTable(doc, {
+        startY: finalY,
+        margin: { left: totalsX },
+        tableWidth: totalsWidth,
+        theme: "plain",
+        body: totalsData,
+        bodyStyles: {
+            fontSize: 9,
+            textColor: [0, 0, 0],
+            cellPadding: { top: 1.5, right: 2, bottom: 1.5, left: 2 },
+            lineWidth: 0.5,
+            lineColor: [0, 0, 0]
+        },
+        columnStyles: {
+            0: { fontStyle: "normal", cellWidth: 35 },
+            1: { halign: "center", cellWidth: 5 },
+            2: { halign: "right", cellWidth: 30 }
+        },
+        didParseCell: function(data) {
+            // Make the last row bold
+            if (data.row.index === totalsData.length - 1) {
+                data.cell.styles.fontStyle = "bold";
+            }
+        }
+    });
 
     doc.save(`${q.quotationNo.replace(/\//g, '-')}.pdf`);
-}
-
-async function drawHeader(doc: jsPDF, pageWidth: number, margin: number, company: CompanyDetails): Promise<number> {
-    const headerHeight = 28;
-
-    // Light gray background for header
-    doc.setFillColor(250, 250, 250);
-    doc.rect(0, 0, pageWidth, headerHeight, "F");
-
-    // Bottom border line (red accent)
-    doc.setDrawColor(220, 38, 38);
-    doc.setLineWidth(0.8);
-    doc.line(0, headerHeight, pageWidth, headerHeight);
-
-    // Left side - Logo or Company Name
-    let hasLogo = false;
-    if (company.logo) {
-        const logoImg = await loadImageAsBase64(company.logo);
-        if (logoImg) {
-            hasLogo = true;
-            const logoHeight = 12;
-            const logoWidth = (logoImg.width / logoImg.height) * logoHeight;
-            doc.addImage(logoImg.data, "PNG", margin, 7, logoWidth, logoHeight);
-        }
-    }
-
-    // If no logo, show company name
-    if (!hasLogo) {
-        doc.setTextColor(220, 38, 38);
-        doc.setFontSize(14);
-        doc.setFont("helvetica", "bold");
-        doc.text(company.name, margin, 12);
-
-        doc.setTextColor(100, 100, 100);
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "normal");
-        doc.text(company.description || "Sustainable Solutions, Built on Trust", margin, 18);
-    }
-
-    // Right side - Contact info (Clean text, no icons)
-    const rightX = pageWidth - margin;
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(60, 60, 60);
-
-    let lineY = 8;
-    doc.text(company.phone, rightX, lineY, { align: "right" });
-    lineY += 4.5;
-    doc.text(company.email, rightX, lineY, { align: "right" });
-    lineY += 4.5;
-    doc.text(`WA: ${WA_NUMBER}`, rightX, lineY, { align: "right" });
-    lineY += 4.5;
-    doc.text(company.website || "hokiindo.co.id", rightX, lineY, { align: "right" });
-
-    return headerHeight + 5;
-}
-
-function drawFooter(
-    doc: jsPDF,
-    pageWidth: number,
-    pageHeight: number,
-    company: CompanyDetails,
-    siemensBadge: { data: string; width: number; height: number } | null
-) {
-    const footerHeight = 22;
-    const footerY = pageHeight - footerHeight;
-
-    // Red footer background
-    doc.setFillColor(220, 38, 38);
-    doc.rect(0, footerY, pageWidth, footerHeight, "F");
-
-    // Left side - Address info
-    doc.setFontSize(8);
-    doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
-    doc.text(company.name, 15, footerY + 7);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7);
-    doc.text(company.address, 15, footerY + 12);
-    doc.text(`Tel: ${company.phone} | Email: ${company.email}`, 15, footerY + 17);
-
-    // Right side - Siemens badge (no box, direct on red background)
-    if (siemensBadge) {
-        const badgeHeight = 16;
-        const badgeWidth = (siemensBadge.width / siemensBadge.height) * badgeHeight;
-        const badgeX = pageWidth - 15 - badgeWidth;
-        const badgeY = footerY + (footerHeight - badgeHeight) / 2;
-
-        doc.addImage(siemensBadge.data, "PNG", badgeX, badgeY, badgeWidth, badgeHeight);
-    }
 }
 
 // ─────────────────────────────────────────────
