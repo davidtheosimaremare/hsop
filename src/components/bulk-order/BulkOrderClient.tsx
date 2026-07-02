@@ -1789,6 +1789,7 @@ function SortableRow({ item, updateQty, updateQtyDirect, removeItem, isLoggedIn,
                         value={item.qty}
                         onChange={(e) => updateQtyDirect(item.customId, parseInt(e.target.value))}
                         onFocus={(e) => e.target.select()}
+                        onClick={(e) => (e.target as HTMLInputElement).select()}
                         className="w-10 text-center text-sm font-semibold text-gray-800 tabular-nums border border-gray-200 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-red-400 focus:border-red-400 py-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                     <button
