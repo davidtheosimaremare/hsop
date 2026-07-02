@@ -109,6 +109,7 @@ export default function BulkOrderClient() {
     const [isCreatingAccurateSq, setIsCreatingAccurateSq] = useState(false);
     const [nextHsqNo, setNextHsqNo] = useState<string>("");
     const [isSyncingHsq, setIsSyncingHsq] = useState(false);
+    const [hideDiscountInAccurate, setHideDiscountInAccurate] = useState(false);
 
     const fetchNextHsq = async () => {
         setIsSyncingHsq(true);
@@ -139,6 +140,13 @@ export default function BulkOrderClient() {
             }
             return item;
         }));
+    };
+
+    const updateQtyDirect = (id: string, newQty: number) => {
+        const qty = Math.max(1, isNaN(newQty) ? 1 : newQty);
+        setItems(prev => prev.map(item =>
+            item.customId === id ? { ...item, qty } : item
+        ));
     };
     
     
@@ -586,7 +594,20 @@ export default function BulkOrderClient() {
                 const d2 = i.salesDiscount2 || 0;
                 const combinedDiscount = 1 - (1 - d1 / 100) * (1 - d2 / 100);
                 const discountedPrice = basePrice - (basePrice * combinedDiscount);
-                
+
+                // Sembunyikan diskon: kirim harga akhir sebagai harga dasar, tanpa kolom diskon
+                if (hideDiscountInAccurate) {
+                    return {
+                        productSku: i.sku,
+                        productName: i.name,
+                        price: Math.round(discountedPrice),
+                        basePrice: Math.round(discountedPrice),
+                        quantity: i.qty,
+                        isAvailable: i.stockStatus !== 'INDENT',
+                        discountStr: undefined
+                    };
+                }
+
                 let itemDiscStr = undefined;
                 if (d1 > 0 && d2 > 0) {
                      itemDiscStr = `${d1}+${d2}`;
@@ -988,7 +1009,21 @@ export default function BulkOrderClient() {
                             </div>
                         )}
                         
-                        <div className="mt-4">
+                        <div className="mt-3 flex items-center gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg">
+                            <input
+                                type="checkbox"
+                                id="hideDiscountChk"
+                                checked={hideDiscountInAccurate}
+                                onChange={(e) => setHideDiscountInAccurate(e.target.checked)}
+                                className="w-4 h-4 accent-amber-600 cursor-pointer flex-shrink-0"
+                            />
+                            <label htmlFor="hideDiscountChk" className="text-[11px] text-amber-800 font-semibold cursor-pointer leading-tight">
+                                Sembunyikan Diskon di Accurate
+                                <span className="block font-normal text-amber-700/80 mt-0.5">Harga akhir (setelah diskon) dikirim sebagai harga dasar. Kolom diskon di Accurate akan kosong.</span>
+                            </label>
+                        </div>
+
+                        <div className="mt-3">
                             <Label className="text-[10px] text-gray-700 font-bold mb-1 block">Keterangan / Notes (Opsional)</Label>
                             <textarea
                                 className="w-full text-xs p-2 border border-gray-200 rounded min-h-[80px]"
@@ -1172,6 +1207,7 @@ export default function BulkOrderClient() {
                                                     key={item.customId}
                                                     item={item}
                                                     updateQty={updateQty}
+                                                    updateQtyDirect={updateQtyDirect}
                                                     removeItem={removeItem}
                                                     isLoggedIn={isLoggedIn}
                                                     userRole={userRole}
@@ -1583,9 +1619,10 @@ export default function BulkOrderClient() {
     );
 }
 
-function SortableRow({ item, updateQty, removeItem, isLoggedIn, userRole, updateItemDiscount, onReplaceClick }: {
+function SortableRow({ item, updateQty, updateQtyDirect, removeItem, isLoggedIn, userRole, updateItemDiscount, onReplaceClick }: {
     item: BulkItem;
     updateQty: (id: string, delta: number) => void;
+    updateQtyDirect: (id: string, qty: number) => void;
     removeItem: (id: string) => void;
     isLoggedIn: boolean;
     userRole: string | null;
@@ -1687,9 +1724,14 @@ function SortableRow({ item, updateQty, removeItem, isLoggedIn, userRole, update
                     >
                         <Minus className="w-3 h-3 text-gray-600" />
                     </button>
-                    <span className="w-8 text-center text-sm font-semibold text-gray-800 tabular-nums select-none">
-                        {item.qty}
-                    </span>
+                    <input
+                        type="number"
+                        min={1}
+                        value={item.qty}
+                        onChange={(e) => updateQtyDirect(item.customId, parseInt(e.target.value))}
+                        onFocus={(e) => e.target.select()}
+                        className="w-10 text-center text-sm font-semibold text-gray-800 tabular-nums border border-gray-200 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-red-400 focus:border-red-400 py-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
                     <button
                         onClick={() => updateQty(item.customId, 1)}
                         className="w-6 h-6 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors flex-shrink-0"
