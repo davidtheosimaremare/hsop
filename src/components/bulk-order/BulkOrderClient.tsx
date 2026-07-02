@@ -144,9 +144,64 @@ export default function BulkOrderClient() {
 
     const updateQtyDirect = (id: string, newQty: number) => {
         const qty = Math.max(1, isNaN(newQty) ? 1 : newQty);
-        setItems(prev => prev.map(item =>
-            item.customId === id ? { ...item, qty } : item
-        ));
+
+        setItems(prev => {
+            const item = prev.find(i => i.customId === id);
+            if (!item) return prev;
+
+            // Custom / Indent items: just update qty directly
+            if (item.isCustom || item.stockStatus !== 'READY') {
+                return prev.map(i => i.customId === id ? { ...i, qty } : i);
+            }
+
+            const stock = Number(item.availableToSell || 0);
+            // No stock info → just update directly
+            if (stock <= 0) {
+                return prev.map(i => i.customId === id ? { ...i, qty } : i);
+            }
+
+            const readyQty = Math.min(qty, stock);
+            const indentQty = qty - readyQty;
+
+            // Derive the paired INDENT customId (same product id pattern)
+            const productId = id.replace('-READY', '');
+            const indentId = `${productId}-INDENT`;
+
+            let newList = prev.map(i => {
+                if (i.customId === id) return { ...i, qty: readyQty };
+                return i;
+            });
+
+            if (indentQty > 0) {
+                const existingIndentIdx = newList.findIndex(i => i.customId === indentId);
+                if (existingIndentIdx > -1) {
+                    // Update existing INDENT row
+                    newList = newList.map(i =>
+                        i.customId === indentId ? { ...i, qty: indentQty } : i
+                    );
+                } else {
+                    // Create new INDENT row right after the READY row
+                    const readyIdx = newList.findIndex(i => i.customId === id);
+                    const indentPriceInfo = getPriceInfo(item.price, item.category, 0);
+                    const indentItem: BulkItem = {
+                        ...item,
+                        qty: indentQty,
+                        finalPrice: indentPriceInfo.discountedPriceWithPPN,
+                        originalPrice: indentPriceInfo.hasDiscount ? indentPriceInfo.originalPriceWithPPN : undefined,
+                        hasDiscount: indentPriceInfo.hasDiscount,
+                        isCustomerDiscount: indentPriceInfo.isCustomerDiscount,
+                        stockStatus: 'INDENT',
+                        customId: indentId,
+                    };
+                    newList.splice(readyIdx + 1, 0, indentItem);
+                }
+            } else {
+                // Remove INDENT row if it exists and we no longer need it
+                newList = newList.filter(i => i.customId !== indentId);
+            }
+
+            return newList;
+        });
     };
     
     
