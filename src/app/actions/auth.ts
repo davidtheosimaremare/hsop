@@ -39,11 +39,11 @@ export async function loginAction(prevState: any, formData: FormData) {
         }
 
         // --- STRICT ROLE CHECK FOR CUSTOMER PORTAL ---
-        if (user.role !== "CUSTOMER") {
+        if (user.role !== "CUSTOMER" && user.role !== "SALES") {
             return { error: "Akses ditolak. Silakan gunakan portal login yang sesuai (Admin/Vendor)." };
         }
 
-        if (!user.isVerified) {
+        if (!user.isVerified && user.role !== "SALES") {
             return { 
                 error: "Akun Anda belum diverifikasi.", 
                 unverified: true, 
@@ -79,7 +79,7 @@ export async function loginAction(prevState: any, formData: FormData) {
             sameSite: "lax"
         });
 
-        return { success: true, redirectUrl: "/" };
+        return { success: true, redirectUrl: user.role === "SALES" ? "/pesanan-besar" : "/" };
 
     } catch (error) {
         if (isRedirectError(error)) throw error;

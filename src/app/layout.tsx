@@ -8,7 +8,7 @@ const inter = Inter({
 
 import { Toaster } from "sonner";
 import NextTopLoader from "nextjs-toploader";
-import ChatWidget from "@/components/chat/ChatWidget";
+import ChatWidgetWrapper from "@/components/chat/ChatWidgetWrapper";
 import CookieConsent from "@/components/layout/CookieConsent";
 import HeadScripts from "@/components/layout/HeadScripts";
 import DynamicFont from "@/components/layout/DynamicFont";
@@ -92,7 +92,7 @@ export default async function RootLayout({
             <HeadScripts />
             <DynamicFont />
             {children}
-            <ChatWidget phoneNumber={waConfig?.number} message={waConfig?.message} />
+            <ChatWidgetWrapper phoneNumber={waConfig?.number} message={waConfig?.message} />
             <CookieConsent />
           </CartProvider>
         </AuthProvider>

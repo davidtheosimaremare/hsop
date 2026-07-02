@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ['puppeteer', 'puppeteer-core'],
+  serverExternalPackages: ['puppeteer', 'puppeteer-core', 'pdf-parse'],
   experimental: {
     serverActions: {
       // 50MB is sufficient for bulk product imports. 1024mb was dangerously high.
@@ -125,9 +125,7 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+
   output: "standalone",
 };
 

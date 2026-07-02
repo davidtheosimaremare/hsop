@@ -12,6 +12,7 @@ interface PricingContextType {
     getPriceInfo: (productPrice: number, productCategory: string | null, availableToSell?: number, productBrand?: string | null) => PriceInfo;
     loading: boolean;
     hidePriceRules: HidePriceRules | null;
+    userRole?: string | null;
 }
 
 const PricingContext = createContext<PricingContextType | null>(null);
@@ -30,6 +31,7 @@ export function usePricing() {
             },
             loading: false,
             hidePriceRules: null,
+            userRole: null,
         };
     }
     return context;
@@ -41,13 +43,15 @@ interface PricingProviderProps {
     initialMappings: CategoryMapping[];
     initialDiscountRules?: DiscountRule[];
     initialHidePriceRules?: HidePriceRules | null;
+    initialUserRole?: string | null;
 }
 
-export function PricingProvider({ children, initialCustomer, initialMappings, initialDiscountRules = [], initialHidePriceRules = null }: PricingProviderProps) {
+export function PricingProvider({ children, initialCustomer, initialMappings, initialDiscountRules = [], initialHidePriceRules = null, initialUserRole = null }: PricingProviderProps) {
     const [customerDiscount] = useState<CustomerDiscount | null>(initialCustomer);
     const [categoryMappings] = useState<CategoryMapping[]>(initialMappings);
     const [discountRules] = useState<DiscountRule[]>(initialDiscountRules);
     const [hidePriceRules] = useState<HidePriceRules | null>(initialHidePriceRules);
+    const [userRole] = useState<string | null>(initialUserRole);
     const [loading] = useState(false);
 
     const getPriceInfo = (productPrice: number, productCategory: string | null, availableToSell: number = 0, productBrand: string | null = null): PriceInfo => {
@@ -64,6 +68,7 @@ export function PricingProvider({ children, initialCustomer, initialMappings, in
                 getPriceInfo,
                 loading,
                 hidePriceRules,
+                userRole,
             }}
         >
             {children}

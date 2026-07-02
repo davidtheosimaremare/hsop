@@ -4,7 +4,7 @@
  * Defines roles, permissions, and which routes each role can access.
  */
 
-export type UserRole = "SUPER_ADMIN" | "ADMIN" | "MANAGER" | "STAFF" | "VIEWER" | "CUSTOMER" | "VENDOR";
+export type UserRole = "SUPER_ADMIN" | "ADMIN" | "MANAGER" | "STAFF" | "VIEWER" | "CUSTOMER" | "VENDOR" | "SALES";
 
 export type Permission =
   | "dashboard:view"
@@ -164,6 +164,16 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
     "pages:view",
     "upgrades:view",
     // View only for most things
+  ],
+  SALES: [
+    // Limited access for sales - dashboard, products, quotations, orders
+    "dashboard:view",
+    "products:view",
+    "categories:view",
+    "orders:view",
+    "customers:view",
+    "sales_orders:view", "sales_orders:create",
+    "quotations:view", "quotations:create",
   ],
   VIEWER: [
     // Read-only access to basic data
@@ -602,6 +612,11 @@ export const roleInfo: Record<UserRole, { label: string; description: string; co
     label: "Vendor",
     description: "Vendor yang dapat mengelola produk mereka sendiri",
     color: "bg-teal-100 text-teal-700",
+  },
+  SALES: {
+    label: "Sales",
+    description: "Akses khusus tim Sales untuk mengelola pesanan besar dan penawaran",
+    color: "bg-blue-100 text-blue-700",
   },
 };
 

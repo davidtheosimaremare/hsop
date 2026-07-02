@@ -25,6 +25,7 @@ export interface CustomerPricingData {
         updatedAt: Date;
     }[];
     discountRules: DiscountRule[];
+    userRole?: string;
 }
 
 /**
@@ -102,6 +103,7 @@ export async function getCustomerPricingData(): Promise<CustomerPricingData> {
             customer,
             categoryMappings: mappings,
             discountRules,
+            userRole: session?.user?.role,
         };
     } catch (error) {
         console.error("Failed to get customer pricing data:", error);

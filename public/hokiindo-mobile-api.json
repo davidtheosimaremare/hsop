@@ -7,7 +7,7 @@
   "variable": [
     {
       "key": "base_url",
-      "value": "https://shop.hokiindo.co.id/api/mobile",
+      "value": "http://72.61.140.211:3000/api/mobile",
       "type": "string"
     },
     {
