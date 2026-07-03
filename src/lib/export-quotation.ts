@@ -173,7 +173,7 @@ export async function exportQuotationPDF(q: QuotationExportData, template?: Expo
     if (company.logo) {
         const logoImg = await loadImageAsBase64(company.logo);
         if (logoImg) {
-            const logoHeight = 16;
+            const logoHeight = 12; // Reduced logo size
             logoWidth = (logoImg.width / logoImg.height) * logoHeight;
             doc.addImage(logoImg.data, "PNG", margin, y, logoWidth, logoHeight);
         }
@@ -391,15 +391,15 @@ export async function exportQuotationExcel(q: QuotationExportData, _template?: E
                     extension: 'png',
                 });
 
-                // Set proportional width based on a fixed height of 40px
-                const targetHeight = 40;
+                // Set proportional width based on a fixed height
+                const targetHeight = 25; // Reduced logo size
                 const targetWidth = (logoData.width / logoData.height) * targetHeight;
 
                 worksheet.addImage(imageId, {
                     tl: { col: 0, row: 0 },
                     ext: { width: targetWidth, height: targetHeight }
                 });
-                logoOffset = 3;
+                logoOffset = 2;
             }
         } catch (err) {
             console.error("Failed to add logo to Excel:", err);
