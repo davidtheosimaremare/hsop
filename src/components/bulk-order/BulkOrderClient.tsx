@@ -111,6 +111,17 @@ export default function BulkOrderClient() {
     const [nextHsqNo, setNextHsqNo] = useState<string>("");
     const [isSyncingHsq, setIsSyncingHsq] = useState(false);
     const [hideDiscountInAccurate, setHideDiscountInAccurate] = useState(false);
+    const [bulkDisc1, setBulkDisc1] = useState<number>(0);
+    const [bulkDisc2, setBulkDisc2] = useState<number>(0);
+
+    const applyBulkDiscount = () => {
+        setItems(prev => prev.map(item => ({
+            ...item,
+            salesDiscount1: bulkDisc1,
+            salesDiscount2: bulkDisc2
+        })));
+        toast.success(`Diskon masal ${bulkDisc1}% + ${bulkDisc2}% diterapkan ke semua produk.`);
+    };
 
     const fetchNextHsq = async () => {
         setIsSyncingHsq(true);
@@ -1126,6 +1137,46 @@ export default function BulkOrderClient() {
                                 Sembunyikan Diskon di Accurate
                                 <span className="block font-normal text-amber-700/80 mt-0.5">Harga akhir (setelah diskon) dikirim sebagai harga dasar. Kolom diskon di Accurate akan kosong.</span>
                             </label>
+                        </div>
+
+                        <div className="mt-3 p-2.5 bg-blue-50 border border-blue-200 rounded-lg">
+                            <Label className="text-[10px] text-blue-800 font-bold mb-2 block">Set Diskon Masal (Untuk semua item)</Label>
+                            <div className="flex items-center gap-2">
+                                <div className="flex-1 flex items-center bg-white border border-blue-200 rounded overflow-hidden">
+                                    <span className="bg-gray-100 text-[10px] font-semibold text-gray-600 px-2 border-r border-gray-200 flex items-center h-8">D1</span>
+                                    <Input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        value={bulkDisc1 || ""}
+                                        onChange={(e) => setBulkDisc1(Number(e.target.value) || 0)}
+                                        className="h-8 border-0 rounded-none text-xs focus-visible:ring-0 text-center"
+                                        placeholder="0"
+                                    />
+                                    <span className="pr-2 text-[10px] text-gray-500">%</span>
+                                </div>
+                                <span className="text-gray-400 font-bold">+</span>
+                                <div className="flex-1 flex items-center bg-white border border-blue-200 rounded overflow-hidden">
+                                    <span className="bg-gray-100 text-[10px] font-semibold text-gray-600 px-2 border-r border-gray-200 flex items-center h-8">D2</span>
+                                    <Input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        value={bulkDisc2 || ""}
+                                        onChange={(e) => setBulkDisc2(Number(e.target.value) || 0)}
+                                        className="h-8 border-0 rounded-none text-xs focus-visible:ring-0 text-center"
+                                        placeholder="0"
+                                    />
+                                    <span className="pr-2 text-[10px] text-gray-500">%</span>
+                                </div>
+                                <Button 
+                                    onClick={applyBulkDiscount}
+                                    className="h-8 text-xs bg-blue-600 hover:bg-blue-700 px-3 text-white"
+                                    disabled={items.length === 0}
+                                >
+                                    Terapkan
+                                </Button>
+                            </div>
                         </div>
 
                         <div className="mt-3">

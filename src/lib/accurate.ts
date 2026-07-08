@@ -183,7 +183,8 @@ export async function fetchSingleProduct(itemNo: string): Promise<AccurateProduc
 
 export interface AccurateCustomer {
     id: number;
-    no: string;
+    no?: string;
+    customerNo?: string;
     name: string;
     contactInfo?: {
         email?: string;
@@ -205,7 +206,7 @@ async function fetchCustomerPage(page: number, pageSize: number): Promise<Accura
     const endpoint = `${host}/accurate/api/customer/list.do`;
     const url = new URL(endpoint);
 
-    const fields = ['id', 'no', 'name', 'contactInfo', 'billAddress', 'category'].join(',');
+    const fields = ['id', 'no', 'customerNo', 'name', 'contactInfo', 'billAddress', 'category'].join(',');
     url.searchParams.append('fields', fields);
     url.searchParams.append('sp.page', page.toString());
     url.searchParams.append('sp.pageSize', pageSize.toString());
@@ -573,6 +574,26 @@ export async function createAccurateHSQ(quotation: any) {
         const headers = await generateAccurateAuthHeaders();
         if (!headers) return { r: { id: Date.now(), number: `MOCK-HRSQ-${Date.now()}` } };
 
+        let resolvedCustomerNo = quotation.customer?.accurateNo || quotation.customer?.accurateCustomerCode;
+
+        // Fallback: If customer is from local DB and missing accurateCustomerCode, fetch it from Accurate using accurateId
+        if (!resolvedCustomerNo && quotation.customer?.accurateId) {
+            try {
+                const detailUrl = `${host}/accurate/api/customer/detail.do?id=${quotation.customer.accurateId}`;
+                const detailRes = await fetch(detailUrl, { headers: headers as HeadersInit });
+                const detailData = await detailRes.json();
+                if (detailData.s && detailData.d?.customerNo) {
+                    resolvedCustomerNo = detailData.d.customerNo;
+                }
+            } catch (e) {
+                console.error("Failed to fetch accurate customer no fallback:", e);
+            }
+        }
+
+        if (!resolvedCustomerNo) {
+            resolvedCustomerNo = quotation.clientName || "C.0001";
+        }
+
         const now = new Date();
         const dd = String(now.getDate()).padStart(2, '0');
         const mm = String(now.getMonth() + 1).padStart(2, '0');
@@ -581,7 +602,7 @@ export async function createAccurateHSQ(quotation: any) {
         const payload = {
             number: quotation.quotationNo,
             transDate: `${dd}/${mm}/${yyyy}`,
-            customerNo: quotation.customer?.accurateNo || quotation.customer?.accurateCustomerCode || quotation.clientName || "C.0001",
+            customerNo: resolvedCustomerNo,
             currencyNo: "IDR",
             taxable: true,
             inclusiveTax: false,

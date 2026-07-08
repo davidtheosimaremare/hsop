@@ -29,8 +29,7 @@ export async function syncCustomersAction() {
                     continue;
                 }
 
-                // Determine DB ID (CustomerNo doesn't exist in DB anymore, we use ID)
-                let dbId = ac.no;
+                let dbId = ac.customerNo || ac.no;
                 if (!dbId) {
                     // Fallback if Accurate 'no' is missing
                     dbId = `ACC-${ac.id}`;
@@ -61,6 +60,7 @@ export async function syncCustomersAction() {
                         phone: phone,
                         address: address,
                         businessCategory: ac.category?.name || null,
+                        accurateCustomerCode: ac.customerNo || ac.no || null,
                         // customerNo removed
                     },
                     create: {
@@ -71,6 +71,7 @@ export async function syncCustomersAction() {
                         phone: phone,
                         address: address,
                         businessCategory: ac.category?.name || null,
+                        accurateCustomerCode: ac.customerNo || ac.no || null,
                         discount1: 0,
                         discount2: 0,
                         // customerNo removed
