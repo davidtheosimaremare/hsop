@@ -12,7 +12,8 @@ export async function GET() {
             ADD COLUMN IF NOT EXISTS "marginType" TEXT,
             ADD COLUMN IF NOT EXISTS "marginValue" DOUBLE PRECISION,
             ADD COLUMN IF NOT EXISTS "metaTitle" TEXT,
-            ADD COLUMN IF NOT EXISTS "metaDescription" TEXT;
+            ADD COLUMN IF NOT EXISTS "metaDescription" TEXT,
+            ADD COLUMN IF NOT EXISTS "basePrice" DOUBLE PRECISION DEFAULT 0;
         `);
         
         return NextResponse.json({ 
