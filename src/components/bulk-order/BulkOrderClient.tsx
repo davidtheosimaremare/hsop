@@ -111,8 +111,39 @@ export default function BulkOrderClient() {
     const [nextHsqNo, setNextHsqNo] = useState<string>("");
     const [isSyncingHsq, setIsSyncingHsq] = useState(false);
     const [hideDiscountInAccurate, setHideDiscountInAccurate] = useState(false);
-    const [bulkDisc1, setBulkDisc1] = useState<number>(0);
-    const [bulkDisc2, setBulkDisc2] = useState<number>(0);
+    const [bulkDisc1, setBulkDisc1] = useState<number>(30);
+    const [bulkDisc2, setBulkDisc2] = useState<number>(37);
+
+    // New states for category-specific discounts
+    const [discountTab, setDiscountTab] = useState<'all' | 'category'>('all');
+    const [lpStockDisc1, setLpStockDisc1] = useState<number>(30);
+    const [lpStockDisc2, setLpStockDisc2] = useState<number>(37);
+    const [lpIndentDisc1, setLpIndentDisc1] = useState<number>(30);
+    const [lpIndentDisc2, setLpIndentDisc2] = useState<number>(37);
+
+    const [cpStockDisc1, setCpStockDisc1] = useState<number>(30);
+    const [cpStockDisc2, setCpStockDisc2] = useState<number>(37);
+    const [cpIndentDisc1, setCpIndentDisc1] = useState<number>(30);
+    const [cpIndentDisc2, setCpIndentDisc2] = useState<number>(37);
+
+    const getInitialSalesDiscount = (category: string | null, stockStatus: 'READY' | 'INDENT'): { d1: number; d2: number } => {
+        const mapping = categoryMappings.find(m => m.categoryName === category);
+        const discountType = mapping?.discountType;
+
+        const d1 = (discountType === 'LP' && stockStatus === 'READY') ? lpStockDisc1 :
+                   (discountType === 'LP' && stockStatus === 'INDENT') ? lpIndentDisc1 :
+                   (discountType === 'CP' && stockStatus === 'READY') ? cpStockDisc1 :
+                   (discountType === 'CP' && stockStatus === 'INDENT') ? cpIndentDisc1 :
+                   bulkDisc1;
+        
+        const d2 = (discountType === 'LP' && stockStatus === 'READY') ? lpStockDisc2 :
+                   (discountType === 'LP' && stockStatus === 'INDENT') ? lpIndentDisc2 :
+                   (discountType === 'CP' && stockStatus === 'READY') ? cpStockDisc2 :
+                   (discountType === 'CP' && stockStatus === 'INDENT') ? cpIndentDisc2 :
+                   bulkDisc2;
+
+        return { d1, d2 };
+    };
 
     const applyBulkDiscount = () => {
         setItems(prev => prev.map(item => ({
@@ -121,6 +152,48 @@ export default function BulkOrderClient() {
             salesDiscount2: bulkDisc2
         })));
         toast.success(`Diskon masal ${bulkDisc1}% + ${bulkDisc2}% diterapkan ke semua produk.`);
+    };
+
+    const applyCategoryDiscount = () => {
+        let lpCount = 0;
+        let cpCount = 0;
+        setItems(prev => prev.map(item => {
+            if (item.isCustom || item.isNotFound) return item;
+
+            const mapping = categoryMappings.find(m => m.categoryName === item.category);
+            const discountType = mapping?.discountType;
+            const isReady = item.stockStatus === 'READY';
+
+            let d1 = item.salesDiscount1 || 0;
+            let d2 = item.salesDiscount2 || 0;
+
+            if (discountType === 'LP') {
+                if (isReady) {
+                    d1 = lpStockDisc1;
+                    d2 = lpStockDisc2;
+                } else {
+                    d1 = lpIndentDisc1;
+                    d2 = lpIndentDisc2;
+                }
+                lpCount++;
+            } else if (discountType === 'CP') {
+                if (isReady) {
+                    d1 = cpStockDisc1;
+                    d2 = cpStockDisc2;
+                } else {
+                    d1 = cpIndentDisc1;
+                    d2 = cpIndentDisc2;
+                }
+                cpCount++;
+            }
+
+            return {
+                ...item,
+                salesDiscount1: d1,
+                salesDiscount2: d2
+            };
+        }));
+        toast.success(`Diskon kategori diterapkan: ${lpCount} item Low Voltage & ${cpCount} item Control Product.`);
     };
 
     const fetchNextHsq = async () => {
@@ -195,6 +268,7 @@ export default function BulkOrderClient() {
                     // Create new INDENT row right after the READY row
                     const readyIdx = newList.findIndex(i => i.customId === id);
                     const indentPriceInfo = getPriceInfo(item.price, item.category, 0);
+                    const indentDiscounts = getInitialSalesDiscount(item.category, 'INDENT');
                     const indentItem: BulkItem = {
                         ...item,
                         qty: indentQty,
@@ -204,6 +278,8 @@ export default function BulkOrderClient() {
                         isCustomerDiscount: indentPriceInfo.isCustomerDiscount,
                         stockStatus: 'INDENT',
                         customId: indentId,
+                        salesDiscount1: userRole === 'SALES' ? indentDiscounts.d1 : undefined,
+                        salesDiscount2: userRole === 'SALES' ? indentDiscounts.d2 : undefined
                     };
                     newList.splice(readyIdx + 1, 0, indentItem);
                     toast.info(`Pesanan total ${qty} melebihi stok Ready (${stock}). Sisa ${indentQty} otomatis dialihkan ke status Indent.`);
@@ -478,19 +554,22 @@ export default function BulkOrderClient() {
                 type: 'READY' | 'INDENT',
                 quantity: number,
                 pInfo: ReturnType<typeof getPriceInfo>
-            ): BulkItem => ({
-                ...product,
-                qty: quantity,
-                finalPrice: pInfo.discountedPriceWithPPN,
-                originalPrice: pInfo.hasDiscount ? pInfo.originalPriceWithPPN : undefined,
-                hasDiscount: pInfo.hasDiscount,
-                isCustomerDiscount: pInfo.isCustomerDiscount,
-                stockStatus: type,
-                customId: `${product.id}-${type}`,
-                isCustom,
-                salesDiscount1: userRole === 'SALES' ? 30 : undefined,
-                salesDiscount2: userRole === 'SALES' ? 37 : undefined
-            });
+            ): BulkItem => {
+                const discounts = getInitialSalesDiscount(product.category, type);
+                return {
+                    ...product,
+                    qty: quantity,
+                    finalPrice: pInfo.discountedPriceWithPPN,
+                    originalPrice: pInfo.hasDiscount ? pInfo.originalPriceWithPPN : undefined,
+                    hasDiscount: pInfo.hasDiscount,
+                    isCustomerDiscount: pInfo.isCustomerDiscount,
+                    stockStatus: type,
+                    customId: `${product.id}-${type}`,
+                    isCustom,
+                    salesDiscount1: userRole === 'SALES' ? discounts.d1 : undefined,
+                    salesDiscount2: userRole === 'SALES' ? discounts.d2 : undefined
+                };
+            };
 
             if (isCustom) {
                 const customId = isNotFound ? `not-found-${product.sku}` : `custom-${product.sku}`;
@@ -498,6 +577,7 @@ export default function BulkOrderClient() {
                 if (existingIdx > -1) {
                     newItems[existingIdx] = { ...newItems[existingIdx], qty: newItems[existingIdx].qty + qty };
                 } else {
+                    const customDiscounts = getInitialSalesDiscount(product.category, 'INDENT');
                     itemsToAdd.push({
                         ...product,
                         qty,
@@ -507,8 +587,8 @@ export default function BulkOrderClient() {
                         customId,
                         isCustom: true,
                         isNotFound,
-                        salesDiscount1: userRole === 'SALES' ? 30 : undefined,
-                        salesDiscount2: userRole === 'SALES' ? 37 : undefined
+                        salesDiscount1: userRole === 'SALES' ? customDiscounts.d1 : undefined,
+                        salesDiscount2: userRole === 'SALES' ? customDiscounts.d2 : undefined
                     });
                 }
             } else {
@@ -903,6 +983,7 @@ export default function BulkOrderClient() {
                     newItems[readyIdx] = { ...newItems[readyIdx], qty: newReadyQty };
                 } else {
                     const readyPriceInfo = getPriceInfo(item.price, item.category, 100);
+                    const readyDiscounts = getInitialSalesDiscount(item.category, 'READY');
                     const newItem: BulkItem = {
                         ...item,
                         qty: newReadyQty,
@@ -912,6 +993,8 @@ export default function BulkOrderClient() {
                         isCustomerDiscount: readyPriceInfo.isCustomerDiscount,
                         stockStatus: 'READY',
                         customId: readyId,
+                        salesDiscount1: userRole === 'SALES' ? readyDiscounts.d1 : undefined,
+                        salesDiscount2: userRole === 'SALES' ? readyDiscounts.d2 : undefined
                     };
                     const insertIdx = newItems.findIndex(i => i.id === baseId);
                     newItems.splice(insertIdx > -1 ? insertIdx : newItems.length, 0, newItem);
@@ -927,6 +1010,7 @@ export default function BulkOrderClient() {
                     newItems[indentIdx] = { ...newItems[indentIdx], qty: newIndentQty };
                 } else {
                     const indentPriceInfo = getPriceInfo(item.price, item.category, 0);
+                    const indentDiscounts = getInitialSalesDiscount(item.category, 'INDENT');
                     const newItem: BulkItem = {
                         ...item,
                         qty: newIndentQty,
@@ -936,6 +1020,8 @@ export default function BulkOrderClient() {
                         isCustomerDiscount: indentPriceInfo.isCustomerDiscount,
                         stockStatus: 'INDENT',
                         customId: indentId,
+                        salesDiscount1: userRole === 'SALES' ? indentDiscounts.d1 : undefined,
+                        salesDiscount2: userRole === 'SALES' ? indentDiscounts.d2 : undefined
                     };
                     const rIdx = newItems.findIndex(i => i.customId === readyId);
                     newItems.splice(rIdx > -1 ? rIdx + 1 : newItems.length, 0, newItem);
@@ -1139,44 +1225,221 @@ export default function BulkOrderClient() {
                             </label>
                         </div>
 
-                        <div className="mt-3 p-2.5 bg-blue-50 border border-blue-200 rounded-lg">
-                            <Label className="text-[10px] text-blue-800 font-bold mb-2 block">Set Diskon Masal (Untuk semua item)</Label>
-                            <div className="flex items-center gap-2">
-                                <div className="flex-1 flex items-center bg-white border border-blue-200 rounded overflow-hidden">
-                                    <span className="bg-gray-100 text-[10px] font-semibold text-gray-600 px-2 border-r border-gray-200 flex items-center h-8">D1</span>
-                                    <Input
-                                        type="number"
-                                        min="0"
-                                        max="100"
-                                        value={bulkDisc1 || ""}
-                                        onChange={(e) => setBulkDisc1(Number(e.target.value) || 0)}
-                                        className="h-8 border-0 rounded-none text-xs focus-visible:ring-0 text-center"
-                                        placeholder="0"
-                                    />
-                                    <span className="pr-2 text-[10px] text-gray-500">%</span>
-                                </div>
-                                <span className="text-gray-400 font-bold">+</span>
-                                <div className="flex-1 flex items-center bg-white border border-blue-200 rounded overflow-hidden">
-                                    <span className="bg-gray-100 text-[10px] font-semibold text-gray-600 px-2 border-r border-gray-200 flex items-center h-8">D2</span>
-                                    <Input
-                                        type="number"
-                                        min="0"
-                                        max="100"
-                                        value={bulkDisc2 || ""}
-                                        onChange={(e) => setBulkDisc2(Number(e.target.value) || 0)}
-                                        className="h-8 border-0 rounded-none text-xs focus-visible:ring-0 text-center"
-                                        placeholder="0"
-                                    />
-                                    <span className="pr-2 text-[10px] text-gray-500">%</span>
-                                </div>
-                                <Button 
-                                    onClick={applyBulkDiscount}
-                                    className="h-8 text-xs bg-blue-600 hover:bg-blue-700 px-3 text-white"
-                                    disabled={items.length === 0}
+                        <div className="mt-3 p-3 bg-blue-50/50 border border-blue-200/60 rounded-xl">
+                            <div className="flex items-center p-0.5 bg-blue-100/50 rounded-lg w-full mb-3">
+                                <button 
+                                    className={`flex-1 text-[10px] font-bold py-1 px-2 rounded-md transition-all ${discountTab === 'all' ? 'bg-white text-blue-900 shadow-sm' : 'text-blue-600 hover:text-blue-800'}`}
+                                    onClick={() => setDiscountTab('all')}
                                 >
-                                    Terapkan
-                                </Button>
+                                    Semua Item
+                                </button>
+                                <button 
+                                    className={`flex-1 text-[10px] font-bold py-1 px-2 rounded-md transition-all ${discountTab === 'category' ? 'bg-white text-blue-900 shadow-sm' : 'text-blue-600 hover:text-blue-800'}`}
+                                    onClick={() => setDiscountTab('category')}
+                                >
+                                    Kategori & Stok
+                                </button>
                             </div>
+
+                            {discountTab === 'all' ? (
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] text-blue-800 font-bold block">Set Diskon Masal (Untuk semua item)</Label>
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex-1 flex items-center bg-white border border-blue-200 rounded overflow-hidden">
+                                            <span className="bg-gray-100 text-[10px] font-semibold text-gray-600 px-2 border-r border-gray-200 flex items-center h-8">D1</span>
+                                            <Input
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                value={bulkDisc1 || ""}
+                                                onChange={(e) => setBulkDisc1(Number(e.target.value) || 0)}
+                                                className="h-8 border-0 rounded-none text-xs focus-visible:ring-0 text-center"
+                                                placeholder="30"
+                                            />
+                                            <span className="pr-2 text-[10px] text-gray-500">%</span>
+                                        </div>
+                                        <span className="text-gray-400 font-bold">+</span>
+                                        <div className="flex-1 flex items-center bg-white border border-blue-200 rounded overflow-hidden">
+                                            <span className="bg-gray-100 text-[10px] font-semibold text-gray-600 px-2 border-r border-gray-200 flex items-center h-8">D2</span>
+                                            <Input
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                value={bulkDisc2 || ""}
+                                                onChange={(e) => setBulkDisc2(Number(e.target.value) || 0)}
+                                                className="h-8 border-0 rounded-none text-xs focus-visible:ring-0 text-center"
+                                                placeholder="37"
+                                            />
+                                            <span className="pr-2 text-[10px] text-gray-500">%</span>
+                                        </div>
+                                        <Button 
+                                            onClick={applyBulkDiscount}
+                                            className="h-8 text-xs bg-blue-600 hover:bg-blue-700 px-3 text-white"
+                                            disabled={items.length === 0}
+                                        >
+                                            Terapkan
+                                        </Button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {/* Low Voltage Section */}
+                                    <div className="bg-yellow-50/70 border border-yellow-200/70 rounded-lg p-2.5">
+                                        <div className="flex items-center gap-1.5 mb-1.5">
+                                            <span className="w-2 h-2 rounded-full bg-yellow-400" />
+                                            <Label className="text-[10px] text-yellow-800 font-bold">Low Voltage (Protection)</Label>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <span className="text-[9px] font-semibold text-yellow-700 block mb-1">Stock (Ready)</span>
+                                                <div className="flex items-center gap-0.5">
+                                                    <div className="flex-1 flex items-center bg-white border border-yellow-200 rounded overflow-hidden">
+                                                        <span className="bg-gray-50 text-[9px] text-gray-500 px-1 border-r border-gray-100 flex items-center h-7 font-semibold">D1</span>
+                                                        <Input
+                                                            type="number"
+                                                            min="0"
+                                                            max="100"
+                                                            value={lpStockDisc1 || ""}
+                                                            onChange={(e) => setLpStockDisc1(Number(e.target.value) || 0)}
+                                                            className="h-7 border-0 rounded-none text-[11px] focus-visible:ring-0 text-center p-0 w-full"
+                                                            placeholder="30"
+                                                        />
+                                                        <span className="pr-1 text-[9px] text-gray-400">%</span>
+                                                    </div>
+                                                    <span className="text-gray-400 text-[10px] font-bold">+</span>
+                                                    <div className="flex-1 flex items-center bg-white border border-yellow-200 rounded overflow-hidden">
+                                                        <span className="bg-gray-50 text-[9px] text-gray-500 px-1 border-r border-gray-100 flex items-center h-7 font-semibold">D2</span>
+                                                        <Input
+                                                            type="number"
+                                                            min="0"
+                                                            max="100"
+                                                            value={lpStockDisc2 || ""}
+                                                            onChange={(e) => setLpStockDisc2(Number(e.target.value) || 0)}
+                                                            className="h-7 border-0 rounded-none text-[11px] focus-visible:ring-0 text-center p-0 w-full"
+                                                            placeholder="37"
+                                                        />
+                                                        <span className="pr-1 text-[9px] text-gray-400">%</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <span className="text-[9px] font-semibold text-yellow-700 block mb-1">No Stock (Indent)</span>
+                                                <div className="flex items-center gap-0.5">
+                                                    <div className="flex-1 flex items-center bg-white border border-yellow-200 rounded overflow-hidden">
+                                                        <span className="bg-gray-50 text-[9px] text-gray-500 px-1 border-r border-gray-100 flex items-center h-7 font-semibold">D1</span>
+                                                        <Input
+                                                            type="number"
+                                                            min="0"
+                                                            max="100"
+                                                            value={lpIndentDisc1 || ""}
+                                                            onChange={(e) => setLpIndentDisc1(Number(e.target.value) || 0)}
+                                                            className="h-7 border-0 rounded-none text-[11px] focus-visible:ring-0 text-center p-0 w-full"
+                                                            placeholder="30"
+                                                        />
+                                                        <span className="pr-1 text-[9px] text-gray-400">%</span>
+                                                    </div>
+                                                    <span className="text-gray-400 text-[10px] font-bold">+</span>
+                                                    <div className="flex-1 flex items-center bg-white border border-yellow-200 rounded overflow-hidden">
+                                                        <span className="bg-gray-50 text-[9px] text-gray-500 px-1 border-r border-gray-100 flex items-center h-7 font-semibold">D2</span>
+                                                        <Input
+                                                            type="number"
+                                                            min="0"
+                                                            max="100"
+                                                            value={lpIndentDisc2 || ""}
+                                                            onChange={(e) => setLpIndentDisc2(Number(e.target.value) || 0)}
+                                                            className="h-7 border-0 rounded-none text-[11px] focus-visible:ring-0 text-center p-0 w-full"
+                                                            placeholder="37"
+                                                        />
+                                                        <span className="pr-1 text-[9px] text-gray-400">%</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Control Product Section */}
+                                    <div className="bg-blue-50/70 border border-blue-200/70 rounded-lg p-2.5">
+                                        <div className="flex items-center gap-1.5 mb-1.5">
+                                            <span className="w-2 h-2 rounded-full bg-blue-400" />
+                                            <Label className="text-[10px] text-blue-800 font-bold">Control Product</Label>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <span className="text-[9px] font-semibold text-blue-700 block mb-1">Stock (Ready)</span>
+                                                <div className="flex items-center gap-0.5">
+                                                    <div className="flex-1 flex items-center bg-white border border-blue-200 rounded overflow-hidden">
+                                                        <span className="bg-gray-50 text-[9px] text-gray-500 px-1 border-r border-gray-100 flex items-center h-7 font-semibold">D1</span>
+                                                        <Input
+                                                            type="number"
+                                                            min="0"
+                                                            max="100"
+                                                            value={cpStockDisc1 || ""}
+                                                            onChange={(e) => setCpStockDisc1(Number(e.target.value) || 0)}
+                                                            className="h-7 border-0 rounded-none text-[11px] focus-visible:ring-0 text-center p-0 w-full"
+                                                            placeholder="30"
+                                                        />
+                                                        <span className="pr-1 text-[9px] text-gray-400">%</span>
+                                                    </div>
+                                                    <span className="text-gray-400 text-[10px] font-bold">+</span>
+                                                    <div className="flex-1 flex items-center bg-white border border-blue-200 rounded overflow-hidden">
+                                                        <span className="bg-gray-50 text-[9px] text-gray-500 px-1 border-r border-gray-100 flex items-center h-7 font-semibold">D2</span>
+                                                        <Input
+                                                            type="number"
+                                                            min="0"
+                                                            max="100"
+                                                            value={cpStockDisc2 || ""}
+                                                            onChange={(e) => setCpStockDisc2(Number(e.target.value) || 0)}
+                                                            className="h-7 border-0 rounded-none text-[11px] focus-visible:ring-0 text-center p-0 w-full"
+                                                            placeholder="37"
+                                                        />
+                                                        <span className="pr-1 text-[9px] text-gray-400">%</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <span className="text-[9px] font-semibold text-blue-700 block mb-1">No Stock (Indent)</span>
+                                                <div className="flex items-center gap-0.5">
+                                                    <div className="flex-1 flex items-center bg-white border border-blue-200 rounded overflow-hidden">
+                                                        <span className="bg-gray-50 text-[9px] text-gray-500 px-1 border-r border-gray-100 flex items-center h-7 font-semibold">D1</span>
+                                                        <Input
+                                                            type="number"
+                                                            min="0"
+                                                            max="100"
+                                                            value={cpIndentDisc1 || ""}
+                                                            onChange={(e) => setCpIndentDisc1(Number(e.target.value) || 0)}
+                                                            className="h-7 border-0 rounded-none text-[11px] focus-visible:ring-0 text-center p-0 w-full"
+                                                            placeholder="30"
+                                                        />
+                                                        <span className="pr-1 text-[9px] text-gray-400">%</span>
+                                                    </div>
+                                                    <span className="text-gray-400 text-[10px] font-bold">+</span>
+                                                    <div className="flex-1 flex items-center bg-white border border-blue-200 rounded overflow-hidden">
+                                                        <span className="bg-gray-50 text-[9px] text-gray-500 px-1 border-r border-gray-100 flex items-center h-7 font-semibold">D2</span>
+                                                        <Input
+                                                            type="number"
+                                                            min="0"
+                                                            max="100"
+                                                            value={cpIndentDisc2 || ""}
+                                                            onChange={(e) => setCpIndentDisc2(Number(e.target.value) || 0)}
+                                                            className="h-7 border-0 rounded-none text-[11px] focus-visible:ring-0 text-center p-0 w-full"
+                                                            placeholder="37"
+                                                        />
+                                                        <span className="pr-1 text-[9px] text-gray-400">%</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <Button 
+                                        onClick={applyCategoryDiscount}
+                                        className="w-full h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm font-semibold"
+                                        disabled={items.length === 0}
+                                    >
+                                        Terapkan Diskon Kategori
+                                    </Button>
+                                </div>
+                            )}
                         </div>
 
                         <div className="mt-3">
