@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { usePricing } from "@/lib/PricingContext";
-import { exportQuotationPDF, exportQuotationExcel } from "@/lib/export-quotation";
+import { exportQuotationPDF, exportQuotationExcel, QuotationExportData } from "@/lib/export-quotation";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -1034,89 +1034,81 @@ export default function BulkOrderClient() {
         });
     };
 
-    const downloadPDF = async () => {
-        const data = {
+    const prepareQuotationExportData = (): QuotationExportData => {
+        const isSales = userRole === 'SALES';
+        let grossSubTotal = 0;
+        let totalDiscountVal = 0;
+
+        const mappedItems = items.filter(i => !i.isNotFound).map(item => {
+            const basePrice = isSales ? Math.ceil(item.price / 1000) * 1000 : item.finalPrice;
+            const d1 = item.salesDiscount1 || 0;
+            const d2 = item.salesDiscount2 || 0;
+
+            let itemDiscStr = "-";
+            if (d1 > 0 && d2 > 0) itemDiscStr = `${d1}% + ${d2}%`;
+            else if (d1 > 0) itemDiscStr = `${d1}%`;
+            else if (d2 > 0) itemDiscStr = `${d2}%`;
+
+            const combinedDiscount = isSales ? (1 - (1 - d1 / 100) * (1 - d2 / 100)) : 0;
+            const discountPrice = isSales ? Math.round(basePrice * (1 - combinedDiscount)) : basePrice;
+            const lineTotal = discountPrice * item.qty;
+
+            const itemGross = basePrice * item.qty;
+            const itemDiscVal = (basePrice - discountPrice) * item.qty;
+
+            grossSubTotal += itemGross;
+            totalDiscountVal += itemDiscVal;
+
+            return {
+                productSku: item.sku,
+                productName: item.name,
+                brand: item.brand || "",
+                quantity: item.qty,
+                price: basePrice,
+                salesDiscount1: d1,
+                salesDiscount2: d2,
+                discountPrice: discountPrice,
+                finalPrice: lineTotal,
+                stockStatus: item.stockStatus === 'READY' ? 'READY' : 'INDENT',
+                note: item.stockStatus === 'READY' ? 'Ready Stock' : 'Indent',
+                discountStr: hideDiscountInAccurate ? undefined : itemDiscStr
+            };
+        });
+
+        const netSubTotal = grossSubTotal - totalDiscountVal;
+        const taxAmount = Math.ceil(netSubTotal * 0.11);
+        const grandTotal = netSubTotal + taxAmount;
+
+        return {
             quotationNo: `EST-${new Date().getTime()}`,
             createdAt: new Date().toISOString(),
             status: "ESTIMASI",
-            title: "PENAWARAN PENJUALAN", // from image
-            typeLabel: "Nomor", // from image
-            totalAmount: totalAmount, // subtotal
+            title: "PENAWARAN PENJUALAN",
+            typeLabel: "Nomor",
+            totalAmount: isSales ? grossSubTotal : netSubTotal,
             customerName: selectedCustomer?.name || "Customer",
             customerAddress: selectedCustomer?.detail?.address || "-",
             customerPhone: selectedCustomer?.detail?.mobileNo || "-",
             customerAttention: selectedCustomer?.name || "Customer",
-            paymentTerm: "Cash Before Delivery", // match image
-            subTotal: totalAmount,
-            discountAmount: 0, // currently bulk order UI doesn't have a global discount field beyond the items
-            taxAmount: Math.ceil(totalAmount * 0.11),
+            paymentTerm: "Cash Before Delivery",
+            subTotal: grossSubTotal,
+            discountAmount: totalDiscountVal,
+            taxAmount: taxAmount,
             otherFees: 0,
-            grandTotal: Math.ceil(totalAmount * 1.11),
-            items: items.filter(i => !i.isNotFound).map(item => {
-                const basePrice = userRole === 'SALES' ? Math.ceil(item.price / 1000) * 1000 : item.finalPrice;
-                const d1 = item.salesDiscount1 || 0;
-                const d2 = item.salesDiscount2 || 0;
-                let itemDiscStr = "%"; // Default or calculated
-                if (d1 > 0 && d2 > 0) itemDiscStr = `${d1}+${d2}%`;
-                else if (d1 > 0) itemDiscStr = `${d1}%`;
-                else if (d2 > 0) itemDiscStr = `${d2}%`;
-
-                return {
-                    productSku: item.sku,
-                    productName: item.name,
-                    brand: item.brand || "",
-                    quantity: item.qty,
-                    price: basePrice, // show base price in the table
-                    finalPrice: item.finalPrice, // total harga
-                    stockStatus: item.stockStatus === 'READY' ? 'READY' : 'INDENT',
-                    note: item.stockStatus === 'READY' ? 'STOCK' : 'NO STOCK',
-                    discountStr: hideDiscountInAccurate ? undefined : itemDiscStr
-                };
-            })
+            grandTotal: grandTotal,
+            isSales: isSales,
+            userRole: userRole,
+            items: mappedItems
         };
+    };
+
+    const downloadPDF = async () => {
+        const data = prepareQuotationExportData();
         await exportQuotationPDF(data);
     };
 
     const downloadExcel = async () => {
-        const data = {
-            quotationNo: `EST-${new Date().getTime()}`,
-            createdAt: new Date().toISOString(),
-            status: "ESTIMASI",
-            title: "PENAWARAN PENJUALAN", // from image
-            typeLabel: "Nomor", // from image
-            totalAmount: totalAmount, // subtotal
-            customerName: selectedCustomer?.name || "Customer",
-            customerAddress: selectedCustomer?.detail?.address || "-",
-            customerPhone: selectedCustomer?.detail?.mobileNo || "-",
-            customerAttention: selectedCustomer?.name || "Customer",
-            paymentTerm: "Cash Before Delivery", // match image
-            subTotal: totalAmount,
-            discountAmount: 0,
-            taxAmount: Math.ceil(totalAmount * 0.11),
-            otherFees: 0,
-            grandTotal: Math.ceil(totalAmount * 1.11),
-            items: items.filter(i => !i.isNotFound).map(item => {
-                const basePrice = userRole === 'SALES' ? Math.ceil(item.price / 1000) * 1000 : item.finalPrice;
-                const d1 = item.salesDiscount1 || 0;
-                const d2 = item.salesDiscount2 || 0;
-                let itemDiscStr = "%"; // Default or calculated
-                if (d1 > 0 && d2 > 0) itemDiscStr = `${d1}+${d2}%`;
-                else if (d1 > 0) itemDiscStr = `${d1}%`;
-                else if (d2 > 0) itemDiscStr = `${d2}%`;
-
-                return {
-                    productSku: item.sku,
-                    productName: item.name,
-                    brand: item.brand || "",
-                    quantity: item.qty,
-                    price: basePrice, // show base price in the table
-                    finalPrice: item.finalPrice, // total harga
-                    stockStatus: item.stockStatus === 'READY' ? 'READY' : 'INDENT',
-                    note: item.stockStatus === 'READY' ? 'STOCK' : 'NO STOCK',
-                    discountStr: hideDiscountInAccurate ? undefined : itemDiscStr
-                };
-            })
-        };
+        const data = prepareQuotationExportData();
         await exportQuotationExcel(data);
     };
 
@@ -1629,7 +1621,7 @@ export default function BulkOrderClient() {
                                                     updateQtyDirect={updateQtyDirect}
                                                     removeItem={removeItem}
                                                     isLoggedIn={isLoggedIn}
-                                                    userRole={userRole}
+                                                    userRole={userRole || null}
                                                     updateItemDiscount={updateItemDiscount}
                                                     onReplaceClick={(id) => setReplaceState({ isOpen: true, customId: id })}
                                                 />

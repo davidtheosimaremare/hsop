@@ -16,17 +16,24 @@ export interface QuotationExportData {
     customerPhone?: string;
     customerAttention?: string;
     paymentTerm?: string;
+    notes?: string;
     subTotal?: number;
     discountAmount?: number;
     taxAmount?: number;
     otherFees?: number;
     grandTotal?: number;
+    userRole?: string | null;
+    isSales?: boolean;
     items: {
         productSku: string;
         productName: string;
         brand: string;
         quantity: number;
         price: number;
+        salesDiscount1?: number;
+        salesDiscount2?: number;
+        discountPrice?: number;
+        finalPrice?: number;
         stockStatus?: string;
         note?: string;
         discountStr?: string;
@@ -267,27 +274,54 @@ export async function exportQuotationPDF(q: QuotationExportData, template?: Expo
     y = Math.max(y, rightY) + 5;
 
     // ── Items Table ──
-    const tableData = q.items.map((item, idx) => [
-        String(idx + 1),
-        item.productSku,
-        item.productName,
-        item.note || formatStockStatus(item.stockStatus),
-        String(item.quantity),
-        formatPrice(item.price),
-        item.discountStr || "%",
-        formatPrice(item.finalPrice !== undefined ? item.finalPrice * item.quantity : item.price * item.quantity),
-    ]);
+    const isSalesMode = q.isSales || q.userRole === 'SALES';
+
+    const tableData = q.items.map((item, idx) => {
+        const baseUnitPrice = item.price;
+        const unitAfterDiscount = item.discountPrice !== undefined ? item.discountPrice : baseUnitPrice;
+        const lineTotal = item.finalPrice !== undefined ? item.finalPrice : unitAfterDiscount * item.quantity;
+
+        if (isSalesMode) {
+            const d1Str = (item.salesDiscount1 || 0) > 0 ? `${item.salesDiscount1}%` : "0%";
+            const d2Str = (item.salesDiscount2 || 0) > 0 ? `${item.salesDiscount2}%` : "0%";
+
+            return [
+                String(idx + 1),
+                item.productSku,
+                item.productName,
+                item.note || formatStockStatus(item.stockStatus),
+                formatPrice(baseUnitPrice),
+                String(item.quantity),
+                d1Str,
+                d2Str,
+                formatPrice(lineTotal),
+            ];
+        }
+
+        return [
+            String(idx + 1),
+            item.productSku,
+            item.productName,
+            item.note || formatStockStatus(item.stockStatus),
+            String(item.quantity),
+            formatPrice(baseUnitPrice),
+            item.discountStr || "%",
+            formatPrice(lineTotal),
+        ];
+    });
 
     autoTable(doc, {
         startY: y,
-        head: [["NO", "KODE BARANG", "NAMA BARANG", "NOTE", "QTY", "HARGA/UNIT", "DISKON", "TOTAL HARGA"]],
+        head: isSalesMode
+            ? [["NO", "KODE BARANG", "NAMA BARANG", "STATUS", "HARGA SATUAN", "QTY", "DISKON 1", "DISKON 2", "SUBTOTAL"]]
+            : [["NO", "KODE BARANG", "NAMA BARANG", "NOTE", "QTY", "HARGA/UNIT", "DISKON", "TOTAL HARGA"]],
         body: tableData,
         margin: { left: margin, right: margin },
         theme: "plain",
         headStyles: {
             fillColor: [255, 255, 255],
             textColor: [0, 0, 0],
-            fontSize: 9,
+            fontSize: isSalesMode ? 8 : 9,
             fontStyle: "bold",
             halign: "center",
             valign: "middle",
@@ -295,12 +329,22 @@ export async function exportQuotationPDF(q: QuotationExportData, template?: Expo
             lineColor: [0, 0, 0]
         },
         bodyStyles: {
-            fontSize: 9,
+            fontSize: isSalesMode ? 8 : 9,
             textColor: [0, 0, 0],
             lineWidth: 0.5,
             lineColor: [0, 0, 0]
         },
-        columnStyles: {
+        columnStyles: isSalesMode ? {
+            0: { halign: "center", cellWidth: 7 },
+            1: { halign: "center", cellWidth: 23 },
+            2: { cellWidth: "auto" },
+            3: { halign: "center", cellWidth: 16 },
+            4: { halign: "right", cellWidth: 22 },
+            5: { halign: "center", cellWidth: 9 },
+            6: { halign: "center", cellWidth: 14 },
+            7: { halign: "center", cellWidth: 14 },
+            8: { halign: "right", cellWidth: 25 },
+        } : {
             0: { halign: "center", cellWidth: 8 },
             1: { halign: "center", cellWidth: 28 },
             2: { cellWidth: "auto" },
@@ -333,14 +377,30 @@ export async function exportQuotationPDF(q: QuotationExportData, template?: Expo
     const totalsWidth = 70;
     const totalsX = pageWidth - margin - totalsWidth;
     
-    const totalsData = [
-        ["Sub Total", ":", formatPrice(q.subTotal || q.totalAmount)],
-        ["Diskon", ":", formatPrice(q.discountAmount || 0)],
-        ["Total", ":", formatPrice((q.subTotal || q.totalAmount) - (q.discountAmount || 0))],
-        ["PPN (11%)", ":", formatPrice(q.taxAmount || 0)],
-        ["Biaya Lain-lain", ":", formatPrice(q.otherFees || 0)],
-        ["Grand Total", ":", formatPrice(q.grandTotal || q.totalAmount)]
-    ];
+    const netTotal = (q.subTotal !== undefined && q.discountAmount !== undefined) ? (q.subTotal - q.discountAmount) : q.totalAmount;
+    const taxVal = q.taxAmount !== undefined ? q.taxAmount : Math.ceil(netTotal * 0.11);
+    const grandVal = q.grandTotal !== undefined ? q.grandTotal : (netTotal + taxVal + (q.otherFees || 0));
+
+    let totalsData: string[][];
+    if (isSalesMode) {
+        totalsData = [
+            ["Total", ":", formatPrice(netTotal)],
+            ["PPN (11%)", ":", formatPrice(taxVal)],
+        ];
+        if (q.otherFees && q.otherFees > 0) {
+            totalsData.push(["Biaya Lain-lain", ":", formatPrice(q.otherFees)]);
+        }
+        totalsData.push(["Grand Total", ":", formatPrice(grandVal)]);
+    } else {
+        totalsData = [
+            ["Sub Total", ":", formatPrice(q.subTotal || q.totalAmount)],
+            ["Diskon", ":", formatPrice(q.discountAmount || 0)],
+            ["Total", ":", formatPrice((q.subTotal || q.totalAmount) - (q.discountAmount || 0))],
+            ["PPN (11%)", ":", formatPrice(q.taxAmount || 0)],
+            ["Biaya Lain-lain", ":", formatPrice(q.otherFees || 0)],
+            ["Grand Total", ":", formatPrice(q.grandTotal || q.totalAmount)]
+        ];
+    }
 
     autoTable(doc, {
         startY: finalY,
@@ -379,6 +439,9 @@ export async function exportQuotationExcel(q: QuotationExportData, _template?: E
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Estimasi");
 
+    const isSalesMode = q.isSales || q.userRole === 'SALES';
+    const maxCol = isSalesMode ? 9 : 8;
+
     let logoOffset = 0;
 
     // Load logo if exists
@@ -409,7 +472,7 @@ export async function exportQuotationExcel(q: QuotationExportData, _template?: E
     // Header Info
     const startRow = logoOffset + 1;
 
-    worksheet.mergeCells(startRow, 1, startRow, 8);
+    worksheet.mergeCells(startRow, 1, startRow, maxCol);
     const companyNameCell = worksheet.getCell(startRow, 1);
     companyNameCell.value = company.name;
     companyNameCell.font = { bold: true, size: 14, color: { argb: 'FFDC2626' } };
@@ -427,13 +490,12 @@ export async function exportQuotationExcel(q: QuotationExportData, _template?: E
     contactRow.getCell(1).font = { size: 9, color: { argb: 'FF666666' } };
 
     const titleRowIdx = startRow + 5;
-    worksheet.mergeCells(titleRowIdx, 1, titleRowIdx, 8);
+    worksheet.mergeCells(titleRowIdx, 1, titleRowIdx, maxCol);
     const titleCell = worksheet.getCell(titleRowIdx, 1);
     titleCell.value = q.title || "ESTIMASI HARGA";
     titleCell.font = { bold: true, size: 16 };
     titleCell.alignment = { horizontal: 'center' };
 
-    // Details
     // Details
     const detailsStart = titleRowIdx + 2;
 
@@ -446,20 +508,27 @@ export async function exportQuotationExcel(q: QuotationExportData, _template?: E
     worksheet.getCell(detailsStart + 4, 1).value = `Attn: Bapak ${q.customerAttention || q.customerName || "-"}`;
 
     // Right: PENAWARAN PENJUALAN
-    worksheet.getCell(detailsStart, 6).value = "PENAWARAN PENJUALAN";
-    worksheet.getCell(detailsStart, 6).font = { bold: true, size: 12 };
+    const rightColHeader = isSalesMode ? 7 : 6;
+    const rightColLabel = isSalesMode ? 6 : 5;
+    const rightColVal = isSalesMode ? 7 : 6;
+
+    worksheet.getCell(detailsStart, rightColHeader).value = "PENAWARAN PENJUALAN";
+    worksheet.getCell(detailsStart, rightColHeader).font = { bold: true, size: 12 };
     
-    worksheet.getCell(detailsStart + 2, 5).value = "Nomor";
-    worksheet.getCell(detailsStart + 2, 6).value = `: ${q.quotationNo}`;
-    worksheet.getCell(detailsStart + 3, 5).value = "Tanggal";
-    worksheet.getCell(detailsStart + 3, 6).value = `: ${formatDate(q.createdAt)}`;
-    worksheet.getCell(detailsStart + 4, 5).value = "Pembayaran";
-    worksheet.getCell(detailsStart + 4, 6).value = `: ${q.paymentTerm || "Cash Before Delivery"}`;
+    worksheet.getCell(detailsStart + 2, rightColLabel).value = "Nomor";
+    worksheet.getCell(detailsStart + 2, rightColVal).value = `: ${q.quotationNo}`;
+    worksheet.getCell(detailsStart + 3, rightColLabel).value = "Tanggal";
+    worksheet.getCell(detailsStart + 3, rightColVal).value = `: ${formatDate(q.createdAt)}`;
+    worksheet.getCell(detailsStart + 4, rightColLabel).value = "Pembayaran";
+    worksheet.getCell(detailsStart + 4, rightColVal).value = `: ${q.paymentTerm || "Cash Before Delivery"}`;
 
     // Table Header
     const tableHeaderIdx = detailsStart + 7;
     const headerRow = worksheet.getRow(tableHeaderIdx);
-    headerRow.values = ["NO", "KODE BARANG", "NAMA BARANG", "NOTE", "QTY", "HARGA/UNIT", "DISKON", "TOTAL HARGA"];
+    headerRow.values = isSalesMode
+        ? ["NO", "KODE BARANG", "NAMA BARANG", "STATUS", "HARGA SATUAN", "QTY", "DISKON 1", "DISKON 2", "SUBTOTAL"]
+        : ["NO", "KODE BARANG", "NAMA BARANG", "NOTE", "QTY", "HARGA/UNIT", "DISKON", "TOTAL HARGA"];
+
     headerRow.eachCell((cell) => {
         cell.font = { bold: true };
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -473,32 +542,70 @@ export async function exportQuotationExcel(q: QuotationExportData, _template?: E
     let currentIdx = tableHeaderIdx + 1;
     q.items.forEach((item, idx) => {
         const row = worksheet.getRow(currentIdx++);
-        row.values = [
-            idx + 1,
-            item.productSku,
-            item.productName,
-            item.note || formatStockStatus(item.stockStatus),
-            item.quantity,
-            item.price,
-            item.discountStr || "%",
-            item.finalPrice !== undefined ? item.finalPrice * item.quantity : item.price * item.quantity
-        ];
+        const baseUnitPrice = item.price;
+        const unitAfterDiscount = item.discountPrice !== undefined ? item.discountPrice : baseUnitPrice;
+        const lineTotal = item.finalPrice !== undefined ? item.finalPrice : unitAfterDiscount * item.quantity;
 
-        // Rp Formatting
-        row.getCell(6).numFmt = '"Rp" #,##0';
-        row.getCell(8).numFmt = '"Rp" #,##0';
+        if (isSalesMode) {
+            const d1Str = (item.salesDiscount1 || 0) > 0 ? `${item.salesDiscount1}%` : "0%";
+            const d2Str = (item.salesDiscount2 || 0) > 0 ? `${item.salesDiscount2}%` : "0%";
 
-        row.eachCell((cell) => {
-            cell.border = {
-                top: { style: 'thin' }, left: { style: 'thin' },
-                bottom: { style: 'thin' }, right: { style: 'thin' }
-            };
-            cell.alignment = { vertical: 'middle' };
-        });
-        row.getCell(1).alignment = { horizontal: 'center' };
-        row.getCell(4).alignment = { horizontal: 'center' };
-        row.getCell(5).alignment = { horizontal: 'center' };
-        row.getCell(7).alignment = { horizontal: 'center' };
+            row.values = [
+                idx + 1,
+                item.productSku,
+                item.productName,
+                item.note || formatStockStatus(item.stockStatus),
+                baseUnitPrice,
+                item.quantity,
+                d1Str,
+                d2Str,
+                lineTotal
+            ];
+
+            row.getCell(5).numFmt = '"Rp" #,##0';
+            row.getCell(9).numFmt = '"Rp" #,##0';
+
+            row.eachCell((cell) => {
+                cell.border = {
+                    top: { style: 'thin' }, left: { style: 'thin' },
+                    bottom: { style: 'thin' }, right: { style: 'thin' }
+                };
+                cell.alignment = { vertical: 'middle' };
+            });
+            row.getCell(1).alignment = { horizontal: 'center' };
+            row.getCell(4).alignment = { horizontal: 'center' };
+            row.getCell(5).alignment = { horizontal: 'right' };
+            row.getCell(6).alignment = { horizontal: 'center' };
+            row.getCell(7).alignment = { horizontal: 'center' };
+            row.getCell(8).alignment = { horizontal: 'center' };
+            row.getCell(9).alignment = { horizontal: 'right' };
+        } else {
+            row.values = [
+                idx + 1,
+                item.productSku,
+                item.productName,
+                item.note || formatStockStatus(item.stockStatus),
+                item.quantity,
+                baseUnitPrice,
+                item.discountStr || "%",
+                lineTotal
+            ];
+
+            row.getCell(6).numFmt = '"Rp" #,##0';
+            row.getCell(8).numFmt = '"Rp" #,##0';
+
+            row.eachCell((cell) => {
+                cell.border = {
+                    top: { style: 'thin' }, left: { style: 'thin' },
+                    bottom: { style: 'thin' }, right: { style: 'thin' }
+                };
+                cell.alignment = { vertical: 'middle' };
+            });
+            row.getCell(1).alignment = { horizontal: 'center' };
+            row.getCell(4).alignment = { horizontal: 'center' };
+            row.getCell(5).alignment = { horizontal: 'center' };
+            row.getCell(7).alignment = { horizontal: 'center' };
+        }
     });
 
     // Totals Section
@@ -512,41 +619,73 @@ export async function exportQuotationExcel(q: QuotationExportData, _template?: E
     });
 
     // Totals Right
+    const labelCol = isSalesMode ? 7 : 6;
+    const colonCol = isSalesMode ? 8 : 7;
+    const valCol = isSalesMode ? 9 : 8;
+
     const addTotalRow = (rowOffset: number, label: string, value: number, isBold: boolean = false) => {
         const r = worksheet.getRow(totalsStartIdx + rowOffset);
-        r.getCell(6).value = label;
-        r.getCell(7).value = ":";
-        r.getCell(8).value = value;
-        r.getCell(8).numFmt = '"Rp" #,##0';
+        r.getCell(labelCol).value = label;
+        r.getCell(colonCol).value = ":";
+        r.getCell(valCol).value = value;
+        r.getCell(valCol).numFmt = '"Rp" #,##0';
         
-        [6, 7, 8].forEach(col => {
+        [labelCol, colonCol, valCol].forEach(col => {
             r.getCell(col).border = {
                 top: { style: 'thin' }, left: { style: 'thin' },
                 bottom: { style: 'thin' }, right: { style: 'thin' }
             };
             if (isBold) r.getCell(col).font = { bold: true };
         });
-        r.getCell(7).alignment = { horizontal: 'center' };
+        r.getCell(colonCol).alignment = { horizontal: 'center' };
     };
 
-    addTotalRow(0, "Sub Total", q.subTotal || q.totalAmount);
-    addTotalRow(1, "Diskon", q.discountAmount || 0);
-    addTotalRow(2, "Total", (q.subTotal || q.totalAmount) - (q.discountAmount || 0));
-    addTotalRow(3, "PPN (11%)", q.taxAmount || 0);
-    addTotalRow(4, "Biaya Lain-lain", q.otherFees || 0);
-    addTotalRow(5, "Grand Total", q.grandTotal || q.totalAmount, true);
+    const netTotalExcel = (q.subTotal !== undefined && q.discountAmount !== undefined) ? (q.subTotal - q.discountAmount) : q.totalAmount;
+    const taxValExcel = q.taxAmount !== undefined ? q.taxAmount : Math.ceil(netTotalExcel * 0.11);
+    const grandValExcel = q.grandTotal !== undefined ? q.grandTotal : (netTotalExcel + taxValExcel + (q.otherFees || 0));
+
+    if (isSalesMode) {
+        let offset = 0;
+        addTotalRow(offset++, "Total", netTotalExcel);
+        addTotalRow(offset++, "PPN (11%)", taxValExcel);
+        if (q.otherFees && q.otherFees > 0) {
+            addTotalRow(offset++, "Biaya Lain-lain", q.otherFees);
+        }
+        addTotalRow(offset++, "Grand Total", grandValExcel, true);
+    } else {
+        addTotalRow(0, "Sub Total", q.subTotal || q.totalAmount);
+        addTotalRow(1, "Diskon", q.discountAmount || 0);
+        addTotalRow(2, "Total", (q.subTotal || q.totalAmount) - (q.discountAmount || 0));
+        addTotalRow(3, "PPN (11%)", q.taxAmount || 0);
+        addTotalRow(4, "Biaya Lain-lain", q.otherFees || 0);
+        addTotalRow(5, "Grand Total", q.grandTotal || q.totalAmount, true);
+    }
 
     // Column Widths
-    worksheet.columns = [
-        { width: 5 },   // NO
-        { width: 22 },  // KODE
-        { width: 50 },  // NAMA
-        { width: 12 },  // NOTE
-        { width: 8 },   // QTY
-        { width: 22 },  // HARGA/UNIT
-        { width: 10 },  // DISKON
-        { width: 22 },  // TOTAL HARGA
-    ];
+    if (isSalesMode) {
+        worksheet.columns = [
+            { width: 5 },   // NO
+            { width: 20 },  // KODE
+            { width: 45 },  // NAMA
+            { width: 14 },  // STATUS
+            { width: 18 },  // HARGA SATUAN
+            { width: 8 },   // QTY
+            { width: 12 },  // DISKON 1
+            { width: 12 },  // DISKON 2
+            { width: 22 },  // SUBTOTAL
+        ];
+    } else {
+        worksheet.columns = [
+            { width: 5 },   // NO
+            { width: 22 },  // KODE
+            { width: 50 },  // NAMA
+            { width: 12 },  // NOTE
+            { width: 8 },   // QTY
+            { width: 22 },  // HARGA/UNIT
+            { width: 10 },  // DISKON
+            { width: 22 },  // TOTAL HARGA
+        ];
+    }
 
     // Export
     const buffer = await workbook.xlsx.writeBuffer();
