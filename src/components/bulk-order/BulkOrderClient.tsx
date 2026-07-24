@@ -1045,7 +1045,7 @@ export default function BulkOrderClient() {
             const d2 = item.salesDiscount2 || 0;
 
             let itemDiscStr = "-";
-            if (d1 > 0 && d2 > 0) itemDiscStr = `${d1}% + ${d2}%`;
+            if (d1 > 0 && d2 > 0) itemDiscStr = `${d1}+${d2}%`;
             else if (d1 > 0) itemDiscStr = `${d1}%`;
             else if (d2 > 0) itemDiscStr = `${d2}%`;
 

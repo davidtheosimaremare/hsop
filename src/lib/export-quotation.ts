@@ -282,8 +282,12 @@ export async function exportQuotationPDF(q: QuotationExportData, template?: Expo
         const lineTotal = item.finalPrice !== undefined ? item.finalPrice : unitAfterDiscount * item.quantity;
 
         if (isSalesMode) {
-            const d1Str = (item.salesDiscount1 || 0) > 0 ? `${item.salesDiscount1}%` : "0%";
-            const d2Str = (item.salesDiscount2 || 0) > 0 ? `${item.salesDiscount2}%` : "0%";
+            const d1 = item.salesDiscount1 || 0;
+            const d2 = item.salesDiscount2 || 0;
+            let discStr = item.discountStr || "-";
+            if (d1 > 0 && d2 > 0) discStr = `${d1}+${d2}%`;
+            else if (d1 > 0) discStr = `${d1}%`;
+            else if (d2 > 0) discStr = `${d2}%`;
 
             return [
                 String(idx + 1),
@@ -292,8 +296,7 @@ export async function exportQuotationPDF(q: QuotationExportData, template?: Expo
                 item.note || formatStockStatus(item.stockStatus),
                 formatPrice(baseUnitPrice),
                 String(item.quantity),
-                d1Str,
-                d2Str,
+                discStr,
                 formatPrice(lineTotal),
             ];
         }
@@ -313,7 +316,7 @@ export async function exportQuotationPDF(q: QuotationExportData, template?: Expo
     autoTable(doc, {
         startY: y,
         head: isSalesMode
-            ? [["NO", "KODE BARANG", "NAMA BARANG", "STATUS", "HARGA SATUAN", "QTY", "DISKON 1", "DISKON 2", "SUBTOTAL"]]
+            ? [["NO", "KODE BARANG", "NAMA BARANG", "STATUS", "HARGA SATUAN", "QTY", "DISKON", "SUBTOTAL"]]
             : [["NO", "KODE BARANG", "NAMA BARANG", "NOTE", "QTY", "HARGA/UNIT", "DISKON", "TOTAL HARGA"]],
         body: tableData,
         margin: { left: margin, right: margin },
@@ -336,14 +339,13 @@ export async function exportQuotationPDF(q: QuotationExportData, template?: Expo
         },
         columnStyles: isSalesMode ? {
             0: { halign: "center", cellWidth: 7 },
-            1: { halign: "center", cellWidth: 23 },
+            1: { halign: "center", cellWidth: 24 },
             2: { cellWidth: "auto" },
             3: { halign: "center", cellWidth: 16 },
-            4: { halign: "right", cellWidth: 22 },
-            5: { halign: "center", cellWidth: 9 },
-            6: { halign: "center", cellWidth: 14 },
-            7: { halign: "center", cellWidth: 14 },
-            8: { halign: "right", cellWidth: 25 },
+            4: { halign: "right", cellWidth: 24 },
+            5: { halign: "center", cellWidth: 10 },
+            6: { halign: "center", cellWidth: 16 },
+            7: { halign: "right", cellWidth: 26 },
         } : {
             0: { halign: "center", cellWidth: 8 },
             1: { halign: "center", cellWidth: 28 },
@@ -440,7 +442,7 @@ export async function exportQuotationExcel(q: QuotationExportData, _template?: E
     const worksheet = workbook.addWorksheet("Estimasi");
 
     const isSalesMode = q.isSales || q.userRole === 'SALES';
-    const maxCol = isSalesMode ? 9 : 8;
+    const maxCol = 8;
 
     let logoOffset = 0;
 
@@ -508,9 +510,9 @@ export async function exportQuotationExcel(q: QuotationExportData, _template?: E
     worksheet.getCell(detailsStart + 4, 1).value = `Attn: Bapak ${q.customerAttention || q.customerName || "-"}`;
 
     // Right: PENAWARAN PENJUALAN
-    const rightColHeader = isSalesMode ? 7 : 6;
-    const rightColLabel = isSalesMode ? 6 : 5;
-    const rightColVal = isSalesMode ? 7 : 6;
+    const rightColHeader = 6;
+    const rightColLabel = 5;
+    const rightColVal = 6;
 
     worksheet.getCell(detailsStart, rightColHeader).value = "PENAWARAN PENJUALAN";
     worksheet.getCell(detailsStart, rightColHeader).font = { bold: true, size: 12 };
@@ -526,7 +528,7 @@ export async function exportQuotationExcel(q: QuotationExportData, _template?: E
     const tableHeaderIdx = detailsStart + 7;
     const headerRow = worksheet.getRow(tableHeaderIdx);
     headerRow.values = isSalesMode
-        ? ["NO", "KODE BARANG", "NAMA BARANG", "STATUS", "HARGA SATUAN", "QTY", "DISKON 1", "DISKON 2", "SUBTOTAL"]
+        ? ["NO", "KODE BARANG", "NAMA BARANG", "STATUS", "HARGA SATUAN", "QTY", "DISKON", "SUBTOTAL"]
         : ["NO", "KODE BARANG", "NAMA BARANG", "NOTE", "QTY", "HARGA/UNIT", "DISKON", "TOTAL HARGA"];
 
     headerRow.eachCell((cell) => {
@@ -547,8 +549,12 @@ export async function exportQuotationExcel(q: QuotationExportData, _template?: E
         const lineTotal = item.finalPrice !== undefined ? item.finalPrice : unitAfterDiscount * item.quantity;
 
         if (isSalesMode) {
-            const d1Str = (item.salesDiscount1 || 0) > 0 ? `${item.salesDiscount1}%` : "0%";
-            const d2Str = (item.salesDiscount2 || 0) > 0 ? `${item.salesDiscount2}%` : "0%";
+            const d1 = item.salesDiscount1 || 0;
+            const d2 = item.salesDiscount2 || 0;
+            let discStr = item.discountStr || "-";
+            if (d1 > 0 && d2 > 0) discStr = `${d1}+${d2}%`;
+            else if (d1 > 0) discStr = `${d1}%`;
+            else if (d2 > 0) discStr = `${d2}%`;
 
             row.values = [
                 idx + 1,
@@ -557,13 +563,12 @@ export async function exportQuotationExcel(q: QuotationExportData, _template?: E
                 item.note || formatStockStatus(item.stockStatus),
                 baseUnitPrice,
                 item.quantity,
-                d1Str,
-                d2Str,
+                discStr,
                 lineTotal
             ];
 
             row.getCell(5).numFmt = '"Rp" #,##0';
-            row.getCell(9).numFmt = '"Rp" #,##0';
+            row.getCell(8).numFmt = '"Rp" #,##0';
 
             row.eachCell((cell) => {
                 cell.border = {
@@ -577,8 +582,7 @@ export async function exportQuotationExcel(q: QuotationExportData, _template?: E
             row.getCell(5).alignment = { horizontal: 'right' };
             row.getCell(6).alignment = { horizontal: 'center' };
             row.getCell(7).alignment = { horizontal: 'center' };
-            row.getCell(8).alignment = { horizontal: 'center' };
-            row.getCell(9).alignment = { horizontal: 'right' };
+            row.getCell(8).alignment = { horizontal: 'right' };
         } else {
             row.values = [
                 idx + 1,
@@ -619,9 +623,9 @@ export async function exportQuotationExcel(q: QuotationExportData, _template?: E
     });
 
     // Totals Right
-    const labelCol = isSalesMode ? 7 : 6;
-    const colonCol = isSalesMode ? 8 : 7;
-    const valCol = isSalesMode ? 9 : 8;
+    const labelCol = 6;
+    const colonCol = 7;
+    const valCol = 8;
 
     const addTotalRow = (rowOffset: number, label: string, value: number, isBold: boolean = false) => {
         const r = worksheet.getRow(totalsStartIdx + rowOffset);
@@ -670,8 +674,7 @@ export async function exportQuotationExcel(q: QuotationExportData, _template?: E
             { width: 14 },  // STATUS
             { width: 18 },  // HARGA SATUAN
             { width: 8 },   // QTY
-            { width: 12 },  // DISKON 1
-            { width: 12 },  // DISKON 2
+            { width: 14 },  // DISKON
             { width: 22 },  // SUBTOTAL
         ];
     } else {
