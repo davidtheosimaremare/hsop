@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { fetchAllProducts, fetchSingleProduct, getEffectiveAccuratePrice } from "@/lib/accurate";
+import { fetchAllProducts, fetchSingleProduct, getEffectiveAccuratePrice, fetchAdjustedSellingPrices } from "@/lib/accurate";
 import { revalidatePath } from "next/cache";
 import { calculateMarkedUpPrice } from "@/lib/markup-utils";
 
@@ -92,8 +92,8 @@ export async function syncProductsAction() {
         }
         const productsToSync = Array.from(uniqueProducts.values());
 
-        // Fetch markup rules
-        const markupRules = await db.priceMarkupRule.findMany();
+        // Fetch adjusted prices map from Accurate
+        const adjustedPricesMap = await fetchAdjustedSellingPrices();
 
         for (const ap of productsToSync) {
             try {
@@ -117,7 +117,7 @@ export async function syncProductsAction() {
                 const sortWeight = calculateSortWeight(ap.name);
 
                 // Price logic: Get effective price (checking custom price category "Umum" adjustment, fallback to base unitPrice)
-                const basePrice = getEffectiveAccuratePrice(ap);
+                const basePrice = getEffectiveAccuratePrice(ap, adjustedPricesMap);
                 const finalPrice = basePrice;
 
                 await db.product.upsert({
@@ -196,7 +196,8 @@ export async function syncSingleProductAction(itemNo: string) {
         const brand = ap.itemBrand?.name ? ap.itemBrand.name.toUpperCase() : null;
         const sortWeight = calculateSortWeight(ap.name);
 
-        const basePrice = getEffectiveAccuratePrice(ap);
+        const adjustedPricesMap = await fetchAdjustedSellingPrices();
+        const basePrice = getEffectiveAccuratePrice(ap, adjustedPricesMap);
         const finalPrice = basePrice;
 
 

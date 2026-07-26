@@ -29,36 +29,19 @@ export interface AccurateProduct {
 /**
  * Get effective selling price for a product from Accurate API.
  * Priority:
- * 1. Price category "Umum" in detailSellingPrice (harga yang sudah di-adjustment/markup di Accurate)
- * 2. Any custom price category in detailSellingPrice (non-"[Semua]")
- * 3. Base unitPrice from Accurate ([Semua])
+ * 1. Check if SKU exists in adjustedPricesMap (harga yang sudah di-adjustment/markup di Accurate)
+ * 2. Base unitPrice from Accurate ([Semua])
  */
-export function getEffectiveAccuratePrice(ap: AccurateProduct): number {
+export function getEffectiveAccuratePrice(ap: AccurateProduct, adjustedPricesMap?: Map<string, number>): number {
     if (!ap) return 0;
-
-    if (ap.detailSellingPrice && Array.isArray(ap.detailSellingPrice) && ap.detailSellingPrice.length > 0) {
-        // Priority 1: Check for Kategori Penjualan "Umum"
-        const umumPriceObj = ap.detailSellingPrice.find((dsp: any) => {
-            const catName = dsp.priceCategory?.name || dsp.categoryName || dsp.name || "";
-            const val = dsp.unitPrice ?? dsp.price ?? dsp.priceAmount ?? 0;
-            return catName.trim().toLowerCase() === "umum" && val > 0;
-        });
-
-        if (umumPriceObj) {
-            const val = umumPriceObj.unitPrice ?? umumPriceObj.price ?? umumPriceObj.priceAmount ?? 0;
-            if (val > 0) return val;
-        }
-
-        // Priority 2: Check for any custom price category (not "[Semua]" or "Semua")
-        const customPriceObj = ap.detailSellingPrice.find((dsp: any) => {
-            const catName = dsp.priceCategory?.name || dsp.categoryName || dsp.name || "";
-            const val = dsp.unitPrice ?? dsp.price ?? dsp.priceAmount ?? 0;
-            return catName && !catName.toLowerCase().includes("semua") && val > 0;
-        });
-
-        if (customPriceObj) {
-            const val = customPriceObj.unitPrice ?? customPriceObj.price ?? customPriceObj.priceAmount ?? 0;
-            if (val > 0) return val;
+    
+    if (adjustedPricesMap) {
+        const sku = ap.no?.toUpperCase();
+        if (sku && adjustedPricesMap.has(sku)) {
+            const adjustedPrice = adjustedPricesMap.get(sku);
+            if (adjustedPrice && adjustedPrice > 0) {
+                return adjustedPrice;
+            }
         }
     }
 
@@ -996,33 +979,33 @@ export async function searchAccurateCustomers(query: string): Promise<AccurateCu
 /**
  * Cache for Accurate price adjustment SKUs to reduce API calls
  */
-const priceAdjustmentCache = {
-    data: new Set<string>(),
+const adjustedPricesCache = {
+    data: new Map<string, number>(),
     expiresAt: 0
 };
 const CACHE_TTL_PRICE_ADJUSTMENTS = 1000 * 60 * 30; // 30 minutes
 
 /**
- * Fetch set of item SKUs (in uppercase) that are listed in Accurate Price Adjustment documents.
+ * Fetch map of item SKUs to their adjusted selling prices (Kategori Penjualan: Umum)
  */
-export async function fetchAdjustedItemSkus(): Promise<Set<string>> {
+export async function fetchAdjustedSellingPrices(): Promise<Map<string, number>> {
     const now = Date.now();
-    if (priceAdjustmentCache.data.size > 0 && priceAdjustmentCache.expiresAt > now) {
-        return priceAdjustmentCache.data;
+    if (adjustedPricesCache.data.size > 0 && adjustedPricesCache.expiresAt > now) {
+        return adjustedPricesCache.data;
     }
 
     const host = process.env.ACCURATE_API_HOST || "https://zeus.accurate.id";
-    const endpoint = `${host}/accurate/api/price-adjustment/list.do`;
+    const endpoint = `${host}/accurate/api/sellingprice-adjustment/list.do`;
     const url = new URL(endpoint);
-    url.searchParams.append('fields', 'id,number,transDate,description');
+    // Fetch last 100 documents to cover all recent adjustments
     url.searchParams.append('sp.page', '1');
     url.searchParams.append('sp.pageSize', '100');
 
-    const adjustedSkus = new Set<string>();
+    const adjustedPrices = new Map<string, number>();
 
     try {
         const headers = await generateAccurateAuthHeaders();
-        if (!headers) return adjustedSkus;
+        if (!headers) return adjustedPrices;
 
         const response = await fetch(url.toString(), {
             method: 'GET',
@@ -1030,14 +1013,14 @@ export async function fetchAdjustedItemSkus(): Promise<Set<string>> {
             cache: 'no-store'
         });
 
-        if (!response.ok) return adjustedSkus;
+        if (!response.ok) return adjustedPrices;
         const result = await response.json();
-        if (!result.s || !result.d) return adjustedSkus;
+        if (!result.s || !result.d) return adjustedPrices;
 
         const docs = result.d as Array<{ id: number; number: string }>;
         for (const doc of docs) {
             try {
-                const detailUrl = `${host}/accurate/api/price-adjustment/detail.do?id=${doc.id}`;
+                const detailUrl = `${host}/accurate/api/sellingprice-adjustment/detail.do?id=${doc.id}`;
                 const detailRes = await fetch(detailUrl, {
                     method: 'GET',
                     headers: headers as HeadersInit,
@@ -1047,24 +1030,26 @@ export async function fetchAdjustedItemSkus(): Promise<Set<string>> {
                 const detailResult = await detailRes.json();
                 if (!detailResult.s || !detailResult.d) continue;
 
-                const detailItems = detailResult.d.detailItem || detailResult.d.items || [];
+                const detailItems = detailResult.d.detailItem || [];
                 for (const item of detailItems) {
-                    const itemNo = item.item?.no || item.itemNo || item.no;
-                    if (itemNo) {
-                        adjustedSkus.add(String(itemNo).trim().toUpperCase());
+                    if (item.priceCategory?.name?.trim().toLowerCase() === "umum" && item.price > 0) {
+                        const sku = item.item?.no?.toUpperCase();
+                        if (sku && !adjustedPrices.has(sku)) {
+                            adjustedPrices.set(sku, item.price);
+                        }
                     }
                 }
             } catch (err) {
-                console.error(`Failed to fetch price adjustment detail for ID ${doc.id}:`, err);
+                console.error(`Failed to fetch selling price adjustment detail for ID ${doc.id}:`, err);
             }
         }
 
-        priceAdjustmentCache.data = adjustedSkus;
-        priceAdjustmentCache.expiresAt = now + CACHE_TTL_PRICE_ADJUSTMENTS;
+        adjustedPricesCache.data = adjustedPrices;
+        adjustedPricesCache.expiresAt = now + CACHE_TTL_PRICE_ADJUSTMENTS;
     } catch (err) {
-        console.error('Failed to fetch Accurate Price Adjustments:', err);
+        console.error('Failed to fetch Accurate Selling Price Adjustments:', err);
     }
 
-    return adjustedSkus;
+    return adjustedPrices;
 }
 
