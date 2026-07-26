@@ -6,6 +6,15 @@ export interface AccurateProduct {
     name: string;
     itemType: string;
     unitPrice?: number;
+    detailSellingPrice?: Array<{
+        priceCategory?: {
+            id: number;
+            name: string;
+        };
+        unitPrice?: number;
+        price?: number;
+        priceAmount?: number;
+    }>;
     availableToSell?: number;
     itemBrand?: {
         id: number;
@@ -16,6 +25,46 @@ export interface AccurateProduct {
         name: string;
     };
 }
+
+/**
+ * Get effective selling price for a product from Accurate API.
+ * Priority:
+ * 1. Price category "Umum" in detailSellingPrice (harga yang sudah di-adjustment/markup di Accurate)
+ * 2. Any custom price category in detailSellingPrice (non-"[Semua]")
+ * 3. Base unitPrice from Accurate ([Semua])
+ */
+export function getEffectiveAccuratePrice(ap: AccurateProduct): number {
+    if (!ap) return 0;
+
+    if (ap.detailSellingPrice && Array.isArray(ap.detailSellingPrice) && ap.detailSellingPrice.length > 0) {
+        // Priority 1: Check for Kategori Penjualan "Umum"
+        const umumPriceObj = ap.detailSellingPrice.find((dsp: any) => {
+            const catName = dsp.priceCategory?.name || dsp.categoryName || dsp.name || "";
+            const val = dsp.unitPrice ?? dsp.price ?? dsp.priceAmount ?? 0;
+            return catName.trim().toLowerCase() === "umum" && val > 0;
+        });
+
+        if (umumPriceObj) {
+            const val = umumPriceObj.unitPrice ?? umumPriceObj.price ?? umumPriceObj.priceAmount ?? 0;
+            if (val > 0) return val;
+        }
+
+        // Priority 2: Check for any custom price category (not "[Semua]" or "Semua")
+        const customPriceObj = ap.detailSellingPrice.find((dsp: any) => {
+            const catName = dsp.priceCategory?.name || dsp.categoryName || dsp.name || "";
+            const val = dsp.unitPrice ?? dsp.price ?? dsp.priceAmount ?? 0;
+            return catName && !catName.toLowerCase().includes("semua") && val > 0;
+        });
+
+        if (customPriceObj) {
+            const val = customPriceObj.unitPrice ?? customPriceObj.price ?? customPriceObj.priceAmount ?? 0;
+            if (val > 0) return val;
+        }
+    }
+
+    return ap.unitPrice || 0;
+}
+
 
 /**
  * Global cache object for stock and product metadata to reduce API pressure
@@ -87,7 +136,7 @@ async function fetchProductPage(page: number, pageSize: number): Promise<Accurat
 
     const fields = [
         'id', 'no', 'name', 'itemType',
-        'unitPrice', 'availableToSell', 'itemCategory', 'itemBrand'
+        'unitPrice', 'detailSellingPrice', 'availableToSell', 'itemCategory', 'itemBrand'
     ].join(',');
 
     url.searchParams.append('fields', fields);
@@ -152,7 +201,7 @@ export async function fetchSingleProduct(itemNo: string): Promise<AccurateProduc
 
     const fields = [
         'id', 'no', 'name', 'itemType',
-        'unitPrice', 'availableToSell', 'itemCategory', 'itemBrand'
+        'unitPrice', 'detailSellingPrice', 'availableToSell', 'itemCategory', 'itemBrand'
     ].join(',');
 
     url.searchParams.append('fields', fields);

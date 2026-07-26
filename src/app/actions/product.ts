@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { fetchAllProducts, fetchSingleProduct, fetchAdjustedItemSkus } from "@/lib/accurate";
+import { fetchAllProducts, fetchSingleProduct, getEffectiveAccuratePrice } from "@/lib/accurate";
 import { revalidatePath } from "next/cache";
 import { calculateMarkedUpPrice } from "@/lib/markup-utils";
 
@@ -116,8 +116,8 @@ export async function syncProductsAction() {
                 // Calculate sort weight for better search prioritization
                 const sortWeight = calculateSortWeight(ap.name);
 
-                // Price logic: 100% direct from Accurate API (unitPrice)
-                const basePrice = ap.unitPrice || 0;
+                // Price logic: Get effective price (checking custom price category "Umum" adjustment, fallback to base unitPrice)
+                const basePrice = getEffectiveAccuratePrice(ap);
                 const finalPrice = basePrice;
 
                 await db.product.upsert({
@@ -196,7 +196,7 @@ export async function syncSingleProductAction(itemNo: string) {
         const brand = ap.itemBrand?.name ? ap.itemBrand.name.toUpperCase() : null;
         const sortWeight = calculateSortWeight(ap.name);
 
-        const basePrice = ap.unitPrice || 0;
+        const basePrice = getEffectiveAccuratePrice(ap);
         const finalPrice = basePrice;
 
 
