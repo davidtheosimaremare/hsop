@@ -115,3 +115,38 @@ export async function applyAllMarkupRules() {
     }
 }
 
+/**
+ * Clear all local markup rules and reset all product prices to 100% match Accurate basePrice
+ */
+export async function clearAllMarkupRulesAndResetPrices() {
+    try {
+        console.log("Clearing all markup rules and resetting prices to Accurate basePrice...");
+        await db.priceMarkupRule.deleteMany({});
+
+        const products = await db.product.findMany({
+            where: { basePrice: { gt: 0 } },
+            select: { id: true, basePrice: true, price: true }
+        });
+
+        let updatedCount = 0;
+        for (const p of products) {
+            if (p.basePrice && Math.abs(p.basePrice - p.price) > 0.01) {
+                await db.product.update({
+                    where: { id: p.id },
+                    data: { price: p.basePrice }
+                });
+                updatedCount++;
+            }
+        }
+
+        revalidatePath("/");
+        revalidatePath("/admin/products");
+        revalidatePath("/admin/products/markup-rules");
+        return { success: true, updatedCount };
+    } catch (error) {
+        console.error("Failed to clear markup rules and reset prices:", error);
+        return { success: false, error: "Gagal mereset aturan markup." };
+    }
+}
+
+

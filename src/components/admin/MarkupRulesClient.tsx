@@ -11,6 +11,7 @@ import {
     createMarkupRule, 
     deleteMarkupRule, 
     applyAllMarkupRules,
+    clearAllMarkupRulesAndResetPrices,
     RuleType,
     MarkupType
 } from "@/app/actions/markup-rules";
@@ -21,7 +22,8 @@ import {
     Calculator,
     Tag,
     FolderTree,
-    TrendingUp
+    TrendingUp,
+    RotateCcw
 } from "lucide-react";
 
 export default function MarkupRulesClient({ 
@@ -91,7 +93,7 @@ export default function MarkupRulesClient({
     };
 
     const handleDeleteRule = async (id: string) => {
-        if (!confirm("Hapus aturan ini? Harga produk yang sudah di-markup tidak akan kembali ke asal sampai Anda menekan tombol 'Terapkan Semua Aturan Sekarang' atau menunggu sinkronisasi besok.")) return;
+        if (!confirm("Hapus aturan ini? Klik tombol 'Reset Semua Harga ke Accurate' untuk mengembalikan harga produk ke asal.")) return;
         
         const res = await deleteMarkupRule(id);
         if (res.success) {
@@ -115,22 +117,48 @@ export default function MarkupRulesClient({
         setIsApplying(false);
     };
 
+    const handleClearAndReset = async () => {
+        if (!confirm("Anda yakin ingin MENGHAPUS SEMUA ATURAN LOKAL dan MERESET HARGA seluruh produk agar 100% mengikuti harga Accurate Online?")) return;
+        
+        setIsApplying(true);
+        const res = await clearAllMarkupRulesAndResetPrices();
+        if (res.success) {
+            toast.success(`Berhasil! Seluruh aturan lokal dihapus dan ${res.updatedCount} produk direset ke harga asli Accurate.`);
+            fetchRules();
+        } else {
+            toast.error(res.error || "Gagal mereset harga ke Accurate.");
+        }
+        setIsApplying(false);
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div className="space-y-1.5">
                     <h1 className="text-3xl font-black text-slate-900 tracking-tight">Aturan Kenaikan Harga</h1>
-                    <p className="text-slate-500 font-medium">Buat aturan otomatis untuk menaikkan harga dari base price Accurate berdasarkan Brand atau Kategori.</p>
+                    <p className="text-slate-500 font-medium">Harga produk kini disinkronkan 100% langsung dari API Accurate Online tanpa penambahan harga lokal.</p>
                 </div>
-                <Button 
-                    onClick={handleApplyAll} 
-                    disabled={isApplying}
-                    className="h-10 px-6 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold transition-all shrink-0 shadow-lg shadow-red-600/20 inline-flex items-center gap-2"
-                >
-                    <Calculator className={`w-4 h-4 ${isApplying ? "animate-pulse" : ""}`} />
-                    {isApplying ? "Menerapkan..." : "Terapkan Semua Aturan Sekarang"}
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button 
+                        onClick={handleClearAndReset}
+                        disabled={isApplying}
+                        variant="outline"
+                        className="h-10 px-4 rounded-xl border-red-200 text-red-600 hover:bg-red-50 font-bold transition-all shrink-0 inline-flex items-center gap-2"
+                    >
+                        <RotateCcw className={`w-4 h-4 ${isApplying ? "animate-spin" : ""}`} />
+                        Hapus Aturan & Reset Harga ke Accurate
+                    </Button>
+                    <Button 
+                        onClick={handleApplyAll} 
+                        disabled={isApplying}
+                        className="h-10 px-6 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold transition-all shrink-0 shadow-lg shadow-red-600/20 inline-flex items-center gap-2"
+                    >
+                        <Calculator className={`w-4 h-4 ${isApplying ? "animate-pulse" : ""}`} />
+                        {isApplying ? "Menerapkan..." : "Terapkan Semua Aturan"}
+                    </Button>
+                </div>
             </div>
+
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Form Tambah Aturan */}
