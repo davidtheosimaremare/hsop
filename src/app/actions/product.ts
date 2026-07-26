@@ -92,11 +92,8 @@ export async function syncProductsAction() {
         }
         const productsToSync = Array.from(uniqueProducts.values());
 
-        // Fetch markup rules and Accurate Price Adjustment SKUs
-        const [markupRules, adjustedSkus] = await Promise.all([
-            db.priceMarkupRule.findMany(),
-            fetchAdjustedItemSkus()
-        ]);
+        // Fetch markup rules
+        const markupRules = await db.priceMarkupRule.findMany();
 
         for (const ap of productsToSync) {
             try {
@@ -119,10 +116,9 @@ export async function syncProductsAction() {
                 // Calculate sort weight for better search prioritization
                 const sortWeight = calculateSortWeight(ap.name);
 
-                // Price logic
+                // Price logic: use unitPrice directly from Accurate as basePrice and price
                 const basePrice = ap.unitPrice || 0;
-                const isAdjusted = adjustedSkus.has((ap.no || "").trim().toUpperCase());
-                const finalPrice = calculateMarkedUpPrice(basePrice, brand, category, markupRules, isAdjusted);
+                const finalPrice = calculateMarkedUpPrice(basePrice, brand, category, markupRules);
 
                 await db.product.upsert({
                     where: { accurateId: ap.id }, // Use accurateId as unique identifier for sync
@@ -200,13 +196,9 @@ export async function syncSingleProductAction(itemNo: string) {
         const brand = ap.itemBrand?.name ? ap.itemBrand.name.toUpperCase() : null;
         const sortWeight = calculateSortWeight(ap.name);
 
-        const [markupRules, adjustedSkus] = await Promise.all([
-            db.priceMarkupRule.findMany(),
-            fetchAdjustedItemSkus()
-        ]);
+        const markupRules = await db.priceMarkupRule.findMany();
         const basePrice = ap.unitPrice || 0;
-        const isAdjusted = adjustedSkus.has((ap.no || "").trim().toUpperCase());
-        const finalPrice = calculateMarkedUpPrice(basePrice, brand, category, markupRules, isAdjusted);
+        const finalPrice = calculateMarkedUpPrice(basePrice, brand, category, markupRules);
 
         await db.product.upsert({
             where: { accurateId: ap.id },

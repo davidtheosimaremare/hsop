@@ -78,10 +78,7 @@ export async function deleteMarkupRule(id: string) {
 export async function applyAllMarkupRules() {
     try {
         console.log("Applying all markup rules...");
-        const [rules, adjustedSkus] = await Promise.all([
-            db.priceMarkupRule.findMany(),
-            fetchAdjustedItemSkus()
-        ]);
+        const rules = await db.priceMarkupRule.findMany();
         
         // Fetch products that have basePrice
         const products = await db.product.findMany({
@@ -94,8 +91,7 @@ export async function applyAllMarkupRules() {
 
         for (const p of products) {
             if (p.basePrice) {
-                const isAdjusted = adjustedSkus.has((p.sku || "").trim().toUpperCase());
-                const newPrice = calculateMarkedUpPrice(p.basePrice, p.brand, p.category, rules, isAdjusted);
+                const newPrice = calculateMarkedUpPrice(p.basePrice, p.brand, p.category, rules);
                 
                 // Only update if there's a difference
                 if (Math.abs(newPrice - p.price) > 0.01) {
