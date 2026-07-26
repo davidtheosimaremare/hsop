@@ -943,3 +943,79 @@ export async function searchAccurateCustomers(query: string): Promise<AccurateCu
         return [];
     }
 }
+
+/**
+ * Cache for Accurate price adjustment SKUs to reduce API calls
+ */
+const priceAdjustmentCache = {
+    data: new Set<string>(),
+    expiresAt: 0
+};
+const CACHE_TTL_PRICE_ADJUSTMENTS = 1000 * 60 * 30; // 30 minutes
+
+/**
+ * Fetch set of item SKUs (in uppercase) that are listed in Accurate Price Adjustment documents.
+ */
+export async function fetchAdjustedItemSkus(): Promise<Set<string>> {
+    const now = Date.now();
+    if (priceAdjustmentCache.data.size > 0 && priceAdjustmentCache.expiresAt > now) {
+        return priceAdjustmentCache.data;
+    }
+
+    const host = process.env.ACCURATE_API_HOST || "https://zeus.accurate.id";
+    const endpoint = `${host}/accurate/api/price-adjustment/list.do`;
+    const url = new URL(endpoint);
+    url.searchParams.append('fields', 'id,number,transDate,description');
+    url.searchParams.append('sp.page', '1');
+    url.searchParams.append('sp.pageSize', '100');
+
+    const adjustedSkus = new Set<string>();
+
+    try {
+        const headers = await generateAccurateAuthHeaders();
+        if (!headers) return adjustedSkus;
+
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: headers as HeadersInit,
+            cache: 'no-store'
+        });
+
+        if (!response.ok) return adjustedSkus;
+        const result = await response.json();
+        if (!result.s || !result.d) return adjustedSkus;
+
+        const docs = result.d as Array<{ id: number; number: string }>;
+        for (const doc of docs) {
+            try {
+                const detailUrl = `${host}/accurate/api/price-adjustment/detail.do?id=${doc.id}`;
+                const detailRes = await fetch(detailUrl, {
+                    method: 'GET',
+                    headers: headers as HeadersInit,
+                    cache: 'no-store'
+                });
+                if (!detailRes.ok) continue;
+                const detailResult = await detailRes.json();
+                if (!detailResult.s || !detailResult.d) continue;
+
+                const detailItems = detailResult.d.detailItem || detailResult.d.items || [];
+                for (const item of detailItems) {
+                    const itemNo = item.item?.no || item.itemNo || item.no;
+                    if (itemNo) {
+                        adjustedSkus.add(String(itemNo).trim().toUpperCase());
+                    }
+                }
+            } catch (err) {
+                console.error(`Failed to fetch price adjustment detail for ID ${doc.id}:`, err);
+            }
+        }
+
+        priceAdjustmentCache.data = adjustedSkus;
+        priceAdjustmentCache.expiresAt = now + CACHE_TTL_PRICE_ADJUSTMENTS;
+    } catch (err) {
+        console.error('Failed to fetch Accurate Price Adjustments:', err);
+    }
+
+    return adjustedSkus;
+}
+

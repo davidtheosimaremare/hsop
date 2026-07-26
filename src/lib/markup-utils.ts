@@ -2,9 +2,15 @@ export function calculateMarkedUpPrice(
     basePrice: number,
     brand: string | null,
     category: string | null,
-    rules: { type: string, targetValue: string, markupType: string, markupValue: number }[]
+    rules: { type: string, targetValue: string, markupType: string, markupValue: number }[],
+    isAccurateAdjusted: boolean = false
 ): number {
     if (!basePrice || basePrice <= 0) return basePrice;
+
+    // If item price was already adjusted in Accurate Online, use basePrice directly to prevent double markup
+    if (isAccurateAdjusted) {
+        return basePrice;
+    }
 
     // 1. Try Category Rule (Priority)
     if (category) {

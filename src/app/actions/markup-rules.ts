@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { calculateMarkedUpPrice } from "@/lib/markup-utils";
+import { fetchAdjustedItemSkus } from "@/lib/accurate";
 
 export type MarkupType = "PERCENTAGE" | "FIXED_ADDITION";
 export type RuleType = "BRAND" | "CATEGORY";
@@ -77,12 +78,15 @@ export async function deleteMarkupRule(id: string) {
 export async function applyAllMarkupRules() {
     try {
         console.log("Applying all markup rules...");
-        const rules = await db.priceMarkupRule.findMany();
+        const [rules, adjustedSkus] = await Promise.all([
+            db.priceMarkupRule.findMany(),
+            fetchAdjustedItemSkus()
+        ]);
         
         // Fetch products that have basePrice
         const products = await db.product.findMany({
             where: { basePrice: { gt: 0 } },
-            select: { id: true, basePrice: true, brand: true, category: true, price: true }
+            select: { id: true, sku: true, basePrice: true, brand: true, category: true, price: true }
         });
 
         console.log(`Found ${products.length} products to evaluate.`);
@@ -90,7 +94,8 @@ export async function applyAllMarkupRules() {
 
         for (const p of products) {
             if (p.basePrice) {
-                const newPrice = calculateMarkedUpPrice(p.basePrice, p.brand, p.category, rules);
+                const isAdjusted = adjustedSkus.has((p.sku || "").trim().toUpperCase());
+                const newPrice = calculateMarkedUpPrice(p.basePrice, p.brand, p.category, rules, isAdjusted);
                 
                 // Only update if there's a difference
                 if (Math.abs(newPrice - p.price) > 0.01) {
@@ -113,3 +118,4 @@ export async function applyAllMarkupRules() {
         return { success: false, error: "Gagal menerapkan aturan markup secara massal." };
     }
 }
+

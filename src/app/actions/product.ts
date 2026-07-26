@@ -1,9 +1,10 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { fetchAllProducts, fetchSingleProduct } from "@/lib/accurate";
+import { fetchAllProducts, fetchSingleProduct, fetchAdjustedItemSkus } from "@/lib/accurate";
 import { revalidatePath } from "next/cache";
 import { calculateMarkedUpPrice } from "@/lib/markup-utils";
+
 
 function calculateSortWeight(name: string): number {
     const upperName = name.toUpperCase();
@@ -91,8 +92,11 @@ export async function syncProductsAction() {
         }
         const productsToSync = Array.from(uniqueProducts.values());
 
-        // Fetch markup rules
-        const markupRules = await db.priceMarkupRule.findMany();
+        // Fetch markup rules and Accurate Price Adjustment SKUs
+        const [markupRules, adjustedSkus] = await Promise.all([
+            db.priceMarkupRule.findMany(),
+            fetchAdjustedItemSkus()
+        ]);
 
         for (const ap of productsToSync) {
             try {
@@ -117,7 +121,8 @@ export async function syncProductsAction() {
 
                 // Price logic
                 const basePrice = ap.unitPrice || 0;
-                const finalPrice = calculateMarkedUpPrice(basePrice, brand, category, markupRules);
+                const isAdjusted = adjustedSkus.has((ap.no || "").trim().toUpperCase());
+                const finalPrice = calculateMarkedUpPrice(basePrice, brand, category, markupRules, isAdjusted);
 
                 await db.product.upsert({
                     where: { accurateId: ap.id }, // Use accurateId as unique identifier for sync
@@ -195,9 +200,13 @@ export async function syncSingleProductAction(itemNo: string) {
         const brand = ap.itemBrand?.name ? ap.itemBrand.name.toUpperCase() : null;
         const sortWeight = calculateSortWeight(ap.name);
 
-        const markupRules = await db.priceMarkupRule.findMany();
+        const [markupRules, adjustedSkus] = await Promise.all([
+            db.priceMarkupRule.findMany(),
+            fetchAdjustedItemSkus()
+        ]);
         const basePrice = ap.unitPrice || 0;
-        const finalPrice = calculateMarkedUpPrice(basePrice, brand, category, markupRules);
+        const isAdjusted = adjustedSkus.has((ap.no || "").trim().toUpperCase());
+        const finalPrice = calculateMarkedUpPrice(basePrice, brand, category, markupRules, isAdjusted);
 
         await db.product.upsert({
             where: { accurateId: ap.id },
