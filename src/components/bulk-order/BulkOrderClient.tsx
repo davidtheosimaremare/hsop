@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Search, ShoppingCart, Trash2, CheckCircle2, ChevronRight, FileSpreadsheet, X, UploadCloud, Download, GripVertical, Plus, Minus, RotateCcw, Edit2, RotateCw, AlertCircle, FileDown } from "lucide-react";
+import { Search, ShoppingCart, Trash2, CheckCircle2, ChevronRight, FileSpreadsheet, X, UploadCloud, Download, GripVertical, Plus, Minus, RotateCcw, Edit2, RotateCw, AlertCircle, FileDown, GitCompareArrows } from "lucide-react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { useCart } from "@/lib/useCart";
@@ -48,6 +48,14 @@ interface BulkItem extends BulkOrderProduct {
     isNotFound?: boolean;
     salesDiscount1?: number;
     salesDiscount2?: number;
+}
+
+interface ComparisonItem {
+    sku: string;
+    qtyA: number | null;
+    qtyB: number | null;
+    diff: number;
+    status: 'match' | 'diff' | 'only-a' | 'only-b';
 }
 
 export default function BulkOrderClient() {
@@ -112,6 +120,19 @@ export default function BulkOrderClient() {
     const [isSyncingHsq, setIsSyncingHsq] = useState(false);
     const [hideDiscountInAccurate, setHideDiscountInAccurate] = useState(false);
     const [mergeAll, setMergeAll] = useState(false);
+
+    // Comparison feature state
+    const [isCompOpen, setIsCompOpen] = useState(false);
+    const [compFile1, setCompFile1] = useState<File | null>(null);
+    const [compFile2, setCompFile2] = useState<File | null>(null);
+    const [compName1, setCompName1] = useState("");
+    const [compName2, setCompName2] = useState("");
+    const [isComparing, setIsComparing] = useState(false);
+    const [compResults, setCompResults] = useState<ComparisonItem[]>([]);
+    const [compFilter, setCompFilter] = useState<'all' | 'diff' | 'only-a' | 'only-b' | 'match'>('all');
+    const compRef1 = useRef<HTMLInputElement>(null);
+    const compRef2 = useRef<HTMLInputElement>(null);
+
     const [bulkDisc1, setBulkDisc1] = useState<number>(30);
     const [bulkDisc2, setBulkDisc2] = useState<number>(37);
 
@@ -933,6 +954,87 @@ export default function BulkOrderClient() {
         }
     };
 
+    // ── COMPARISON ───────────────────────────────────────────────────────────
+    const parseExcelToSkuMap = (file: File): Promise<Map<string, number>> =>
+        new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                try {
+                    const bstr = evt.target?.result;
+                    const wb = XLSX.read(bstr, { type: 'binary' });
+                    const ws = wb.Sheets[wb.SheetNames[0]];
+                    const data = XLSX.utils.sheet_to_json(ws) as any[];
+                    const map = new Map<string, number>();
+                    data.forEach(row => {
+                        const sku = String(row['SKU'] || row['sku'] || '').trim();
+                        const qty = parseInt(row['QTY'] || row['qty'] || row['Qty'] || '1', 10);
+                        if (sku) {
+                            const lower = sku.toLowerCase();
+                            map.set(lower, (map.get(lower) || 0) + (isNaN(qty) ? 1 : qty));
+                        }
+                    });
+                    resolve(map);
+                } catch (err) { reject(err); }
+            };
+            reader.onerror = reject;
+            reader.readAsBinaryString(file);
+        });
+
+    const handleRunComparison = async () => {
+        if (!compFile1 || !compFile2) {
+            toast.error("Unggah kedua file Excel terlebih dahulu.");
+            return;
+        }
+        setIsComparing(true);
+        try {
+            const [mapA, mapB] = await Promise.all([
+                parseExcelToSkuMap(compFile1),
+                parseExcelToSkuMap(compFile2)
+            ]);
+            const allSkus = new Set([...mapA.keys(), ...mapB.keys()]);
+            const results: ComparisonItem[] = [];
+            allSkus.forEach(sku => {
+                const qtyA = mapA.has(sku) ? mapA.get(sku)! : null;
+                const qtyB = mapB.has(sku) ? mapB.get(sku)! : null;
+                let status: ComparisonItem['status'];
+                if (qtyA === null) status = 'only-b';
+                else if (qtyB === null) status = 'only-a';
+                else if (qtyA === qtyB) status = 'match';
+                else status = 'diff';
+                results.push({ sku, qtyA, qtyB, diff: (qtyA ?? 0) - (qtyB ?? 0), status });
+            });
+            results.sort((a, b) => {
+                const order = { 'diff': 0, 'only-a': 1, 'only-b': 2, 'match': 3 };
+                return order[a.status] - order[b.status] || a.sku.localeCompare(b.sku);
+            });
+            setCompResults(results);
+            setCompFilter('all');
+            toast.success(`Perbandingan selesai: ${results.length} SKU dibandingkan.`);
+        } catch (err) {
+            console.error(err);
+            toast.error("Gagal memproses file. Pastikan format kolom SKU dan QTY benar.");
+        } finally {
+            setIsComparing(false);
+        }
+    };
+
+    const exportComparisonExcel = () => {
+        if (compResults.length === 0) return;
+        const filtered = compFilter === 'all' ? compResults : compResults.filter(r => r.status === compFilter);
+        const rows = filtered.map(r => ({
+            'SKU': r.sku.toUpperCase(),
+            [`QTY ${compName1 || 'Excel 1'}`]: r.qtyA ?? '-',
+            [`QTY ${compName2 || 'Excel 2'}`]: r.qtyB ?? '-',
+            'Selisih': r.diff,
+            'Status': r.status === 'match' ? 'Sama' : r.status === 'diff' ? 'Berbeda' : r.status === 'only-a' ? `Hanya di ${compName1 || 'Excel 1'}` : `Hanya di ${compName2 || 'Excel 2'}`
+        }));
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb2 = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb2, ws, 'Comparison');
+        XLSX.writeFile(wb2, `comparison-${new Date().toISOString().slice(0,10)}.xlsx`);
+    };
+    // ─────────────────────────────────────────────────────────────────────────
+
     const downloadTemplate = () => {
         const ws = XLSX.utils.json_to_sheet([
             { SKU: "3VJ10... (Contoh)", QTY: 10 },
@@ -1750,6 +1852,26 @@ export default function BulkOrderClient() {
                     )}
                 </div>
 
+                {/* ── COMPARISON PANEL ── */}
+                <div className="bg-white rounded-xl border border-indigo-100 p-4 shadow-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                        <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
+                            <GitCompareArrows className="w-5 h-5" />
+                        </div>
+                        <h3 className="font-bold text-gray-900 text-sm">Comparison Excel</h3>
+                    </div>
+                    <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+                        Bandingkan 2 file Excel (format SKU & QTY) untuk melihat selisih kuantitas per item.
+                    </p>
+                    <button
+                        onClick={() => setIsCompOpen(true)}
+                        className="w-full inline-flex justify-center items-center gap-2 px-3 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-all shadow-sm hover:shadow-md"
+                    >
+                        <GitCompareArrows className="w-4 h-4" />
+                        Buka Comparison
+                    </button>
+                </div>
+
                 <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
                     <h3 className="font-bold text-gray-900 mb-3 text-sm">Ringkasan Pesanan</h3>
                     
@@ -2076,6 +2198,155 @@ export default function BulkOrderClient() {
                             )}
                         </div>
                     </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* ── COMPARISON DIALOG ── */}
+            <Dialog open={isCompOpen} onOpenChange={(open) => { setIsCompOpen(open); if (!open) { setCompResults([]); setCompFile1(null); setCompFile2(null); setCompName1(''); setCompName2(''); } }}>
+                <DialogContent className="sm:max-w-[900px] w-full max-h-[90vh] flex flex-col overflow-hidden">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <GitCompareArrows className="w-5 h-5 text-indigo-600" />
+                            Comparison Excel
+                        </DialogTitle>
+                        <p className="text-sm text-gray-500 mt-1">Unggah 2 file Excel (format: kolom SKU & QTY) lalu klik Bandingkan untuk melihat selisih per SKU.</p>
+                    </DialogHeader>
+
+                    <div className="flex-shrink-0 space-y-4 pt-2">
+                        {/* Upload row */}
+                        <div className="grid grid-cols-2 gap-3">
+                            {/* Excel 1 */}
+                            <div
+                                onClick={() => compRef1.current?.click()}
+                                className={`cursor-pointer border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center gap-2 text-center transition-all ${
+                                    compFile1 ? 'border-indigo-400 bg-indigo-50' : 'border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/40'
+                                }`}
+                            >
+                                <FileSpreadsheet className={`w-7 h-7 ${compFile1 ? 'text-indigo-600' : 'text-gray-300'}`} />
+                                <div>
+                                    <p className="text-xs font-bold text-gray-700">{compFile1 ? compFile1.name : 'Excel 1'}</p>
+                                    <p className="text-[11px] text-gray-400">{compFile1 ? 'Klik untuk ganti' : 'Klik untuk unggah'}</p>
+                                </div>
+                                {compFile1 && <span className="text-[10px] text-indigo-600 font-semibold bg-indigo-100 px-2 py-0.5 rounded-full">Siap</span>}
+                            </div>
+                            <input ref={compRef1} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) { setCompFile1(f); setCompName1(f.name.replace(/\.[^.]+$/, '')); setCompResults([]); } e.target.value=''; }} />
+
+                            {/* Excel 2 */}
+                            <div
+                                onClick={() => compRef2.current?.click()}
+                                className={`cursor-pointer border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center gap-2 text-center transition-all ${
+                                    compFile2 ? 'border-violet-400 bg-violet-50' : 'border-gray-200 hover:border-violet-300 hover:bg-violet-50/40'
+                                }`}
+                            >
+                                <FileSpreadsheet className={`w-7 h-7 ${compFile2 ? 'text-violet-600' : 'text-gray-300'}`} />
+                                <div>
+                                    <p className="text-xs font-bold text-gray-700">{compFile2 ? compFile2.name : 'Excel 2'}</p>
+                                    <p className="text-[11px] text-gray-400">{compFile2 ? 'Klik untuk ganti' : 'Klik untuk unggah'}</p>
+                                </div>
+                                {compFile2 && <span className="text-[10px] text-violet-600 font-semibold bg-violet-100 px-2 py-0.5 rounded-full">Siap</span>}
+                            </div>
+                            <input ref={compRef2} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) { setCompFile2(f); setCompName2(f.name.replace(/\.[^.]+$/, '')); setCompResults([]); } e.target.value=''; }} />
+                        </div>
+
+                        <button
+                            onClick={handleRunComparison}
+                            disabled={!compFile1 || !compFile2 || isComparing}
+                            className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all shadow-sm"
+                        >
+                            <GitCompareArrows className="w-4 h-4" />
+                            {isComparing ? 'Membandingkan...' : 'Bandingkan'}
+                        </button>
+
+                        {/* Summary badges */}
+                        {compResults.length > 0 && (() => {
+                            const counts = { diff: 0, 'only-a': 0, 'only-b': 0, match: 0 };
+                            compResults.forEach(r => counts[r.status]++);
+                            return (
+                                <div className="flex flex-wrap gap-2">
+                                    <button onClick={() => setCompFilter('all')} className={`text-[11px] font-semibold px-3 py-1 rounded-full border transition-all ${compFilter === 'all' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>Semua ({compResults.length})</button>
+                                    <button onClick={() => setCompFilter('diff')} className={`text-[11px] font-semibold px-3 py-1 rounded-full border transition-all ${compFilter === 'diff' ? 'bg-orange-500 text-white border-orange-500' : 'bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100'}`}>Berbeda ({counts.diff})</button>
+                                    <button onClick={() => setCompFilter('only-a')} className={`text-[11px] font-semibold px-3 py-1 rounded-full border transition-all ${compFilter === 'only-a' ? 'bg-blue-500 text-white border-blue-500' : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'}`}>Hanya di E1 ({counts['only-a']})</button>
+                                    <button onClick={() => setCompFilter('only-b')} className={`text-[11px] font-semibold px-3 py-1 rounded-full border transition-all ${compFilter === 'only-b' ? 'bg-violet-500 text-white border-violet-500' : 'bg-violet-50 text-violet-700 border-violet-200 hover:bg-violet-100'}`}>Hanya di E2 ({counts['only-b']})</button>
+                                    <button onClick={() => setCompFilter('match')} className={`text-[11px] font-semibold px-3 py-1 rounded-full border transition-all ${compFilter === 'match' ? 'bg-green-500 text-white border-green-500' : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'}`}>Sama ({counts.match})</button>
+                                    <button onClick={exportComparisonExcel} className="ml-auto text-[11px] font-semibold px-3 py-1 rounded-full border bg-white text-gray-600 border-gray-200 hover:bg-gray-50 flex items-center gap-1 transition-all">
+                                        <Download className="w-3 h-3" />
+                                        Export
+                                    </button>
+                                </div>
+                            );
+                        })()}
+                    </div>
+
+                    {/* Results table */}
+                    {compResults.length > 0 && (() => {
+                        const filtered = compFilter === 'all' ? compResults : compResults.filter(r => r.status === compFilter);
+                        return (
+                            <div className="flex-1 overflow-auto mt-2 border border-gray-100 rounded-xl">
+                                <table className="w-full text-xs">
+                                    <thead className="sticky top-0 bg-gray-50 border-b border-gray-200 z-10">
+                                        <tr>
+                                            <th className="px-3 py-2.5 text-left font-bold text-gray-600 uppercase tracking-wide w-[40%]">SKU</th>
+                                            <th className="px-3 py-2.5 text-center font-bold text-indigo-600 uppercase tracking-wide">{compName1 || 'Excel 1'}</th>
+                                            <th className="px-3 py-2.5 text-center font-bold text-violet-600 uppercase tracking-wide">{compName2 || 'Excel 2'}</th>
+                                            <th className="px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wide">Selisih</th>
+                                            <th className="px-3 py-2.5 text-center font-bold text-gray-600 uppercase tracking-wide">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50">
+                                        {filtered.map((row) => (
+                                            <tr key={row.sku} className={`transition-colors ${
+                                                row.status === 'diff' ? 'bg-orange-50/60 hover:bg-orange-50' :
+                                                row.status === 'only-a' ? 'bg-blue-50/50 hover:bg-blue-50' :
+                                                row.status === 'only-b' ? 'bg-violet-50/50 hover:bg-violet-50' :
+                                                'hover:bg-gray-50/60'
+                                            }`}>
+                                                <td className="px-3 py-2 font-mono font-semibold text-gray-800">{row.sku.toUpperCase()}</td>
+                                                <td className="px-3 py-2 text-center">
+                                                    {row.qtyA !== null
+                                                        ? <span className="font-bold text-indigo-700">{row.qtyA}</span>
+                                                        : <span className="text-gray-300 italic text-[10px]">tidak ada</span>
+                                                    }
+                                                </td>
+                                                <td className="px-3 py-2 text-center">
+                                                    {row.qtyB !== null
+                                                        ? <span className="font-bold text-violet-700">{row.qtyB}</span>
+                                                        : <span className="text-gray-300 italic text-[10px]">tidak ada</span>
+                                                    }
+                                                </td>
+                                                <td className="px-3 py-2 text-center">
+                                                    {row.status === 'match' ? (
+                                                        <span className="text-green-600 font-bold">0</span>
+                                                    ) : row.status === 'only-a' || row.status === 'only-b' ? (
+                                                        <span className="text-gray-400">—</span>
+                                                    ) : (
+                                                        <span className={`font-bold tabular-nums ${row.diff > 0 ? 'text-orange-600' : 'text-red-600'}`}>
+                                                            {row.diff > 0 ? '+' : ''}{row.diff}
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="px-3 py-2 text-center">
+                                                    {row.status === 'match' && <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">Sama</span>}
+                                                    {row.status === 'diff' && <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">Berbeda</span>}
+                                                    {row.status === 'only-a' && <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Hanya E1</span>}
+                                                    {row.status === 'only-b' && <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">Hanya E2</span>}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        {filtered.length === 0 && (
+                                            <tr><td colSpan={5} className="py-10 text-center text-gray-400 text-sm">Tidak ada data untuk filter ini</td></tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        );
+                    })()}
+
+                    {compResults.length === 0 && !isComparing && (
+                        <div className="flex-1 flex flex-col items-center justify-center py-10 text-gray-300">
+                            <GitCompareArrows className="w-12 h-12 mb-3 opacity-40" />
+                            <p className="text-sm text-gray-400">Unggah kedua file dan klik Bandingkan</p>
+                        </div>
+                    )}
                 </DialogContent>
             </Dialog>
         </div>
