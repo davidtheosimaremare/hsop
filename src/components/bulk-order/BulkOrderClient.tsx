@@ -111,6 +111,7 @@ export default function BulkOrderClient() {
     const [nextHsqNo, setNextHsqNo] = useState<string>("");
     const [isSyncingHsq, setIsSyncingHsq] = useState(false);
     const [hideDiscountInAccurate, setHideDiscountInAccurate] = useState(false);
+    const [mergeAll, setMergeAll] = useState(false);
     const [bulkDisc1, setBulkDisc1] = useState<number>(30);
     const [bulkDisc2, setBulkDisc2] = useState<number>(37);
 
@@ -234,8 +235,8 @@ export default function BulkOrderClient() {
             const item = prev.find(i => i.customId === id);
             if (!item) return prev;
 
-            // Custom / Indent items: just update qty directly
-            if (item.isCustom || item.stockStatus !== 'READY') {
+            // MERGE ALL MODE atau Custom / Indent items: langsung update qty saja
+            if (mergeAll || item.isCustom || item.stockStatus !== 'READY' || id.endsWith('-MERGE')) {
                 return prev.map(i => i.customId === id ? { ...i, qty } : i);
             }
 
@@ -589,6 +590,30 @@ export default function BulkOrderClient() {
                         isNotFound,
                         salesDiscount1: userRole === 'SALES' ? customDiscounts.d1 : undefined,
                         salesDiscount2: userRole === 'SALES' ? customDiscounts.d2 : undefined
+                    });
+                }
+            } else if (mergeAll) {
+                // MERGE ALL MODE: gabung READY + INDENT jadi 1 baris tanpa pemisahan
+                const mergeId = `${product.id}-MERGE`;
+                const existingMergeIdx = newItems.findIndex(p => p.customId === mergeId);
+                if (existingMergeIdx > -1) {
+                    newItems[existingMergeIdx] = { ...newItems[existingMergeIdx], qty: newItems[existingMergeIdx].qty + qty };
+                } else {
+                    // Hapus baris READY/INDENT lama jika ada (ketika user toggle merge saat sudah ada item)
+                    const discounts = getInitialSalesDiscount(product.category, 'INDENT');
+                    const pInfo = stock > 0 ? readyPriceInfo : indentPriceInfo;
+                    itemsToAdd.push({
+                        ...product,
+                        qty,
+                        finalPrice: pInfo.discountedPriceWithPPN,
+                        originalPrice: pInfo.hasDiscount ? pInfo.originalPriceWithPPN : undefined,
+                        hasDiscount: pInfo.hasDiscount,
+                        isCustomerDiscount: pInfo.isCustomerDiscount,
+                        stockStatus: stock > 0 ? 'READY' : 'INDENT',
+                        customId: mergeId,
+                        isCustom: false,
+                        salesDiscount1: userRole === 'SALES' ? discounts.d1 : undefined,
+                        salesDiscount2: userRole === 'SALES' ? discounts.d2 : undefined
                     });
                 }
             } else {
@@ -963,6 +988,11 @@ export default function BulkOrderClient() {
                 return prev.map(i => i.customId === id ? { ...i, qty: Math.max(1, i.qty + delta) } : i);
             }
 
+            // MERGE ALL MODE: langsung update qty saja tanpa pemisahan
+            if (mergeAll || id.endsWith('-MERGE')) {
+                return prev.map(i => i.customId === id ? { ...i, qty: Math.max(1, i.qty + delta) } : i);
+            }
+
             const baseId = item.id;
             const relatedItems = prev.filter(i => i.id === baseId && !i.isCustom);
             const currentTotalQty = relatedItems.reduce((sum, i) => sum + i.qty, 0);
@@ -1214,6 +1244,28 @@ export default function BulkOrderClient() {
                             <label htmlFor="hideDiscountChk" className="text-[11px] text-amber-800 font-semibold cursor-pointer leading-tight">
                                 Sembunyikan Diskon di Accurate
                                 <span className="block font-normal text-amber-700/80 mt-0.5">Harga akhir (setelah diskon) dikirim sebagai harga dasar. Kolom diskon di Accurate akan kosong.</span>
+                            </label>
+                        </div>
+
+                        <div className="mt-2 flex items-center gap-2 p-2.5 bg-purple-50 border border-purple-200 rounded-lg">
+                            <input
+                                type="checkbox"
+                                id="mergeAllChk"
+                                checked={mergeAll}
+                                onChange={(e) => {
+                                    setMergeAll(e.target.checked);
+                                    if (items.length > 0) {
+                                        toast.info(e.target.checked
+                                            ? "Mode Merge All aktif. Produk baru tidak akan dipisah Stock/No Stock."
+                                            : "Mode Merge All nonaktif. Produk baru akan dipisah Stock/No Stock seperti biasa."
+                                        );
+                                    }
+                                }}
+                                className="w-4 h-4 accent-purple-600 cursor-pointer flex-shrink-0"
+                            />
+                            <label htmlFor="mergeAllChk" className="text-[11px] text-purple-800 font-semibold cursor-pointer leading-tight">
+                                Merge All (Gabung Stock & No Stock)
+                                <span className="block font-normal text-purple-700/80 mt-0.5">Produk yang ditambahkan tidak dipisah jadi baris STOCK/NO STOCK — langsung diakumulasi dalam 1 baris.</span>
                             </label>
                         </div>
 
@@ -2104,7 +2156,14 @@ function SortableRow({ item, updateQty, updateQtyDirect, removeItem, isLoggedIn,
             </td>
             <td className="px-3 py-2">
                 <div className="flex flex-col gap-1">
-                    {item.stockStatus === 'READY' ? (
+                    {item.customId.endsWith('-MERGE') ? (
+                        <>
+                            <span className="inline-flex items-center w-fit whitespace-nowrap text-[11px] font-medium px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+                                Merged
+                            </span>
+                            <span className="text-[10px] text-purple-500/80 mt-0.5">Stock + No Stock</span>
+                        </>
+                    ) : item.stockStatus === 'READY' ? (
                         <>
                             <span className="inline-flex items-center w-fit whitespace-nowrap text-[11px] font-medium px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">
                                 Ready Stock
