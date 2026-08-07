@@ -299,7 +299,7 @@ export async function getNextQuotationNumber(): Promise<string> {
         
         const response = await fetch(url.toString(), {
             method: 'GET',
-            headers: headers,
+            headers: headers as Record<string, string>,
             cache: 'no-store'
         });
         
@@ -329,7 +329,8 @@ export async function getNextQuotationNumber(): Promise<string> {
 
 export async function createSalesQuotationAccurate(items: any[], customerInfo: any, specialDiscount: number, notes?: string) {
     const session = await getSession();
-    if (!session || session.user?.role !== 'SALES') {
+    const isSalesOrAdmin = session?.user?.role === 'SALES' || session?.user?.role === 'ADMIN' || session?.user?.email === 'admin@hokiindo.co.id';
+    if (!session || !isSalesOrAdmin) {
         throw new Error("Unauthorized");
     }
 

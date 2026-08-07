@@ -99,11 +99,14 @@ export async function getCustomerPricingData(): Promise<CustomerPricingData> {
         );
 
 
+        const rawRole = session?.user?.role;
+        const effectiveRole = (rawRole === 'ADMIN' || session?.user?.email === 'admin@hokiindo.co.id') ? 'SALES' : rawRole;
+
         return {
             customer,
             categoryMappings: mappings,
             discountRules,
-            userRole: session?.user?.role,
+            userRole: effectiveRole,
         };
     } catch (error) {
         console.error("Failed to get customer pricing data:", error);
