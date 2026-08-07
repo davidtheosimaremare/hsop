@@ -17,6 +17,16 @@ import { exportQuotationPDF, exportQuotationExcel, QuotationExportData } from "@
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 import {
     DndContext,
@@ -62,7 +72,7 @@ export default function BulkOrderClient() {
         }
     });
     const [skuInput, setSkuInput] = useState("");
-    const [activeTab, setActiveTab] = useState<'search' | 'paste'>('search');
+    const [activeTab, setActiveTab] = useState<'search' | 'paste' | 'excel'>('search');
     const [pasteContent, setPasteContent] = useState("");
     const [isProcessingPaste, setIsProcessingPaste] = useState(false);
     const [isSearching, setIsSearching] = useState(false);
@@ -78,6 +88,7 @@ export default function BulkOrderClient() {
     const [customerQuery, setCustomerQuery] = useState("");
     const [customerSearchResults, setCustomerSearchResults] = useState<any[]>([]);
     const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
+    const [projectName, setProjectName] = useState("");
     const [isSearchingCustomer, setIsSearchingCustomer] = useState(false);
     const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
     const [customProduct, setCustomProduct] = useState({
@@ -97,6 +108,9 @@ export default function BulkOrderClient() {
     const [replaceKa, setReplaceKa] = useState("");
     const [categories, setCategories] = useState<string[]>([]);
     const [availableSpecs, setAvailableSpecs] = useState<{ poles: string[]; amperes: string[]; breakingCapacities: string[]; }>({ poles: [], amperes: [], breakingCapacities: [] });
+    
+    // Delete Confirmation State
+    const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string; sku: string } | null>(null);
     const [replaceSuggestions, setReplaceSuggestions] = useState<BulkOrderProduct[]>([]);
     const [isSearchingReplace, setIsSearchingReplace] = useState(false);
     const replaceDebounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -674,6 +688,13 @@ export default function BulkOrderClient() {
         setItems(prev => prev.filter(item => item.customId !== id));
     };
 
+    const confirmRemoveItem = () => {
+        if (!itemToDelete) return;
+        setItems(prev => prev.filter(item => item.customId !== itemToDelete.id));
+        toast.success(`Produk ${itemToDelete.sku} telah dihapus`);
+        setItemToDelete(null);
+    };
+
     const clearAll = () => {
         setItems([]);
     };
@@ -1119,6 +1140,7 @@ export default function BulkOrderClient() {
             typeLabel: "Nomor",
             totalAmount: isSales ? grossSubTotal : netSubTotal,
             customerName: selectedCustomer?.name || "Customer",
+            clientName: projectName || undefined,
             customerAddress: selectedCustomer?.detail?.address || "-",
             customerPhone: selectedCustomer?.detail?.mobileNo || "-",
             customerAttention: selectedCustomer?.name || "Customer",
@@ -1179,8 +1201,107 @@ export default function BulkOrderClient() {
     const totalQty = items.reduce((sum, item) => sum + item.qty, 0);
 
     return (
-        <div className="flex flex-col lg:flex-row gap-6 items-start">
+        <div className="flex flex-col lg:flex-row lg:flex-wrap gap-y-4 gap-x-6 items-start">
+
+            {/* ── SALES COMMAND BAR ── */}
+            {userRole === 'SALES' && (
+                <div className="w-full bg-gradient-to-r from-red-700 via-red-600 to-red-700 rounded-xl p-3.5 shadow-lg border border-red-800/40">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+
+                        {/* Customer Selector */}
+                        <div className="flex items-center gap-2 flex-1 min-w-[240px]">
+                            <span className="text-[10px] font-bold text-red-200 uppercase tracking-widest whitespace-nowrap flex-shrink-0">Pelanggan</span>
+                            {selectedCustomer ? (
+                                <div className="flex items-center gap-2 bg-white border border-white/80 rounded-lg px-3 py-1.5 flex-1 min-w-0 shadow-xs">
+                                    <div className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-xs font-bold text-gray-900 truncate leading-tight">{selectedCustomer.company || selectedCustomer.name}</p>
+                                        {selectedCustomer.accurateCustomerCode && (
+                                            <p className="text-[10px] text-gray-500 truncate leading-tight">{selectedCustomer.accurateCustomerCode}</p>
+                                        )}
+                                    </div>
+                                    <button onClick={() => setSelectedCustomer(null)} className="ml-auto text-gray-400 hover:text-red-600 hover:bg-red-50 flex-shrink-0 transition-colors p-1 rounded-full">
+                                        <X className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="relative flex-1 min-w-[180px]">
+                                    <Input
+                                        placeholder="Cari nama / kode pelanggan..."
+                                        value={customerQuery}
+                                        onChange={(e) => setCustomerQuery(e.target.value)}
+                                        className="h-8 text-xs bg-white border-white/80 text-gray-900 placeholder:text-gray-400 focus-visible:ring-white focus-visible:border-white rounded-lg shadow-sm"
+                                    />
+                                    {!customerQuery && (
+                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-amber-400 font-semibold pointer-events-none">Wajib ⚠</span>
+                                    )}
+                                    {customerQuery.trim().length >= 2 && (
+                                        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-2xl max-h-52 overflow-y-auto">
+                                            {isSearchingCustomer ? (
+                                                <div className="p-3 text-center text-xs text-gray-400">Mencari...</div>
+                                            ) : customerSearchResults.length > 0 ? (
+                                                customerSearchResults.map(c => (
+                                                    <div
+                                                        key={c.id}
+                                                        onClick={() => { setSelectedCustomer(c); setCustomerQuery(""); setCustomerSearchResults([]); }}
+                                                        className="p-2.5 hover:bg-blue-50 cursor-pointer text-xs border-b border-gray-100 last:border-0 transition-colors"
+                                                    >
+                                                        <p className="font-bold text-gray-900">{c.company || c.name}</p>
+                                                        <p className="text-[10px] text-gray-500 mt-0.5">{c.accurateCustomerCode} · {c.name}</p>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="p-3 text-center text-xs text-gray-400">Tidak ditemukan</div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+
+
+                        {/* Divider */}
+                        <div className="hidden lg:block w-px h-7 bg-red-500/40 flex-shrink-0" />
+
+                        {/* SQ Number */}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="text-[10px] font-bold text-red-200 uppercase tracking-widest whitespace-nowrap">No. SQ</span>
+                            <div className="font-mono text-sm font-bold text-white bg-red-800/50 border border-red-500/40 px-3 py-1 rounded-lg whitespace-nowrap min-w-[110px] text-center">
+                                {isSyncingHsq ? <span className="text-red-300 text-xs">Syncing...</span> : (nextHsqNo || <span className="text-red-300 text-xs">—</span>)}
+                            </div>
+                            <button
+                                onClick={fetchNextHsq}
+                                disabled={isSyncingHsq}
+                                className="text-red-200 hover:text-white hover:bg-red-800/60 p-1.5 rounded-lg transition-colors disabled:opacity-40"
+                                title="Sync No. SQ"
+                            >
+                                <RotateCcw className={`w-3.5 h-3.5 ${isSyncingHsq ? 'animate-spin' : ''}`} />
+                            </button>
+                        </div>
+
+                        {/* Divider */}
+                        <div className="hidden lg:block w-px h-7 bg-red-500/40 flex-shrink-0" />
+
+                        {/* Toggles */}
+                        <div className="flex items-center gap-5 flex-shrink-0">
+                            <label className="flex items-center gap-2 cursor-pointer group select-none">
+                                <input
+                                    type="checkbox"
+                                    id="cmdHideDiscount"
+                                    checked={hideDiscountInAccurate}
+                                    onChange={(e) => setHideDiscountInAccurate(e.target.checked)}
+                                    className="w-4 h-4 accent-white cursor-pointer rounded"
+                                />
+                                <span className="text-[11px] font-medium text-red-100 group-hover:text-white transition-colors whitespace-nowrap">Sembunyikan Diskon</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="flex-1 space-y-4 w-full min-w-0">
+                {userRole !== 'SALES' && (
                 <div className="bg-blue-50/50 border border-blue-100/50 rounded-lg py-2 px-3 flex items-center gap-2 text-xs text-blue-800">
                     <AlertCircle className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
                     <p>
@@ -1188,8 +1309,9 @@ export default function BulkOrderClient() {
                         Cari produk satu per satu, copy-paste list SKU, atau unggah Excel di panel samping. Produk dengan stok terbatas otomatis dipisah (Ready/Indent).
                     </p>
                 </div>
+                )}
                 
-                {userRole === 'SALES' && (
+                {false && (
                     <div className="mb-3 relative">
                         <Label className="text-[10px] text-red-500 font-bold mb-1 block">Pelanggan (Wajib diisi)</Label>
                         {selectedCustomer ? (
@@ -1514,6 +1636,12 @@ export default function BulkOrderClient() {
                         >
                             Copy & Paste List
                         </button>
+                        <button 
+                            className={`text-xs font-semibold px-4 py-1.5 rounded-md transition-all ${activeTab === 'excel' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                            onClick={() => setActiveTab('excel')}
+                        >
+                            Import Excel
+                        </button>
                     </div>
 
                     {activeTab === 'search' ? (
@@ -1544,7 +1672,7 @@ export default function BulkOrderClient() {
                                 {isSearching ? "Mencari..." : "Tambah"}
                             </Button>
                         </form>
-                    ) : (
+                    ) : activeTab === 'paste' ? (
                         <div className="flex flex-col gap-3">
                             <textarea
                                 value={pasteContent}
@@ -1562,6 +1690,45 @@ export default function BulkOrderClient() {
                                 >
                                     {isProcessingPaste ? "Memproses..." : "Submit List"}
                                 </Button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div
+                            onDragOver={onDragOver}
+                            onDragLeave={onDragLeave}
+                            onDrop={onDrop}
+                            className={`flex flex-col gap-3 rounded-lg border-2 border-dashed p-4 transition-all text-center ${isDragging ? 'border-emerald-400 bg-emerald-50/50' : 'border-gray-200 bg-gray-50/50'}`}
+                        >
+                            <div className="flex items-center justify-center gap-2 text-gray-500">
+                                <FileSpreadsheet className="w-5 h-5 text-emerald-500" />
+                                <span className="text-sm font-semibold text-gray-700">
+                                    {isDragging ? "Lepaskan file di sini..." : "Pilih atau tarik file Excel"}
+                                </span>
+                            </div>
+                            <p className="text-xs text-gray-400">Format yang didukung: .xlsx, .xls, .csv</p>
+                            <input
+                                type="file"
+                                accept=".xlsx, .xls, .csv"
+                                className="hidden"
+                                ref={fileInputRef}
+                                onChange={handleExcelUpload}
+                            />
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={isUploading}
+                                    className="flex-1 inline-flex justify-center items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-all shadow-sm disabled:opacity-50"
+                                >
+                                    <FileSpreadsheet className="w-4 h-4" />
+                                    {isUploading ? "Memproses..." : "Pilih File"}
+                                </button>
+                                <button
+                                    onClick={downloadTemplate}
+                                    className="flex-1 inline-flex justify-center items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                                >
+                                    <Download className="w-4 h-4 text-gray-400" />
+                                    Unduh Template
+                                </button>
                             </div>
                         </div>
                     )}
@@ -1635,35 +1802,35 @@ export default function BulkOrderClient() {
                                 >
                                     <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
                                         <colgroup>
-                                            <col style={{ width: '4%' }} />
-                                            <col style={{ width: userRole === 'SALES' ? '24%' : '32%' }} />
-                                            <col style={{ width: '14%' }} />
-                                            <col style={{ width: '12%' }} />
+                                            <col style={{ width: '2.5%' }} />
+                                            <col style={{ width: userRole === 'SALES' ? '25%' : '35%' }} />
+                                            <col style={{ width: '13%' }} />
+                                            <col style={{ width: '11%' }} />
                                             <col style={{ width: '12%' }} />
                                             {userRole === 'SALES' && (
                                                 <>
-                                                    <col style={{ width: '10%' }} />
-                                                    <col style={{ width: '10%' }} />
+                                                    <col style={{ width: '7%' }} />
+                                                    <col style={{ width: '7%' }} />
                                                 </>
                                             )}
-                                            <col style={{ width: '14%' }} />
-                                            <col style={{ width: '6%' }} />
+                                            <col style={{ width: '15.5%' }} />
+                                            <col style={{ width: '7%' }} />
                                         </colgroup>
                                         <thead>
-                                            <tr className="bg-gray-50 border-b border-gray-200">
-                                                <th className="w-[4%]"></th>
-                                                <th className="px-3 py-2 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wide">Produk</th>
-                                                <th className="px-3 py-2 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wide">Harga Satuan</th>
-                                                <th className="px-3 py-2 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wide">Status</th>
-                                                <th className="px-3 py-2 text-center text-[11px] font-bold text-gray-500 uppercase tracking-wide">Qty</th>
+                                            <tr className="bg-gray-50/80 border-b border-gray-200">
+                                                <th className="px-1.5 py-2.5"></th>
+                                                <th className="px-2 py-2.5 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">Produk</th>
+                                                <th className="px-2 py-2.5 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">Harga Satuan</th>
+                                                <th className="px-2 py-2.5 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">Status</th>
+                                                <th className="px-2 py-2.5 text-center text-[11px] font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">Qty</th>
                                                 {userRole === 'SALES' && (
                                                     <>
-                                                        <th className="px-2 py-2 text-center text-[11px] font-bold text-gray-500 uppercase tracking-wide">Diskon 1</th>
-                                                        <th className="px-2 py-2 text-center text-[11px] font-bold text-gray-500 uppercase tracking-wide">Diskon 2</th>
+                                                        <th className="px-1 py-2.5 text-center text-[11px] font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">Diskon 1</th>
+                                                        <th className="px-1 py-2.5 text-center text-[11px] font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">Diskon 2</th>
                                                     </>
                                                 )}
-                                                <th className="px-3 py-2 text-right text-[11px] font-bold text-gray-500 uppercase tracking-wide">Subtotal</th>
-                                                <th className="px-3 py-2.5"></th>
+                                                <th className="px-2 py-2.5 text-right text-[11px] font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">Subtotal</th>
+                                                <th className="px-1.5 py-2.5 text-center"></th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100">
@@ -1674,6 +1841,7 @@ export default function BulkOrderClient() {
                                                     updateQty={updateQty}
                                                     updateQtyDirect={updateQtyDirect}
                                                     removeItem={removeItem}
+                                                    onRequestDelete={(id, name, sku) => setItemToDelete({ id, name, sku })}
                                                     isLoggedIn={isLoggedIn}
                                                     userRole={userRole || null}
                                                     updateItemDiscount={updateItemDiscount}
@@ -1697,8 +1865,9 @@ export default function BulkOrderClient() {
                 )}
             </div>
 
-            <div className="w-full lg:w-[260px] flex-shrink-0 flex flex-col gap-4 lg:sticky lg:top-24">
-                <div
+            <div className={`w-full flex-shrink-0 flex flex-col gap-4 lg:sticky lg:top-[160px] ${userRole === 'SALES' ? 'lg:w-[260px]' : 'lg:w-[260px]'}`}>
+                {/* Excel import - hidden for SALES (moved into search panel tabs) */}
+                {userRole !== 'SALES' && <div
                     onDragOver={onDragOver}
                     onDragLeave={onDragLeave}
                     onDrop={onDrop}
@@ -1750,47 +1919,241 @@ export default function BulkOrderClient() {
                             * Atau tarik & drop file ke area ini
                         </p>
                     )}
-                </div>
+                </div>}
 
-                <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                    <h3 className="font-bold text-gray-900 mb-3 text-sm">Ringkasan Pesanan</h3>
+                {/* SALES: Discount Panel */}
+                {userRole === 'SALES' && (
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-4 pt-3.5 pb-3 border-b border-gray-100 flex-shrink-0">
+                            <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
+                                <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-red-600 text-white text-[10px] font-black">%</span>
+                                Set Diskon
+                            </h3>
+                        </div>
+
+                        {/* Tab bar */}
+                        <div className="flex border-b border-gray-100 flex-shrink-0">
+                            <button
+                                className={`flex-1 text-xs font-semibold py-2.5 transition-all border-b-2 -mb-px ${discountTab === 'all' ? 'border-red-500 text-red-600 bg-red-50/40' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+                                onClick={() => setDiscountTab('all')}
+                            >
+                                Semua Item
+                            </button>
+                            <button
+                                className={`flex-1 text-xs font-semibold py-2.5 transition-all border-b-2 -mb-px ${discountTab === 'category' ? 'border-red-500 text-red-600 bg-red-50/40' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+                                onClick={() => setDiscountTab('category')}
+                            >
+                                Per Kategori
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div>
+                        {discountTab === 'all' ? (
+                            <div className="p-4 space-y-3">
+                                <p className="text-[10px] text-gray-400">Terapkan diskon bertingkat ke seluruh item dalam daftar sekaligus.</p>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="flex flex-col gap-1.5">
+                                        <span className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Diskon 1</span>
+                                        <div className="flex items-center bg-white border-2 border-gray-200 rounded-xl overflow-hidden focus-within:border-red-400 transition-colors">
+                                            <span className="bg-red-600 text-[11px] font-black text-white px-2.5 flex items-center self-stretch flex-shrink-0">D1</span>
+                                            <Input type="number" min="0" max="100" value={bulkDisc1 || ""} onChange={(e) => setBulkDisc1(Number(e.target.value) || 0)} className="h-9 border-0 rounded-none text-sm font-bold focus-visible:ring-0 text-center bg-transparent px-1 min-w-0 flex-1" placeholder="0" />
+                                            <span className="pr-2 text-xs text-gray-400 font-semibold flex-shrink-0">%</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <span className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Diskon 2</span>
+                                        <div className="flex items-center bg-white border-2 border-gray-200 rounded-xl overflow-hidden focus-within:border-red-400 transition-colors">
+                                            <span className="bg-red-600 text-[11px] font-black text-white px-2.5 flex items-center self-stretch flex-shrink-0">D2</span>
+                                            <Input type="number" min="0" max="100" value={bulkDisc2 || ""} onChange={(e) => setBulkDisc2(Number(e.target.value) || 0)} className="h-9 border-0 rounded-none text-sm font-bold focus-visible:ring-0 text-center bg-transparent px-1 min-w-0 flex-1" placeholder="0" />
+                                            <span className="pr-2 text-xs text-gray-400 font-semibold flex-shrink-0">%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="p-3 space-y-3">
+                                {/* LP Card */}
+                                <div className="rounded-xl border border-gray-200 bg-white p-3 space-y-2.5 shadow-sm">
+                                    <div className="flex items-center gap-2 pb-1 border-b border-gray-100">
+                                        <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
+                                        <span className="text-xs text-gray-900 font-bold">Low Voltage (LP)</span>
+                                    </div>
+                                    
+                                    {/* LP Stock Row */}
+                                    <div className="bg-gray-50/60 border border-gray-200/80 rounded-lg p-2 space-y-1">
+                                        <div className="flex items-center gap-1">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
+                                            <span className="text-[9px] font-bold text-gray-700 uppercase tracking-wide">Stock (Ready)</span>
+                                        </div>
+                                        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5">
+                                            <div className="flex items-center bg-white border border-gray-200 rounded-md overflow-hidden focus-within:border-red-500">
+                                                <span className="bg-gray-100 text-[9px] font-bold text-gray-700 px-1.5 flex items-center h-7 flex-shrink-0 border-r border-gray-200">D1</span>
+                                                <Input type="number" min="0" max="100" value={lpStockDisc1 || ""} onChange={(e) => setLpStockDisc1(Number(e.target.value) || 0)} className="h-7 border-0 rounded-none text-xs font-bold focus-visible:ring-0 text-center px-0.5 min-w-0 flex-1" placeholder="0" />
+                                                <span className="pr-1.5 text-[10px] text-gray-400 flex-shrink-0">%</span>
+                                            </div>
+                                            <span className="text-gray-300 text-xs font-bold">+</span>
+                                            <div className="flex items-center bg-white border border-gray-200 rounded-md overflow-hidden focus-within:border-red-500">
+                                                <span className="bg-gray-100 text-[9px] font-bold text-gray-700 px-1.5 flex items-center h-7 flex-shrink-0 border-r border-gray-200">D2</span>
+                                                <Input type="number" min="0" max="100" value={lpStockDisc2 || ""} onChange={(e) => setLpStockDisc2(Number(e.target.value) || 0)} className="h-7 border-0 rounded-none text-xs font-bold focus-visible:ring-0 text-center px-0.5 min-w-0 flex-1" placeholder="0" />
+                                                <span className="pr-1.5 text-[10px] text-gray-400 flex-shrink-0">%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* LP Indent Row */}
+                                    <div className="bg-gray-50/60 border border-gray-200/80 rounded-lg p-2 space-y-1">
+                                        <div className="flex items-center gap-1">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />
+                                            <span className="text-[9px] font-bold text-gray-700 uppercase tracking-wide">No Stock (Indent)</span>
+                                        </div>
+                                        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5">
+                                            <div className="flex items-center bg-white border border-gray-200 rounded-md overflow-hidden focus-within:border-red-500">
+                                                <span className="bg-gray-100 text-[9px] font-bold text-gray-700 px-1.5 flex items-center h-7 flex-shrink-0 border-r border-gray-200">D1</span>
+                                                <Input type="number" min="0" max="100" value={lpIndentDisc1 || ""} onChange={(e) => setLpIndentDisc1(Number(e.target.value) || 0)} className="h-7 border-0 rounded-none text-xs font-bold focus-visible:ring-0 text-center px-0.5 min-w-0 flex-1" placeholder="0" />
+                                                <span className="pr-1.5 text-[10px] text-gray-400 flex-shrink-0">%</span>
+                                            </div>
+                                            <span className="text-gray-300 text-xs font-bold">+</span>
+                                            <div className="flex items-center bg-white border border-gray-200 rounded-md overflow-hidden focus-within:border-red-500">
+                                                <span className="bg-gray-100 text-[9px] font-bold text-gray-700 px-1.5 flex items-center h-7 flex-shrink-0 border-r border-gray-200">D2</span>
+                                                <Input type="number" min="0" max="100" value={lpIndentDisc2 || ""} onChange={(e) => setLpIndentDisc2(Number(e.target.value) || 0)} className="h-7 border-0 rounded-none text-xs font-bold focus-visible:ring-0 text-center px-0.5 min-w-0 flex-1" placeholder="0" />
+                                                <span className="pr-1.5 text-[10px] text-gray-400 flex-shrink-0">%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* CP Card */}
+                                <div className="rounded-xl border border-gray-200 bg-white p-3 space-y-2.5 shadow-sm">
+                                    <div className="flex items-center gap-2 pb-1 border-b border-gray-100">
+                                        <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
+                                        <span className="text-xs text-gray-900 font-bold">Control Product (CP)</span>
+                                    </div>
+
+                                    {/* CP Stock Row */}
+                                    <div className="bg-gray-50/60 border border-gray-200/80 rounded-lg p-2 space-y-1">
+                                        <div className="flex items-center gap-1">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
+                                            <span className="text-[9px] font-bold text-gray-700 uppercase tracking-wide">Stock (Ready)</span>
+                                        </div>
+                                        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5">
+                                            <div className="flex items-center bg-white border border-gray-200 rounded-md overflow-hidden focus-within:border-red-500">
+                                                <span className="bg-gray-100 text-[9px] font-bold text-gray-700 px-1.5 flex items-center h-7 flex-shrink-0 border-r border-gray-200">D1</span>
+                                                <Input type="number" min="0" max="100" value={cpStockDisc1 || ""} onChange={(e) => setCpStockDisc1(Number(e.target.value) || 0)} className="h-7 border-0 rounded-none text-xs font-bold focus-visible:ring-0 text-center px-0.5 min-w-0 flex-1" placeholder="0" />
+                                                <span className="pr-1.5 text-[10px] text-gray-400 flex-shrink-0">%</span>
+                                            </div>
+                                            <span className="text-gray-300 text-xs font-bold">+</span>
+                                            <div className="flex items-center bg-white border border-gray-200 rounded-md overflow-hidden focus-within:border-red-500">
+                                                <span className="bg-gray-100 text-[9px] font-bold text-gray-700 px-1.5 flex items-center h-7 flex-shrink-0 border-r border-gray-200">D2</span>
+                                                <Input type="number" min="0" max="100" value={cpStockDisc2 || ""} onChange={(e) => setCpStockDisc2(Number(e.target.value) || 0)} className="h-7 border-0 rounded-none text-xs font-bold focus-visible:ring-0 text-center px-0.5 min-w-0 flex-1" placeholder="0" />
+                                                <span className="pr-1.5 text-[10px] text-gray-400 flex-shrink-0">%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* CP Indent Row */}
+                                    <div className="bg-gray-50/60 border border-gray-200/80 rounded-lg p-2 space-y-1">
+                                        <div className="flex items-center gap-1">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />
+                                            <span className="text-[9px] font-bold text-gray-700 uppercase tracking-wide">No Stock (Indent)</span>
+                                        </div>
+                                        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5">
+                                            <div className="flex items-center bg-white border border-gray-200 rounded-md overflow-hidden focus-within:border-red-500">
+                                                <span className="bg-gray-100 text-[9px] font-bold text-gray-700 px-1.5 flex items-center h-7 flex-shrink-0 border-r border-gray-200">D1</span>
+                                                <Input type="number" min="0" max="100" value={cpIndentDisc1 || ""} onChange={(e) => setCpIndentDisc1(Number(e.target.value) || 0)} className="h-7 border-0 rounded-none text-xs font-bold focus-visible:ring-0 text-center px-0.5 min-w-0 flex-1" placeholder="0" />
+                                                <span className="pr-1.5 text-[10px] text-gray-400 flex-shrink-0">%</span>
+                                            </div>
+                                            <span className="text-gray-300 text-xs font-bold">+</span>
+                                            <div className="flex items-center bg-white border border-gray-200 rounded-md overflow-hidden focus-within:border-red-500">
+                                                <span className="bg-gray-100 text-[9px] font-bold text-gray-700 px-1.5 flex items-center h-7 flex-shrink-0 border-r border-gray-200">D2</span>
+                                                <Input type="number" min="0" max="100" value={cpIndentDisc2 || ""} onChange={(e) => setCpIndentDisc2(Number(e.target.value) || 0)} className="h-7 border-0 rounded-none text-xs font-bold focus-visible:ring-0 text-center px-0.5 min-w-0 flex-1" placeholder="0" />
+                                                <span className="pr-1.5 text-[10px] text-gray-400 flex-shrink-0">%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        </div>
+
+                        {/* Sticky Apply Button */}
+                        <div className="p-3 border-t border-gray-100 bg-white flex-shrink-0">
+                            {discountTab === 'all' ? (
+                                <Button
+                                    onClick={applyBulkDiscount}
+                                    disabled={items.length === 0}
+                                    className="w-full h-10 text-xs font-bold bg-red-600 hover:bg-red-700 active:bg-red-800 text-white shadow-md hover:shadow-lg transition-all rounded-xl flex items-center justify-center gap-2"
+                                >
+                                    <span className="text-base leading-none">✓</span> Terapkan ke Semua Item
+                                </Button>
+                            ) : (
+                                <Button
+                                    onClick={applyCategoryDiscount}
+                                    disabled={items.length === 0}
+                                    className="w-full h-10 text-xs font-bold bg-red-600 hover:bg-red-700 active:bg-red-800 text-white shadow-md hover:shadow-lg transition-all rounded-xl flex items-center justify-center gap-2"
+                                >
+                                    <span className="text-base leading-none">✓</span> Terapkan Diskon Kategori
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+
+                {/* SALES: Notes */}
+                {userRole === 'SALES' && (
+                    <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                        <Label className="text-xs text-gray-700 font-bold mb-2 block">Keterangan / Notes</Label>
+                        <textarea
+                            className="w-full text-xs p-2.5 border border-gray-200 rounded-lg min-h-[120px] resize-y focus:outline-none focus:ring-1 focus:ring-red-400 text-gray-800 bg-gray-50/50 leading-relaxed font-medium"
+                            value={notes}
+                            onChange={(e) => setNotes(e.target.value)}
+                            placeholder="Keterangan penawaran..."
+                            rows={5}
+                        />
+                    </div>
+                )}
+
+                <div className="bg-white rounded-xl border border-gray-200 p-3.5 shadow-sm space-y-3">
+                    <h3 className="font-bold text-gray-900 text-xs uppercase tracking-wider pb-2 border-b border-gray-100">Ringkasan Pesanan</h3>
                     
-                    <div className="space-y-2 mb-4">
-                        <div className="flex justify-between items-center text-sm">
-                            <span className="text-gray-500 text-xs">Total Macam Item</span>
-                            <span className="font-semibold text-gray-900 bg-gray-50 border border-gray-100 px-2 py-0.5 rounded text-xs">{items.length}</span>
+                    <div className="space-y-1.5 text-xs text-gray-600">
+                        <div className="flex justify-between items-center">
+                            <span>Total Macam Item</span>
+                            <span className="font-bold text-gray-900 bg-gray-100 px-2 py-0.5 rounded text-[11px]">{items.length}</span>
                         </div>
-                        <div className="flex justify-between items-center text-sm">
-                            <span className="text-gray-500 text-xs">Total Kuantitas</span>
-                            <span className="font-semibold text-gray-900 bg-gray-50 border border-gray-100 px-2 py-0.5 rounded text-xs">{totalQty}</span>
+                        <div className="flex justify-between items-center">
+                            <span>Total Kuantitas</span>
+                            <span className="font-bold text-gray-900 bg-gray-100 px-2 py-0.5 rounded text-[11px]">{totalQty}</span>
                         </div>
-                        <div className="pt-3 mt-2 border-t border-gray-100 flex flex-col gap-0.5">
+                        <div className="pt-2 border-t border-gray-100 space-y-1">
                             {userRole === 'SALES' ? (
                                 <>
-                                    <div className="flex justify-between items-end mb-1">
-                                        <span className="text-gray-900 font-bold text-sm">Subtotal</span>
-                                        <span className="font-bold text-gray-900 text-sm tracking-tight">
+                                    <div className="flex justify-between items-center text-gray-600">
+                                        <span>Subtotal</span>
+                                        <span className="font-bold text-gray-900">
                                             Rp {totalAmount.toLocaleString("id-ID")}
                                         </span>
                                     </div>
-                                    <div className="flex justify-between items-end mb-2">
-                                        <span className="text-gray-500 font-bold text-sm">PPN 11%</span>
-                                        <span className="font-bold text-gray-500 text-sm tracking-tight">
+                                    <div className="flex justify-between items-center text-gray-500">
+                                        <span>PPN 11%</span>
+                                        <span className="font-semibold text-gray-600">
                                             Rp {Math.ceil(totalAmount * 0.11).toLocaleString("id-ID")}
                                         </span>
                                     </div>
-                                    <div className="flex justify-between items-end pt-2 border-t border-gray-100">
-                                        <span className="text-gray-900 font-bold text-sm">Total Akhir</span>
-                                        <span className="font-black text-red-600 text-base tracking-tight">
+                                    <div className="flex justify-between items-center pt-1.5 border-t border-gray-100">
+                                        <span className="font-bold text-gray-900">Total Akhir</span>
+                                        <span className="font-black text-red-600 text-sm">
                                             Rp {Math.ceil(totalAmount * 1.11).toLocaleString("id-ID")}
                                         </span>
                                     </div>
                                 </>
                             ) : (
                                 <>
-                                    <div className="flex justify-between items-end">
-                                        <span className="text-gray-900 font-bold text-sm">Total</span>
-                                        <span className="font-black text-red-600 text-base tracking-tight">
+                                    <div className="flex justify-between items-center">
+                                        <span className="font-bold text-gray-900">Total</span>
+                                        <span className="font-black text-red-600 text-sm">
                                             Rp {totalAmount.toLocaleString("id-ID")}
                                         </span>
                                     </div>
@@ -1800,77 +2163,90 @@ export default function BulkOrderClient() {
                         </div>
                     </div>
 
-                    <div className="space-y-3">
+                    <div className="space-y-2 pt-1 border-t border-gray-100">
+                        {/* SALES: Accurate - Primary Action */}
+                        {userRole === 'SALES' && (
+                            <>
+                                <Button
+                                    size="sm"
+                                    onClick={handleCreateAccurateSq}
+                                    disabled={items.length === 0 || isCreatingAccurateSq || !selectedCustomer}
+                                    className="w-full gap-1.5 h-9 rounded-lg font-bold text-xs bg-red-600 hover:bg-red-700 text-white shadow-xs transition-all disabled:opacity-60"
+                                >
+                                    <CheckCircle2 className="w-4 h-4" />
+                                    {isCreatingAccurateSq ? "Memproses..." : "Buat Penawaran Accurate"}
+                                </Button>
+                                {!selectedCustomer && items.length > 0 && (
+                                    <p className="text-[10px] text-amber-700 text-center font-medium bg-amber-50 border border-amber-200/70 rounded px-2 py-1">⚠ Pilih pelanggan di atas terlebih dahulu</p>
+                                )}
+
+                                {/* Readonly SQ Number Input */}
+                                <div className="flex flex-col gap-1 p-2 bg-red-50/50 rounded-lg border border-red-100">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-[9px] font-bold text-red-700 uppercase tracking-wider">No. Quotation</label>
+                                        <button
+                                            onClick={fetchNextHsq}
+                                            disabled={isSyncingHsq}
+                                            className="text-[9px] font-semibold flex items-center gap-1 text-red-600 hover:text-red-700 bg-white px-1.5 py-0.5 rounded border border-red-200 shadow-2xs hover:shadow transition-all disabled:opacity-50"
+                                            title="Auto Sync No. SQ"
+                                        >
+                                            <RotateCcw className={`w-2.5 h-2.5 ${isSyncingHsq ? 'animate-spin' : ''}`} />
+                                            Sync
+                                        </button>
+                                    </div>
+                                    <Input
+                                        type="text"
+                                        readOnly
+                                        value={nextHsqNo}
+                                        placeholder="HSQ/..."
+                                        className="h-7 text-xs font-mono font-bold bg-white text-gray-900 border-red-200 focus-visible:ring-0 rounded px-2 shadow-2xs cursor-default select-all"
+                                    />
+                                </div>
+
+                                <div className="relative flex items-center gap-2 my-0.5">
+                                    <div className="flex-1 h-px bg-gray-100" />
+                                    <span className="text-[9px] text-gray-300 font-medium uppercase">atau</span>
+                                    <div className="flex-1 h-px bg-gray-100" />
+                                </div>
+                            </>
+                        )}
+
                         <Button
-                            size="lg"
+                            size="sm"
                             variant="red"
                             onClick={handleAddToCart}
                             disabled={items.length === 0}
-                            className="w-full gap-2 h-10 rounded-lg shadow-md shadow-red-100 font-semibold text-sm transition-all hover:shadow-red-200"
+                            className="w-full gap-1.5 h-9 rounded-lg font-bold text-xs shadow-2xs transition-all"
                         >
-                            <ShoppingCart className="w-5 h-5" />
+                            <ShoppingCart className="w-4 h-4" />
                             Masukkan Keranjang
                         </Button>
 
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-2 gap-1.5">
                             <button
                                 onClick={downloadPDF}
                                 disabled={items.length === 0}
-                                className="inline-flex justify-center items-center gap-1.5 px-2 py-2 rounded-lg bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-100 hover:border-gray-300 transition-all disabled:opacity-50 disabled:pointer-events-none"
+                                className="inline-flex justify-center items-center gap-1.5 px-2 py-1.5 rounded-lg bg-white border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50 disabled:pointer-events-none shadow-2xs"
                             >
-                                <FileDown className="w-4 h-4 text-red-500" />
+                                <FileDown className="w-3.5 h-3.5 text-red-500" />
                                 Est. PDF
                             </button>
                             <button
                                 onClick={downloadExcel}
                                 disabled={items.length === 0}
-                                className="inline-flex justify-center items-center gap-1.5 px-2 py-2 rounded-lg bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-100 hover:border-gray-300 transition-all disabled:opacity-50 disabled:pointer-events-none"
+                                className="inline-flex justify-center items-center gap-1.5 px-2 py-1.5 rounded-lg bg-white border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50 disabled:pointer-events-none shadow-2xs"
                             >
-                                <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
+                                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500" />
                                 Est. Excel
                             </button>
                         </div>
 
-                        {userRole === 'SALES' && (
-                            <>
-                                <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-100">
-                                    <div className="flex justify-between items-center mb-2">
-                                        <span className="text-xs font-semibold text-red-800">No. Quotation Berikutnya</span>
-                                        <button 
-                                            onClick={fetchNextHsq} 
-                                            disabled={isSyncingHsq}
-                                            className="text-xs flex items-center gap-1 text-red-600 hover:text-red-700 bg-white px-2 py-1 rounded border border-red-200 shadow-sm"
-                                        >
-                                            <RotateCcw className={`w-3 h-3 ${isSyncingHsq ? 'animate-spin' : ''}`} />
-                                            Sync
-                                        </button>
-                                    </div>
-                                    <div className="font-mono text-sm font-bold text-red-900 bg-white px-2 py-1.5 rounded border border-red-200">
-                                        {nextHsqNo || "Loading..."}
-                                    </div>
-                                    <p className="text-[10px] text-red-600/80 mt-1.5 leading-tight">
-                                        *Nomor di-generate otomatis. Tekan Sync jika ada tim sales lain yang baru membuat penawaran.
-                                    </p>
-                                </div>
-                                <Button
-                                    size="lg"
-                                    variant="outline"
-                                    onClick={handleCreateAccurateSq}
-                                    disabled={items.length === 0 || isCreatingAccurateSq || !selectedCustomer}
-                                    className="w-full gap-2 h-10 rounded-lg shadow-sm font-semibold text-sm transition-all border-red-500 text-red-600 hover:bg-red-50 mt-2"
-                                >
-                                    <ShoppingCart className="w-4 h-4" />
-                                    {isCreatingAccurateSq ? "Memproses..." : "Buat Penawaran Accurate"}
-                                </Button>
-                            </>
-                        )}
-
                         {items.length > 0 && (
                             <button
                                 onClick={clearAll}
-                                className="w-full inline-flex justify-center items-center gap-1.5 px-3 py-2 mt-2 rounded-lg text-xs font-bold text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all"
+                                className="w-full inline-flex justify-center items-center gap-1 px-2 py-1 pt-1.5 rounded-lg text-[11px] font-bold text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all"
                             >
-                                <RotateCcw className="w-3.5 h-3.5" />
+                                <RotateCcw className="w-3 h-3" />
                                 Bersihkan Daftar
                             </button>
                         )}
@@ -2080,15 +2456,42 @@ export default function BulkOrderClient() {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* Delete Item Confirmation Dialog */}
+            <AlertDialog open={!!itemToDelete} onOpenChange={(open) => !open && setItemToDelete(null)}>
+                <AlertDialogContent className="max-w-md rounded-2xl p-6 bg-white shadow-2xl border border-gray-100">
+                    <AlertDialogHeader className="space-y-2">
+                        <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-600 mb-2">
+                            <Trash2 className="w-6 h-6" />
+                        </div>
+                        <AlertDialogTitle className="text-lg font-bold text-gray-900">Hapus Produk dari Pesanan?</AlertDialogTitle>
+                        <AlertDialogDescription className="text-xs text-gray-600 leading-relaxed">
+                            Apakah Anda yakin ingin menghapus <span className="font-bold text-gray-900">{itemToDelete?.sku}</span> ({itemToDelete?.name}) dari daftar pesanan besar?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="mt-6 flex items-center justify-end gap-3">
+                        <AlertDialogCancel className="h-9 px-4 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 border-0 rounded-xl transition-colors">
+                            Batal
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={confirmRemoveItem}
+                            className="h-9 px-4 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md shadow-red-200"
+                        >
+                            Hapus Produk
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }
 
-function SortableRow({ item, updateQty, updateQtyDirect, removeItem, isLoggedIn, userRole, updateItemDiscount, onReplaceClick }: {
+function SortableRow({ item, updateQty, updateQtyDirect, removeItem, onRequestDelete, isLoggedIn, userRole, updateItemDiscount, onReplaceClick }: {
     item: BulkItem;
     updateQty: (id: string, delta: number) => void;
     updateQtyDirect: (id: string, qty: number) => void;
     removeItem: (id: string) => void;
+    onRequestDelete?: (id: string, name: string, sku: string) => void;
     isLoggedIn: boolean;
     userRole: string | null;
     updateItemDiscount: (id: string, field: 'd1' | 'd2', value: number) => void;
@@ -2129,34 +2532,34 @@ function SortableRow({ item, updateQty, updateQtyDirect, removeItem, isLoggedIn,
                     <GripVertical className="w-4 h-4" />
                 </button>
             </td>
-            <td className="px-3 py-2">
+            <td className="px-3 py-2.5">
                 <div className="flex items-center gap-2.5">
                     <div className="w-9 h-9 bg-gray-100 rounded-lg flex-shrink-0 relative overflow-hidden">
                         {item.image ? (
                             <Image src={item.image} alt={item.name} fill className="object-cover" />
                         ) : (
-                            <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-400">No Img</div>
+                            <div className="w-full h-full flex items-center justify-center text-[9px] text-gray-400">No Img</div>
                         )}
                     </div>
                     <div className="min-w-0">
-                        <p className={`font-medium text-sm line-clamp-1 ${item.isNotFound ? 'text-red-500' : 'text-gray-900'}`}>{item.name}</p>
-                        <p className="text-[11px] text-gray-400 mt-0.5">SKU: {item.sku}</p>
+                        <p className="text-[13px] font-bold text-gray-900 leading-tight whitespace-nowrap">{item.sku}</p>
+                        <p className={`text-[11px] line-clamp-1 mt-0.5 leading-tight ${item.isNotFound ? 'text-red-500 font-medium' : 'text-gray-500'}`} title={item.name}>{item.name}</p>
                     </div>
                 </div>
             </td>
-            <td className="px-3 py-2">
+            <td className="px-3 py-2.5">
                 <div className="flex flex-col">
                     {userRole !== 'SALES' && isLoggedIn && item.hasDiscount && item.isCustomerDiscount && item.originalPrice && (
-                        <span className="text-xs text-gray-400 line-through leading-tight">
+                        <span className="text-[10px] text-gray-400 line-through leading-tight whitespace-nowrap">
                             Rp {item.originalPrice.toLocaleString("id-ID")}
                         </span>
                     )}
-                    <span className="text-sm font-semibold text-red-600 leading-tight">
+                    <span className="text-[13px] font-semibold text-red-600 leading-tight whitespace-nowrap">
                         Rp {(userRole === 'SALES' ? Math.ceil(item.price / 1000) * 1000 : item.finalPrice).toLocaleString("id-ID")}
                     </span>
                 </div>
             </td>
-            <td className="px-3 py-2">
+            <td className="px-3 py-2.5">
                 <div className="flex flex-col gap-1">
                     {item.customId.endsWith('-MERGE') ? (
                         <>
@@ -2168,7 +2571,7 @@ function SortableRow({ item, updateQty, updateQtyDirect, removeItem, isLoggedIn,
                     ) : item.stockStatus === 'READY' ? (
                         <>
                             <span className="inline-flex items-center w-fit whitespace-nowrap text-[11px] font-medium px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">
-                                Ready Stock
+                                Stock
                             </span>
                             {!item.isCustom && (
                                 <span className="text-[10px] text-gray-400 mt-0.5">Tersedia: {item.availableToSell}</span>
@@ -2188,13 +2591,13 @@ function SortableRow({ item, updateQty, updateQtyDirect, removeItem, isLoggedIn,
                     )}
                 </div>
             </td>
-            <td className="px-3 py-2">
+            <td className="px-2 py-2.5">
                 <div className="flex items-center justify-center gap-1">
                     <button
                         onClick={() => updateQty(item.customId, -1)}
-                        className="w-6 h-6 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors flex-shrink-0"
+                        className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 border border-gray-200/80 flex items-center justify-center transition-colors flex-shrink-0 shadow-2xs active:scale-95"
                     >
-                        <Minus className="w-3 h-3 text-gray-600" />
+                        <Minus className="w-3.5 h-3.5 text-gray-700" />
                     </button>
                     <input
                         type="number"
@@ -2203,31 +2606,31 @@ function SortableRow({ item, updateQty, updateQtyDirect, removeItem, isLoggedIn,
                         onChange={(e) => updateQtyDirect(item.customId, parseInt(e.target.value))}
                         onFocus={(e) => e.target.select()}
                         onClick={(e) => (e.target as HTMLInputElement).select()}
-                        className="w-10 text-center text-sm font-semibold text-gray-800 tabular-nums border border-gray-200 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-red-400 focus:border-red-400 py-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        className="w-11 text-center text-xs font-bold text-gray-900 tabular-nums border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500 py-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none shadow-2xs"
                     />
                     <button
                         onClick={() => updateQty(item.customId, 1)}
-                        className="w-6 h-6 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors flex-shrink-0"
+                        className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 border border-gray-200/80 flex items-center justify-center transition-colors flex-shrink-0 shadow-2xs active:scale-95"
                     >
-                        <Plus className="w-3 h-3 text-gray-600" />
+                        <Plus className="w-3.5 h-3.5 text-gray-700" />
                     </button>
                 </div>
             </td>
             {userRole === 'SALES' && (
                 <>
-                    <td className="px-2 py-2">
+                    <td className="px-1.5 py-2.5">
                         <Input 
                             type="number"
-                            className="h-8 text-xs text-center px-1 font-mono"
+                            className="h-8 text-xs font-bold text-center px-1.5 border border-gray-200 rounded-lg bg-white shadow-2xs focus-visible:ring-1 focus-visible:ring-red-500 max-w-[64px] mx-auto"
                             value={item.salesDiscount1 || ''}
                             onChange={(e) => updateItemDiscount(item.customId, 'd1', parseFloat(e.target.value) || 0)}
                             placeholder="%"
                         />
                     </td>
-                    <td className="px-2 py-2">
+                    <td className="px-1.5 py-2.5">
                         <Input 
                             type="number"
-                            className="h-8 text-xs text-center px-1 font-mono"
+                            className="h-8 text-xs font-bold text-center px-1.5 border border-gray-200 rounded-lg bg-white shadow-2xs focus-visible:ring-1 focus-visible:ring-red-500 max-w-[64px] mx-auto"
                             value={item.salesDiscount2 || ''}
                             onChange={(e) => updateItemDiscount(item.customId, 'd2', parseFloat(e.target.value) || 0)}
                             placeholder="%"
@@ -2235,26 +2638,26 @@ function SortableRow({ item, updateQty, updateQtyDirect, removeItem, isLoggedIn,
                     </td>
                 </>
             )}
-            <td className="px-3 py-2 text-right">
-                <span className="text-sm font-bold text-gray-900 tabular-nums">
+            <td className="px-2 py-2.5 text-right">
+                <span className="text-[13px] font-bold text-gray-900 tabular-nums whitespace-nowrap">
                     Rp {(discountedPrice * item.qty).toLocaleString("id-ID")}
                 </span>
             </td>
-            <td className="px-3 py-2 text-center">
-                <div className="flex items-center justify-center gap-1.5">
+            <td className="px-1.5 py-2.5 text-center">
+                <div className="flex items-center justify-center gap-1">
                     {onReplaceClick && (
                         <button
                             onClick={() => onReplaceClick(item.customId)}
                             title="Ganti Produk"
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                            className="p-1 rounded-md text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
                         >
                             <RotateCw className="w-3.5 h-3.5" />
                         </button>
                     )}
                     <button
-                        onClick={() => removeItem(item.customId)}
+                        onClick={() => onRequestDelete ? onRequestDelete(item.customId, item.name, item.sku) : removeItem(item.customId)}
                         title="Hapus Produk"
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                        className="p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                     >
                         <Trash2 className="w-3.5 h-3.5" />
                     </button>
