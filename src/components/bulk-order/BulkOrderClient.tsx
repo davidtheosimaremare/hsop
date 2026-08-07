@@ -665,6 +665,78 @@ export default function BulkOrderClient() {
         });
     };
 
+    const replaceItemInList = (targetCustomId: string, product: BulkOrderProduct, qty: number) => {
+        const stock = Number(product.availableToSell || 0);
+
+        // Ready Price (Stock > 0)
+        const readyPriceInfo = getPriceInfo(product.price, product.category, 100);
+        // Indent Price (Stock = 0)
+        const indentPriceInfo = getPriceInfo(product.price, product.category, 0);
+
+        setItems(prev => {
+            const targetIndex = prev.findIndex(item => item.customId === targetCustomId);
+            if (targetIndex === -1) return prev;
+
+            const createItem = (
+                type: 'READY' | 'INDENT',
+                quantity: number,
+                pInfo: ReturnType<typeof getPriceInfo>
+            ): BulkItem => {
+                const discounts = getInitialSalesDiscount(product.category, type);
+                return {
+                    ...product,
+                    qty: quantity,
+                    finalPrice: pInfo.discountedPriceWithPPN,
+                    originalPrice: pInfo.hasDiscount ? pInfo.originalPriceWithPPN : undefined,
+                    hasDiscount: pInfo.hasDiscount,
+                    isCustomerDiscount: pInfo.isCustomerDiscount,
+                    stockStatus: type,
+                    customId: `${product.id}-${type}`,
+                    isCustom: false,
+                    salesDiscount1: userRole === 'SALES' ? discounts.d1 : undefined,
+                    salesDiscount2: userRole === 'SALES' ? discounts.d2 : undefined
+                };
+            };
+
+            const replacementItems: BulkItem[] = [];
+
+            if (mergeAll) {
+                const mergeId = `${product.id}-MERGE`;
+                const discounts = getInitialSalesDiscount(product.category, 'INDENT');
+                const pInfo = stock > 0 ? readyPriceInfo : indentPriceInfo;
+                replacementItems.push({
+                    ...product,
+                    qty,
+                    finalPrice: pInfo.discountedPriceWithPPN,
+                    originalPrice: pInfo.hasDiscount ? pInfo.originalPriceWithPPN : undefined,
+                    hasDiscount: pInfo.hasDiscount,
+                    isCustomerDiscount: pInfo.isCustomerDiscount,
+                    stockStatus: stock > 0 ? 'READY' : 'INDENT',
+                    customId: mergeId,
+                    isCustom: false,
+                    salesDiscount1: userRole === 'SALES' ? discounts.d1 : undefined,
+                    salesDiscount2: userRole === 'SALES' ? discounts.d2 : undefined
+                });
+            } else {
+                let remainingQty = qty;
+
+                if (stock > 0) {
+                    const toAddReady = Math.min(remainingQty, stock);
+                    replacementItems.push(createItem('READY', toAddReady, readyPriceInfo));
+                    remainingQty -= toAddReady;
+                }
+
+                if (remainingQty > 0) {
+                    replacementItems.push(createItem('INDENT', remainingQty, indentPriceInfo));
+                }
+            }
+
+            const newItems = [...prev];
+            newItems.splice(targetIndex, 1, ...replacementItems);
+            return newItems;
+        });
+    };
+
     const handleReplaceSuggestionClick = (suggestion: BulkOrderProduct) => {
         if (!replaceState.customId) return;
         
@@ -672,11 +744,8 @@ export default function BulkOrderClient() {
         const oldItem = items.find(i => i.customId === replaceState.customId);
         const qtyToKeep = oldItem ? oldItem.qty : 1;
 
-        // Remove the old item
-        removeItem(replaceState.customId);
-
-        // Add the new item
-        addItemToList(suggestion, qtyToKeep);
+        // Replace item IN-PLACE at exact index position (preserves order)
+        replaceItemInList(replaceState.customId, suggestion, qtyToKeep);
 
         // Close and reset
         setReplaceState({ isOpen: false, customId: null });
