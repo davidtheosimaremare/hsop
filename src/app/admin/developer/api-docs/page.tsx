@@ -4,7 +4,7 @@ import { useState } from "react";
 import {
   Code2, Copy, Check, ChevronDown, ChevronRight,
   Lock, Key, Smartphone, ShoppingBag, Tag, LayoutList,
-  FileText, Send, Zap, Shield, Bell
+  FileText, Send, Zap, Shield, Bell, RefreshCw
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -214,6 +214,50 @@ const API_SECTIONS: Section[] = [
           { name: "page", type: "number", required: false, description: "Nomor halaman" },
         ],
         response: { success: true, requests: [{ id: "...", quotationNo: "RFQ-260607-0001", status: "OFFERED", totalAmount: 7500000 }], pagination: { page: 1, total: 3 } },
+      },
+    ],
+  },
+  {
+    id: "sync",
+    icon: <RefreshCw className="w-5 h-5" />,
+    title: "Sinkronisasi Eksternal (HSO)",
+    color: "text-cyan-600",
+    bgColor: "bg-cyan-50 border-cyan-200",
+    endpoints: [
+      {
+        method: "GET",
+        path: "/api/v1/sync/siemens",
+        description: "Mengambil data master produk Siemens untuk sinkronisasi ke sistem eksternal (hso.hokiindo.co.id). Mendukung incremental sync menggunakan updatedAfter.",
+        auth: "api-key",
+        params: [
+          { name: "updatedAfter", type: "string (ISO Date)", required: false, description: "Filter produk yang diupdate setelah tanggal ini (e.g. 2026-08-01T00:00:00Z)" },
+          { name: "page", type: "number", required: false, description: "Nomor halaman (default: 1)" },
+          { name: "limit", type: "number | 'all'", required: false, description: "Jumlah per halaman (default: 100, max: 1000). Gunakan 'all' untuk batch besar." },
+          { name: "category", type: "string", required: false, description: "Filter berdasarkan nama kategori" },
+          { name: "stockStatus", type: "\"all\" | \"ready\" | \"indent\"", required: false, description: "Filter status stok (default: all)" },
+          { name: "search", type: "string", required: false, description: "Cari berdasarkan nama atau SKU" },
+        ],
+        response: {
+          success: true,
+          timestamp: "2026-08-20T09:10:00.000Z",
+          pagination: { page: 1, limit: 100, total: 4181, totalPages: 42, hasNext: true, hasPrev: false },
+          data: [
+            {
+              id: "cmmemnw410000l2op6gpjt319",
+              sku: "6ES7321-1BL00-0AA0",
+              name: "SIEMENS SIMATIC, S7-300, DIGITAL INPUT SM 321...",
+              price: 9046400,
+              basePrice: 0,
+              availableToSell: 0,
+              stockStatus: "INDENT",
+              brand: "SIEMENS",
+              category: "PLC",
+              image: "https://...",
+              specifications: { "Rated Voltage": "24 V DC" },
+              updatedAt: "2026-07-26T11:24:45.491Z"
+            }
+          ]
+        },
       },
     ],
   },
