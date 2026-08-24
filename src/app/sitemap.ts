@@ -3,6 +3,14 @@ import { db } from '@/lib/db'
 import { getProductSlug } from '@/lib/utils'
 
 /**
+ * Converts a category name to a clean URL slug.
+ * e.g. "CIRCUIT BREAKER" → "circuit-breaker"
+ */
+function categoryToSlug(name: string): string {
+  return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9\-]/g, '')
+}
+
+/**
  * Sitemap Index: splits URLs across multiple sitemaps for faster Google crawling.
  * Google processes smaller sitemaps faster than one massive file.
  * 
@@ -88,9 +96,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
-  // Category URLs
+  // Category URLs - SEO-friendly clean URL format
   const categoryUrls: MetadataRoute.Sitemap = visibleCategories.map((cat: any) => ({
-    url: `${BASE_URL}/pencarian?category=${encodeURIComponent(cat.name)}`,
+    url: `${BASE_URL}/kategori/${categoryToSlug(cat.name)}`,
     lastModified: cat.updatedAt,
     changeFrequency: 'weekly',
     priority: 0.85, 
