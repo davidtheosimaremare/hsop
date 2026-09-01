@@ -2610,8 +2610,8 @@ function SortableRow({ item, updateQty, updateQtyDirect, removeItem, onRequestDe
                             <div className="w-full h-full flex items-center justify-center text-[9px] text-gray-400">No Img</div>
                         )}
                     </div>
-                    <div className="min-w-0">
-                        <p className="text-[13px] font-bold text-gray-900 leading-tight whitespace-nowrap">{item.sku}</p>
+                    <div className="min-w-0 flex-1">
+                        <p className="text-[13px] font-bold text-gray-900 leading-tight break-words [overflow-wrap:anywhere]">{item.sku}</p>
                         <p className={`text-[11px] line-clamp-1 mt-0.5 leading-tight ${item.isNotFound ? 'text-red-500 font-medium' : 'text-gray-500'}`} title={item.name}>{item.name}</p>
                     </div>
                 </div>
