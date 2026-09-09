@@ -131,7 +131,7 @@ async function fetchProductPage(page: number, pageSize: number): Promise<Accurat
         const response = await fetch(url.toString(), {
             method: 'GET',
             headers: headers as HeadersInit,
-            next: { revalidate: 1800 } // Cache at fetch level for 30 mins
+            cache: 'no-store' // Always fetch fresh — jangan cache saat sync
         });
 
         if (!response.ok) throw new Error(`Accurate API error: ${response.status}`);
@@ -147,10 +147,10 @@ async function fetchProductPage(page: number, pageSize: number): Promise<Accurat
 
 const MAX_PAGES = 100; // Safety limit
 
-export async function fetchAllProducts(): Promise<AccurateProduct[]> {
-    // Check local memory cache first
+export async function fetchAllProducts(forceRefresh = false): Promise<AccurateProduct[]> {
+    // Check local memory cache first (skip if forceRefresh)
     const now = Date.now();
-    if (productCache.data.length > 0 && productCache.expiresAt > now) {
+    if (!forceRefresh && productCache.data.length > 0 && productCache.expiresAt > now) {
         return productCache.data;
     }
 
@@ -988,9 +988,9 @@ const CACHE_TTL_PRICE_ADJUSTMENTS = 1000 * 60 * 30; // 30 minutes
 /**
  * Fetch map of item SKUs to their adjusted selling prices (Kategori Penjualan: Umum)
  */
-export async function fetchAdjustedSellingPrices(): Promise<Map<string, number>> {
+export async function fetchAdjustedSellingPrices(forceRefresh = false): Promise<Map<string, number>> {
     const now = Date.now();
-    if (adjustedPricesCache.data.size > 0 && adjustedPricesCache.expiresAt > now) {
+    if (!forceRefresh && adjustedPricesCache.data.size > 0 && adjustedPricesCache.expiresAt > now) {
         return adjustedPricesCache.data;
     }
 

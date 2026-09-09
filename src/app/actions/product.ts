@@ -42,8 +42,8 @@ function calculateSortWeight(name: string): number {
 
 export async function syncProductsAction() {
     try {
-        console.log("Starting product sync...");
-        const accurateProducts = await fetchAllProducts();
+        // forceRefresh=true: bypass semua cache agar ambil harga terbaru dari Accurate
+        const accurateProducts = await fetchAllProducts(true);
         console.log(`Fetched ${accurateProducts.length} products from Accurate.`);
 
         // 1. Check for duplicates in the source data
@@ -92,8 +92,9 @@ export async function syncProductsAction() {
         }
         const productsToSync = Array.from(uniqueProducts.values());
 
-        // Fetch adjusted prices map from Accurate
-        const adjustedPricesMap = await fetchAdjustedSellingPrices();
+        // forceRefresh=true: ambil harga adjustment terbaru, bukan dari cache
+        const adjustedPricesMap = await fetchAdjustedSellingPrices(true);
+
 
         for (const ap of productsToSync) {
             try {
