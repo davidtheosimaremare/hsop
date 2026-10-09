@@ -336,10 +336,11 @@ export default async function Home() {
     },
     address: {
       '@type': 'PostalAddress',
-      streetAddress: companyDetails?.address || 'Jl. Cideng Timur No. 66',
-      addressLocality: 'Jakarta Pusat',
-      addressRegion: 'DKI Jakarta',
+      streetAddress: companyDetails?.address || 'Roseville SOHO & Suite, Jl. Sunburst CBD, Jl. Kapten Soebijanto Djojohadikusumo No.8 Lot I, Lengkong Gudang, Kec. Serpong',
+      addressLocality: 'Tangerang Selatan',
+      addressRegion: 'Banten',
       addressCountry: 'ID',
+      postalCode: '15321',
     },
     sameAs: [
       companyDetails?.instagram ? `https://instagram.com/${companyDetails.instagram.replace('@', '')}` : null,

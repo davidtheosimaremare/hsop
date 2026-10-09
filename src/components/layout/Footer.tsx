@@ -8,7 +8,9 @@ const defaultFooterConfig = {
         whatsapp: "+62 812 6222 0021",
         call_center: "(021) 385 7057",
         email: "sales@hokiindo.com",
-        address: "Jl. Cideng Timur No. 66\nPetojo Selatan, Jakarta Pusat",
+        office_address: "Roseville SOHO & Suite, Jl. Sunburst CBD, Jl. Kapten Soebijanto Djojohadikusumo No.8 Lot I, Lengkong Gudang, Kec. Serpong, Kota Tangerang Selatan, Banten 15321",
+        warehouse_address: "Jl. Letnan Sutopo, Ruko Golden Madrid 1 Blok E28, Tangerang Selatan",
+        address: "Roseville SOHO & Suite, Jl. Sunburst CBD, Jl. Kapten Soebijanto Djojohadikusumo No.8 Lot I, Lengkong Gudang, Kec. Serpong, Kota Tangerang Selatan, Banten 15321",
     },
     socials: {
         instagram: "",
@@ -46,15 +48,35 @@ export default async function Footer() {
         ]);
 
         if (footerSettings && typeof footerSettings === 'object') {
-            config = { ...defaultFooterConfig, ...footerSettings };
+            config = { 
+                ...defaultFooterConfig, 
+                ...footerSettings,
+                contacts: {
+                    ...defaultFooterConfig.contacts,
+                    ...(footerSettings.contacts || {})
+                },
+                socials: {
+                    ...defaultFooterConfig.socials,
+                    ...(footerSettings.socials || {})
+                },
+                links: {
+                    ...defaultFooterConfig.links,
+                    ...(footerSettings.links || {})
+                }
+            };
         }
 
         if (companySettings && typeof companySettings === 'object') {
             companyDetails = companySettings;
             // Merge basic info into config if present in companyDetails
-            if (companyDetails.email) config.contacts.email = companyDetails.email;
-            if (companyDetails.phone) config.contacts.call_center = companyDetails.phone;
-            if (companyDetails.address) config.contacts.address = companyDetails.address;
+            if (companyDetails.email && !footerSettings?.contacts?.email) config.contacts.email = companyDetails.email;
+            if (companyDetails.phone && !footerSettings?.contacts?.call_center) config.contacts.call_center = companyDetails.phone;
+            if (companyDetails.address && !footerSettings?.contacts?.office_address && !footerSettings?.contacts?.address) {
+                config.contacts.office_address = companyDetails.address;
+            }
+            if (companyDetails.warehouseAddress && !footerSettings?.contacts?.warehouse_address) {
+                config.contacts.warehouse_address = companyDetails.warehouseAddress;
+            }
             
             // Merge socials
             if (companyDetails.instagram) config.socials.instagram = companyDetails.instagram;
@@ -122,16 +144,35 @@ export default async function Footer() {
                                 </div>
                             </div>
 
-                            <div className="flex items-start gap-3">
-                                <div className="w-8 h-8 bg-teal-50 rounded-full flex items-center justify-center flex-shrink-0">
-                                    <MapPin className="w-4 h-4 text-teal-600" />
-                                </div>
+                            {/* Alamat Kantor & Alamat Gudang */}
+                            <div className="pt-2 space-y-4">
+                                {/* Alamat Kantor */}
                                 <div>
-                                    <p className="text-sm text-gray-500">Alamat</p>
-                                    <p className="text-sm font-medium text-gray-900 whitespace-pre-line">
-                                        {config.contacts.address}
-                                    </p>
+                                    <div className="flex items-center gap-2 mb-1.5">
+                                        <span className="w-2.5 h-2.5 rounded-full bg-[#0F2C59] flex-shrink-0" />
+                                        <span className="text-sm font-bold text-[#0F2C59]">Alamat Kantor:</span>
+                                    </div>
+                                    <div className="ml-1.5 pl-3.5 border-l-2 border-blue-200">
+                                        <p className="text-xs sm:text-[13px] text-gray-600 leading-relaxed font-normal">
+                                            {config.contacts.office_address || config.contacts.address}
+                                        </p>
+                                    </div>
                                 </div>
+
+                                {/* Alamat Gudang */}
+                                {config.contacts.warehouse_address && (
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-1.5">
+                                            <span className="w-2.5 h-2.5 rounded-full bg-red-600 flex-shrink-0" />
+                                            <span className="text-sm font-bold text-[#0F2C59]">Alamat Gudang:</span>
+                                        </div>
+                                        <div className="ml-1.5 pl-3.5 border-l-2 border-red-200">
+                                            <p className="text-xs sm:text-[13px] text-gray-600 leading-relaxed font-normal">
+                                                {config.contacts.warehouse_address}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

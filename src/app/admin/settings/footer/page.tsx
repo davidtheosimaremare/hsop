@@ -34,7 +34,9 @@ const defaultFooterConfig = {
         whatsapp: "+62 812 6222 0021",
         call_center: "(021) 385 7057",
         email: "sales@hokiindo.com",
-        address: "Jl. Cideng Timur No. 66\nPetojo Selatan, Jakarta Pusat",
+        office_address: "Roseville SOHO & Suite, Jl. Sunburst CBD, Jl. Kapten Soebijanto Djojohadikusumo No.8 Lot I, Lengkong Gudang, Kec. Serpong, Kota Tangerang Selatan, Banten 15321",
+        warehouse_address: "Jl. Letnan Sutopo, Ruko Golden Madrid 1 Blok E28, Tangerang Selatan",
+        address: "Roseville SOHO & Suite, Jl. Sunburst CBD, Jl. Kapten Soebijanto Djojohadikusumo No.8 Lot I, Lengkong Gudang, Kec. Serpong, Kota Tangerang Selatan, Banten 15321",
     },
     socials: {
         instagram: "",
@@ -71,7 +73,17 @@ export default function FooterSettingsPage() {
             try {
                 const data = await getSiteSetting("footer_config");
                 if (data && typeof data === 'object') {
-                    setConfig((prev) => ({ ...prev, ...data }));
+                    setConfig((prev) => ({ 
+                        ...prev, 
+                        ...data,
+                        contacts: {
+                            ...prev.contacts,
+                            ...(data.contacts || {}),
+                            office_address: data.contacts?.office_address || data.contacts?.address || prev.contacts.office_address,
+                            warehouse_address: data.contacts?.warehouse_address || prev.contacts.warehouse_address,
+                            address: data.contacts?.office_address || data.contacts?.address || prev.contacts.address,
+                        }
+                    }));
                 }
             } catch (error) {
                 console.error("Failed to load footer config", error);
@@ -218,12 +230,25 @@ export default function FooterSettingsPage() {
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                    <MapPin className="w-3.5 h-3.5 text-red-500" /> Alamat Fisik
+                                    <MapPin className="w-3.5 h-3.5 text-blue-500" /> Alamat Kantor
                                 </label>
                                 <Textarea 
-                                    className="min-h-[100px] rounded-xl border-slate-100 bg-slate-50/50 focus:ring-red-500/20 font-bold text-slate-900 leading-relaxed" 
-                                    value={config.contacts.address} 
-                                    onChange={(e) => handleChange("contacts", "address", e.target.value)} 
+                                    className="min-h-[90px] rounded-xl border-slate-100 bg-slate-50/50 focus:ring-blue-500/20 font-bold text-slate-900 leading-relaxed" 
+                                    value={config.contacts.office_address || config.contacts.address || ""} 
+                                    onChange={(e) => {
+                                        handleChange("contacts", "office_address", e.target.value);
+                                        handleChange("contacts", "address", e.target.value);
+                                    }} 
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                    <MapPin className="w-3.5 h-3.5 text-red-500" /> Alamat Gudang
+                                </label>
+                                <Textarea 
+                                    className="min-h-[80px] rounded-xl border-slate-100 bg-slate-50/50 focus:ring-red-500/20 font-bold text-slate-900 leading-relaxed" 
+                                    value={config.contacts.warehouse_address || ""} 
+                                    onChange={(e) => handleChange("contacts", "warehouse_address", e.target.value)} 
                                 />
                             </div>
                         </CardContent>
