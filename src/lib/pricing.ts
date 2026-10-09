@@ -1,6 +1,6 @@
-import { DiscountRule, CategoryMapping as PrismaCategoryMapping } from "@prisma/client";
+import type { DiscountRule, CategoryMapping as PrismaCategoryMapping } from "@prisma/client";
 
-export interface CategoryMapping extends PrismaCategoryMapping { }
+export type CategoryMapping = PrismaCategoryMapping;
 
 export interface CustomerDiscount {
     discount1: number;
@@ -31,12 +31,39 @@ export interface PriceInfo {
     ruleName: string | null;
     isHidden: boolean;
     contactPhone: string | null;
+    isMarkedUp?: boolean;
+    markupPercent?: number;
 }
 
 // Parse string discount like "10+5" into [10, 5]
 function parseStringDiscount(disc: string): number[] {
     if (!disc || disc === "0") return [];
     return disc.split('+').map(d => parseFloat(d)).filter(d => !isNaN(d) && d > 0);
+}
+
+/**
+ * Hitung harga dengan kenaikan markup kategori:
+ * - Kategori LP: +5% (dibulatkan ke ratusan terdekat)
+ * - Kategori CP: +10% (dibulatkan ke ratusan terdekat)
+ */
+export function getCategoryMarkedUpPrice(
+    price: number,
+    category: string | null,
+    categoryMappings: CategoryMapping[]
+): number {
+    if (!price || price <= 0 || !category) return price;
+    const mapping = categoryMappings.find(
+        (m) => m.categoryName.trim().toLowerCase() === category.trim().toLowerCase()
+    );
+    if (!mapping) return price;
+
+    if (mapping.discountType === "LP") {
+        return Math.round((price * 1.05) / 100) * 100;
+    }
+    if (mapping.discountType === "CP") {
+        return Math.round((price * 1.10) / 100) * 100;
+    }
+    return price;
 }
 
 export function calculatePriceInfo(
@@ -47,7 +74,8 @@ export function calculatePriceInfo(
     availableToSell: number = 0,
     discountRules: DiscountRule[] = [],
     productBrand: string | null = null,
-    hidePriceRules: HidePriceRules | null = null
+    hidePriceRules: HidePriceRules | null = null,
+    applyCategoryMarkup: boolean = true
 ): PriceInfo {
     const PPN = 1.11;
     let discounts: number[] = [];
@@ -66,6 +94,23 @@ export function calculatePriceInfo(
         }
     }
 
+    // Terapkan kenaikan harga kategori (LP: +5%, CP: +10%)
+    let basePrice = productPrice;
+    let isMarkedUp = false;
+    let markupPercent = 0;
+
+    if (applyCategoryMarkup && productPrice > 0 && productCategory) {
+        const markedUp = getCategoryMarkedUpPrice(productPrice, productCategory, categoryMappings);
+        if (markedUp !== productPrice) {
+            basePrice = markedUp;
+            isMarkedUp = true;
+            const mapping = categoryMappings.find(
+                (m) => m.categoryName.trim().toLowerCase() === productCategory.trim().toLowerCase()
+            );
+            markupPercent = mapping?.discountType === "LP" ? 5 : mapping?.discountType === "CP" ? 10 : 0;
+        }
+    }
+
     // 1. Logic Customer Discount (Priority 1)
     if (customer) {
         // ... (Legacy logic implementation, simplified for now or need to check usage)
@@ -80,7 +125,9 @@ export function calculatePriceInfo(
 
         // Check for specific category discounts (LP, CP, Lighting)
         // 1. Find the mapping for this product category
-        const mapping = categoryMappings.find(m => m.categoryName === productCategory);
+        const mapping = productCategory ? categoryMappings.find(
+            (m) => m.categoryName.trim().toLowerCase() === productCategory.trim().toLowerCase()
+        ) : undefined;
 
         if (mapping) {
             const discountType = mapping.discountType; // "LP", "CP", "LIGHTING"
@@ -106,7 +153,9 @@ export function calculatePriceInfo(
     // 2. Logic Default Discount (Priority 2 - Only if no customer discount applied)
     if (discounts.length === 0 && productCategory) {
         // Find mapping
-        const mapping = categoryMappings.find(m => m.categoryName === productCategory);
+        const mapping = categoryMappings.find(
+            (m) => m.categoryName.trim().toLowerCase() === productCategory.trim().toLowerCase()
+        );
 
         if (mapping) {
             // Find rule for this discount type
@@ -130,7 +179,7 @@ export function calculatePriceInfo(
         }
     }
 
-    let finalPrice = productPrice;
+    let finalPrice = basePrice;
     for (const d of discounts) {
         finalPrice = finalPrice * (1 - d / 100);
     }
@@ -144,8 +193,8 @@ export function calculatePriceInfo(
     }
 
     return {
-        originalPrice: productPrice,
-        originalPriceWithPPN: Math.ceil((productPrice * PPN) / 1000) * 1000,
+        originalPrice: basePrice,
+        originalPriceWithPPN: Math.ceil((basePrice * PPN) / 1000) * 1000,
         discountedPrice: finalPrice,
         discountedPriceWithPPN: Math.ceil((finalPrice * PPN) / 1000) * 1000,
         hasDiscount: discounts.length > 0,
@@ -154,6 +203,8 @@ export function calculatePriceInfo(
         discountStr,
         ruleName,
         isHidden,
-        contactPhone
+        contactPhone,
+        isMarkedUp,
+        markupPercent
     };
 }

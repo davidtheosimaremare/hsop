@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { usePricing } from "@/lib/PricingContext";
+import { getCategoryMarkedUpPrice, CategoryMapping } from "@/lib/pricing";
 import { exportQuotationPDF, exportQuotationExcel, QuotationExportData } from "@/lib/export-quotation";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -127,6 +128,17 @@ export default function BulkOrderClient() {
     const [isSyncingHsq, setIsSyncingHsq] = useState(false);
     const [hideDiscountInAccurate, setHideDiscountInAccurate] = useState(false);
     const [mergeAll, setMergeAll] = useState(false);
+    const [applyPriceMarkup, setApplyPriceMarkup] = useState<boolean>(true);
+
+    const getItemBasePrice = (item: { price: number; category?: string | null; finalPrice?: number }) => {
+        if (userRole === 'SALES') {
+            const raw = applyPriceMarkup
+                ? getCategoryMarkedUpPrice(item.price, item.category || null, categoryMappings)
+                : item.price;
+            return Math.ceil(raw / 1000) * 1000;
+        }
+        return item.finalPrice ?? item.price;
+    };
 
     const [bulkDisc1, setBulkDisc1] = useState<number>(30);
     const [bulkDisc2, setBulkDisc2] = useState<number>(37);
@@ -284,7 +296,7 @@ export default function BulkOrderClient() {
                 } else {
                     // Create new INDENT row right after the READY row
                     const readyIdx = newList.findIndex(i => i.customId === id);
-                    const indentPriceInfo = getPriceInfo(item.price, item.category, 0);
+                    const indentPriceInfo = getPriceInfo(item.price, item.category, 0, null, applyPriceMarkup);
                     const indentDiscounts = getInitialSalesDiscount(item.category, 'INDENT');
                     const indentItem: BulkItem = {
                         ...item,
@@ -364,7 +376,7 @@ export default function BulkOrderClient() {
             if (item.isCustom) return item; // Custom products keep their manual price
             
             const isReady = item.stockStatus === 'READY';
-            const priceInfo = getPriceInfo(item.price, item.category, isReady ? 100 : 0);
+            const priceInfo = getPriceInfo(item.price, item.category, isReady ? 100 : 0, null, applyPriceMarkup);
             
             const newFinal = priceInfo.discountedPriceWithPPN;
             const newOriginal = priceInfo.hasDiscount ? priceInfo.originalPriceWithPPN : undefined;
@@ -392,7 +404,7 @@ export default function BulkOrderClient() {
         if (changed) {
             setItems(updatedItems);
         }
-    }, [customerDiscount, categoryMappings, discountRules, getPriceInfo]);
+    }, [customerDiscount, categoryMappings, discountRules, getPriceInfo, applyPriceMarkup]);
 
     // Persist items to localStorage on every change
     useEffect(() => {
@@ -559,9 +571,9 @@ export default function BulkOrderClient() {
         const stock = Number(product.availableToSell || 0);
 
         // Ready Price (Stock > 0)
-        const readyPriceInfo = getPriceInfo(product.price, product.category, 100);
+        const readyPriceInfo = getPriceInfo(product.price, product.category, 100, null, applyPriceMarkup);
         // Indent Price (Stock = 0)
-        const indentPriceInfo = getPriceInfo(product.price, product.category, 0);
+        const indentPriceInfo = getPriceInfo(product.price, product.category, 0, null, applyPriceMarkup);
 
         setItems(prev => {
             const newItems = prev.map(item => ({ ...item }));
@@ -669,9 +681,9 @@ export default function BulkOrderClient() {
         const stock = Number(product.availableToSell || 0);
 
         // Ready Price (Stock > 0)
-        const readyPriceInfo = getPriceInfo(product.price, product.category, 100);
+        const readyPriceInfo = getPriceInfo(product.price, product.category, 100, null, applyPriceMarkup);
         // Indent Price (Stock = 0)
-        const indentPriceInfo = getPriceInfo(product.price, product.category, 0);
+        const indentPriceInfo = getPriceInfo(product.price, product.category, 0, null, applyPriceMarkup);
 
         setItems(prev => {
             const targetIndex = prev.findIndex(item => item.customId === targetCustomId);
@@ -854,7 +866,7 @@ export default function BulkOrderClient() {
             };
             
             const res = await createSalesQuotationAccurate(items.map(i => {
-                const basePrice = userRole === 'SALES' ? Math.ceil(i.price / 1000) * 1000 : i.finalPrice;
+                const basePrice = getItemBasePrice(i);
                 const d1 = i.salesDiscount1 || 0;
                 const d2 = i.salesDiscount2 || 0;
                 const combinedDiscount = 1 - (1 - d1 / 100) * (1 - d2 / 100);
@@ -886,7 +898,7 @@ export default function BulkOrderClient() {
                     productSku: i.sku,
                     productName: i.name,
                     price: discountedPrice,
-                    basePrice: userRole === 'SALES' ? Math.ceil(i.price / 1000) * 1000 : i.finalPrice,
+                    basePrice: getItemBasePrice(i),
                     quantity: i.qty,
                     isAvailable: true, // Send all items
                     detailNotes: i.stockStatus === 'READY' ? 'STOCK' : 'NO STOCK',
@@ -1036,15 +1048,22 @@ export default function BulkOrderClient() {
     };
 
     const downloadResult = () => {
-        const rows = items.map(item => ({
-            "Nama Produk": item.name,
-            "SKU": item.sku,
-            "Brand": item.brand || "",
-            "Status Stok": item.stockStatus === 'READY' ? "Ready Stock" : item.stockStatus === 'INDENT' ? "Indent" : "Ready Stock",
-            "Harga Satuan (Rp)": item.finalPrice,
-            "QTY": item.qty,
-            "Subtotal (Rp)": item.finalPrice * item.qty,
-        }));
+        const rows = items.map(item => {
+            const unitPrice = getItemBasePrice(item);
+            const d1 = item.salesDiscount1 || 0;
+            const d2 = item.salesDiscount2 || 0;
+            const combined = userRole === 'SALES' ? (1 - (1 - d1/100) * (1 - d2/100)) : 0;
+            const discountedPrice = userRole === 'SALES' ? Math.round(unitPrice * (1 - combined)) : unitPrice;
+            return {
+                "Nama Produk": item.name,
+                "SKU": item.sku,
+                "Brand": item.brand || "",
+                "Status Stok": item.stockStatus === 'READY' ? "Ready Stock" : item.stockStatus === 'INDENT' ? "Indent" : "Ready Stock",
+                "Harga Satuan (Rp)": unitPrice,
+                "QTY": item.qty,
+                "Subtotal (Rp)": discountedPrice * item.qty,
+            };
+        });
 
         rows.push({
             "Nama Produk": "",
@@ -1096,7 +1115,7 @@ export default function BulkOrderClient() {
             const newReadyQty = Math.min(newTotalQty, stock);
             const newIndentQty = newTotalQty - newReadyQty;
 
-            let newItems = [...prev];
+            const newItems = [...prev];
 
             const readyId = `${baseId}-READY`;
             const readyIdx = newItems.findIndex(i => i.customId === readyId);
@@ -1104,7 +1123,7 @@ export default function BulkOrderClient() {
                 if (readyIdx > -1) {
                     newItems[readyIdx] = { ...newItems[readyIdx], qty: newReadyQty };
                 } else {
-                    const readyPriceInfo = getPriceInfo(item.price, item.category, 100);
+                    const readyPriceInfo = getPriceInfo(item.price, item.category, 100, null, applyPriceMarkup);
                     const readyDiscounts = getInitialSalesDiscount(item.category, 'READY');
                     const newItem: BulkItem = {
                         ...item,
@@ -1131,7 +1150,7 @@ export default function BulkOrderClient() {
                 if (indentIdx > -1) {
                     newItems[indentIdx] = { ...newItems[indentIdx], qty: newIndentQty };
                 } else {
-                    const indentPriceInfo = getPriceInfo(item.price, item.category, 0);
+                    const indentPriceInfo = getPriceInfo(item.price, item.category, 0, null, applyPriceMarkup);
                     const indentDiscounts = getInitialSalesDiscount(item.category, 'INDENT');
                     const newItem: BulkItem = {
                         ...item,
@@ -1162,7 +1181,7 @@ export default function BulkOrderClient() {
         let totalDiscountVal = 0;
 
         const mappedItems = items.filter(i => !i.isNotFound).map(item => {
-            const basePrice = isSales ? Math.ceil(item.price / 1000) * 1000 : item.finalPrice;
+            const basePrice = isSales ? getItemBasePrice(item) : item.finalPrice;
             const d1 = item.salesDiscount1 || 0;
             const d2 = item.salesDiscount2 || 0;
 
@@ -1259,8 +1278,8 @@ export default function BulkOrderClient() {
         router.push("/keranjang");
     };
 
-    let totalAmount = items.reduce((sum, item) => {
-        const basePrice = userRole === 'SALES' ? Math.ceil(item.price / 1000) * 1000 : item.finalPrice;
+    const totalAmount = items.reduce((sum, item) => {
+        const basePrice = getItemBasePrice(item);
         const d1 = item.salesDiscount1 || 0;
         const d2 = item.salesDiscount2 || 0;
         const combined = 1 - (1 - d1/100) * (1 - d2/100);
@@ -1353,7 +1372,20 @@ export default function BulkOrderClient() {
                         <div className="hidden lg:block w-px h-7 bg-red-500/40 flex-shrink-0" />
 
                         {/* Toggles */}
-                        <div className="flex items-center gap-5 flex-shrink-0">
+                        <div className="flex items-center gap-4 flex-shrink-0">
+                            <label className="flex items-center gap-2 cursor-pointer group select-none bg-red-800/40 hover:bg-red-800/60 border border-red-500/40 px-2.5 py-1 rounded-lg transition-colors">
+                                <input
+                                    type="checkbox"
+                                    id="cmdApplyPriceMarkup"
+                                    checked={applyPriceMarkup}
+                                    onChange={(e) => setApplyPriceMarkup(e.target.checked)}
+                                    className="w-4 h-4 accent-red-600 cursor-pointer rounded"
+                                />
+                                <span className="text-[11px] font-semibold text-white transition-colors whitespace-nowrap">
+                                    Kenaikan Harga (LP +5%, CP +10%)
+                                </span>
+                            </label>
+
                             <label className="flex items-center gap-2 cursor-pointer group select-none">
                                 <input
                                     type="checkbox"
@@ -1816,7 +1848,8 @@ export default function BulkOrderClient() {
                                 </div>
                             )}
                             {!isSearchingSuggestions && suggestions.map((suggestion) => {
-                                const priceInfo = getPriceInfo(suggestion.price, suggestion.category || null, suggestion.availableToSell);
+                                const priceInfo = getPriceInfo(suggestion.price, suggestion.category || null, suggestion.availableToSell, null, applyPriceMarkup);
+                                const salesPrice = Math.ceil((applyPriceMarkup ? getCategoryMarkedUpPrice(suggestion.price, suggestion.category || null, categoryMappings) : suggestion.price) / 1000) * 1000;
                                 return (
                                     <button
                                         key={suggestion.id}
@@ -1843,7 +1876,7 @@ export default function BulkOrderClient() {
                                                     </span>
                                                 )}
                                                 <p className="text-xs font-bold text-red-600">
-                                                    Rp {(userRole === 'SALES' ? (Math.ceil(suggestion.price / 1000) * 1000) : priceInfo.discountedPriceWithPPN).toLocaleString("id-ID")}
+                                                    Rp {(userRole === 'SALES' ? salesPrice : priceInfo.discountedPriceWithPPN).toLocaleString("id-ID")}
                                                 </p>
                                             </div>
                                         </div>
@@ -1915,6 +1948,9 @@ export default function BulkOrderClient() {
                                                     userRole={userRole || null}
                                                     updateItemDiscount={updateItemDiscount}
                                                     onReplaceClick={(id) => setReplaceState({ isOpen: true, customId: id })}
+                                                    getItemBasePrice={getItemBasePrice}
+                                                    applyPriceMarkup={applyPriceMarkup}
+                                                    categoryMappings={categoryMappings}
                                                 />
                                             ))}
                                         </tbody>
@@ -2501,7 +2537,7 @@ export default function BulkOrderClient() {
                                                 
                                                 <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-50">
                                                     <p className="text-sm font-bold text-red-600">
-                                                        Rp {prod.price.toLocaleString('id-ID')}
+                                                        Rp {(userRole === 'SALES' ? Math.ceil((applyPriceMarkup ? getCategoryMarkedUpPrice(prod.price, prod.category || null, categoryMappings) : prod.price) / 1000) * 1000 : (applyPriceMarkup ? getCategoryMarkedUpPrice(prod.price, prod.category || null, categoryMappings) : prod.price)).toLocaleString('id-ID')}
                                                     </p>
                                                     <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${Number(prod.availableToSell || 0) > 0 ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
                                                         {Number(prod.availableToSell || 0) > 0 ? 'Ready' : 'Indent'}
@@ -2513,7 +2549,7 @@ export default function BulkOrderClient() {
                                 </div>
                             ) : replaceInput.trim().length >= 2 && !isSearchingReplace ? (
                                 <div className="py-8 text-center text-sm text-gray-500 bg-gray-50 rounded-lg border border-gray-100">
-                                    Tidak ada produk ditemukan untuk "{replaceInput}"
+                                    Tidak ada produk ditemukan untuk &quot;{replaceInput}&quot;
                                 </div>
                             ) : (
                                 <div className="py-12 flex flex-col items-center justify-center text-gray-400">
@@ -2555,7 +2591,7 @@ export default function BulkOrderClient() {
     );
 }
 
-function SortableRow({ item, updateQty, updateQtyDirect, removeItem, onRequestDelete, isLoggedIn, userRole, updateItemDiscount, onReplaceClick }: {
+function SortableRow({ item, updateQty, updateQtyDirect, removeItem, onRequestDelete, isLoggedIn, userRole, updateItemDiscount, onReplaceClick, getItemBasePrice, applyPriceMarkup, categoryMappings }: {
     item: BulkItem;
     updateQty: (id: string, delta: number) => void;
     updateQtyDirect: (id: string, qty: number) => void;
@@ -2565,12 +2601,21 @@ function SortableRow({ item, updateQty, updateQtyDirect, removeItem, onRequestDe
     userRole: string | null;
     updateItemDiscount: (id: string, field: 'd1' | 'd2', value: number) => void;
     onReplaceClick?: (id: string) => void;
+    getItemBasePrice: (item: { price: number; category?: string | null; finalPrice?: number }) => number;
+    applyPriceMarkup: boolean;
+    categoryMappings: CategoryMapping[];
 }) {
-    const basePrice = userRole === 'SALES' ? Math.ceil(item.price / 1000) * 1000 : item.finalPrice;
-                const d1 = item.salesDiscount1 || 0;
-                const d2 = item.salesDiscount2 || 0;
-                const combined = 1 - (1 - d1/100) * (1 - d2/100);
-                const discountedPrice = basePrice - (basePrice * combined);
+    const basePrice = getItemBasePrice(item);
+    const d1 = item.salesDiscount1 || 0;
+    const d2 = item.salesDiscount2 || 0;
+    const combined = 1 - (1 - d1/100) * (1 - d2/100);
+    const discountedPrice = basePrice - (basePrice * combined);
+
+    const mapping = categoryMappings.find(
+        (m) => m.categoryName.trim().toLowerCase() === item.category?.trim().toLowerCase()
+    );
+    const markupLabel = (applyPriceMarkup && mapping?.discountType === 'LP') ? '+5%' :
+                        (applyPriceMarkup && mapping?.discountType === 'CP') ? '+10%' : null;
 
     const {
         attributes,
@@ -2623,9 +2668,16 @@ function SortableRow({ item, updateQty, updateQtyDirect, removeItem, onRequestDe
                             Rp {item.originalPrice.toLocaleString("id-ID")}
                         </span>
                     )}
-                    <span className="text-[13px] font-semibold text-red-600 leading-tight whitespace-nowrap">
-                        Rp {(userRole === 'SALES' ? Math.ceil(item.price / 1000) * 1000 : item.finalPrice).toLocaleString("id-ID")}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[13px] font-semibold text-red-600 leading-tight whitespace-nowrap">
+                            Rp {basePrice.toLocaleString("id-ID")}
+                        </span>
+                        {userRole === 'SALES' && markupLabel && (
+                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-300 px-1 py-0.2 rounded" title={`Kenaikan harga ${mapping?.discountType}`}>
+                                {markupLabel}
+                            </span>
+                        )}
+                    </div>
                 </div>
             </td>
             <td className="px-3 py-2.5">

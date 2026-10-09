@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState } from "react";
 import { calculatePriceInfo, PriceInfo, CustomerDiscount, CategoryMapping, HidePriceRules } from "@/lib/pricing";
 import { DiscountRule } from "@prisma/client";
 
@@ -9,7 +9,7 @@ interface PricingContextType {
     customerDiscount: CustomerDiscount | null;
     categoryMappings: CategoryMapping[];
     discountRules: DiscountRule[];
-    getPriceInfo: (productPrice: number, productCategory: string | null, availableToSell?: number, productBrand?: string | null) => PriceInfo;
+    getPriceInfo: (productPrice: number, productCategory: string | null, availableToSell?: number, productBrand?: string | null, applyCategoryMarkup?: boolean) => PriceInfo;
     loading: boolean;
     hidePriceRules: HidePriceRules | null;
     userRole?: string | null;
@@ -26,8 +26,8 @@ export function usePricing() {
             customerDiscount: null,
             categoryMappings: [],
             discountRules: [],
-            getPriceInfo: (productPrice: number, productCategory: string | null, availableToSell: number = 0, productBrand: string | null = null) => {
-                return calculatePriceInfo(productPrice, productCategory, null, [], availableToSell, [], productBrand, null);
+            getPriceInfo: (productPrice: number, productCategory: string | null, availableToSell: number = 0, productBrand: string | null = null, applyCategoryMarkup: boolean = true) => {
+                return calculatePriceInfo(productPrice, productCategory, null, [], availableToSell, [], productBrand, null, applyCategoryMarkup);
             },
             loading: false,
             hidePriceRules: null,
@@ -54,8 +54,8 @@ export function PricingProvider({ children, initialCustomer, initialMappings, in
     const [userRole] = useState<string | null>(initialUserRole);
     const [loading] = useState(false);
 
-    const getPriceInfo = (productPrice: number, productCategory: string | null, availableToSell: number = 0, productBrand: string | null = null): PriceInfo => {
-        return calculatePriceInfo(productPrice, productCategory, customerDiscount, categoryMappings, availableToSell, discountRules, productBrand, hidePriceRules);
+    const getPriceInfo = (productPrice: number, productCategory: string | null, availableToSell: number = 0, productBrand: string | null = null, applyCategoryMarkup: boolean = true): PriceInfo => {
+        return calculatePriceInfo(productPrice, productCategory, customerDiscount, categoryMappings, availableToSell, discountRules, productBrand, hidePriceRules, applyCategoryMarkup);
     };
 
     return (
