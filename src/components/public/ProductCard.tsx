@@ -94,11 +94,7 @@ export default function ProductCard({ product, variant = 'default' }: ProductCar
                     <div className="mt-auto">
                         <div className="flex items-center justify-between">
                             <div className="flex flex-col">
-                                {priceInfo.isHidden ? (
-                                    <p className="text-[10px] md:text-xs font-bold text-red-600 tracking-tighter italic">
-                                        Harga Tersembunyi
-                                    </p>
-                                ) : priceInfo.hasDiscount ? (
+                                {priceInfo.isHidden ? null : priceInfo.hasDiscount ? (
                                     <>
                                         {priceInfo.isCustomerDiscount && (
                                             <p className="text-[9px] text-gray-400 line-through">
@@ -120,7 +116,7 @@ export default function ProductCard({ product, variant = 'default' }: ProductCar
                                     href={`https://wa.me/${priceInfo.contactPhone?.replace(/[^0-9]/g, '')}?text=Halo,%20saya%20tertarik%20dengan%20produk%20${encodeURIComponent(product.name)}%20(SKU:%20${product.sku})`}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="w-7 h-7 rounded-xl flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white"
+                                    className="w-7 h-7 rounded-xl flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white ml-auto"
                                     title="Hubungi Sales"
                                     onClick={(e) => e.stopPropagation()}
                                 >
