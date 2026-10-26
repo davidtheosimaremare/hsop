@@ -2592,7 +2592,7 @@ export default function BulkOrderClient() {
     );
 }
 
-function SortableRow({ item, updateQty, updateQtyDirect, removeItem, onRequestDelete, isLoggedIn, userRole, updateItemDiscount, onReplaceClick, getItemBasePrice, applyPriceMarkup, categoryMappings }: {
+function SortableRow({ item, updateQty, updateQtyDirect, removeItem, onRequestDelete, isLoggedIn, userRole, updateItemDiscount, onReplaceClick, getItemBasePrice, applyPriceMarkup, categoryMappings, markupExemptions }: {
     item: BulkItem;
     updateQty: (id: string, delta: number) => void;
     updateQtyDirect: (id: string, qty: number) => void;
