@@ -33,6 +33,92 @@ export interface PriceInfo {
     contactPhone: string | null;
     isMarkedUp?: boolean;
     markupPercent?: number;
+    isMarkupExempt?: boolean;
+}
+
+export interface MarkupExemptionRule {
+    id: string;
+    name: string;
+    skuPrefix?: string;
+    descriptionPrefix?: string;
+    category?: string;
+    brand?: string;
+    isActive: boolean;
+    note?: string;
+    createdAt?: string;
+}
+
+export const DEFAULT_MARKUP_EXEMPTIONS: MarkupExemptionRule[] = [
+    {
+        id: "exemption-siemens-mccb-3vj1",
+        name: "Siemens MCCB 3VJ1",
+        skuPrefix: "3VJ1",
+        descriptionPrefix: "Siemens MCCB",
+        category: "MCCB",
+        brand: "SIEMENS",
+        isActive: true,
+        note: "Produk Siemens MCCB dengan kode 3VJ1 dikecualikan dari kenaikan harga 5%",
+        createdAt: "2026-10-26T00:00:00.000Z",
+    },
+];
+
+/**
+ * Memeriksa apakah produk dikecualikan dari kenaikan harga kategori (misal: Siemens MCCB 3VJ1 tidak naik 5%)
+ */
+export function isProductExemptFromMarkup(
+    sku?: string | null,
+    name?: string | null,
+    category?: string | null,
+    brand?: string | null,
+    exemptionRules?: MarkupExemptionRule[] | null
+): boolean {
+    const rulesToEvaluate = (exemptionRules && exemptionRules.length > 0)
+        ? exemptionRules
+        : DEFAULT_MARKUP_EXEMPTIONS;
+
+    const cleanSku = (sku || "").trim().toUpperCase();
+    const cleanName = (name || "").trim().toUpperCase();
+    const cleanCategory = (category || "").trim().toUpperCase();
+    const cleanBrand = (brand || "").trim().toUpperCase();
+
+    // Fast check for default 3VJ1 rule if sku starts with 3VJ1
+    if (cleanSku.startsWith("3VJ1") && (!cleanName || cleanName.includes("MCCB") || cleanCategory === "MCCB")) {
+        const matchingRule = rulesToEvaluate.find(r => r.skuPrefix?.toUpperCase() === "3VJ1");
+        if (matchingRule) {
+            return matchingRule.isActive;
+        }
+        return true;
+    }
+
+    return rulesToEvaluate.some((rule) => {
+        if (!rule.isActive) return false;
+
+        // Cek SKU Prefix jika didefinisikan
+        if (rule.skuPrefix && rule.skuPrefix.trim()) {
+            const prefix = rule.skuPrefix.trim().toUpperCase();
+            if (!cleanSku.startsWith(prefix)) return false;
+        }
+
+        // Cek prefix atau kata kunci nama/deskripsi jika didefinisikan
+        if (rule.descriptionPrefix && rule.descriptionPrefix.trim()) {
+            const desc = rule.descriptionPrefix.trim().toUpperCase();
+            if (!cleanName.startsWith(desc) && !cleanName.includes(desc)) return false;
+        }
+
+        // Cek kategori jika didefinisikan
+        if (rule.category && rule.category.trim()) {
+            const cat = rule.category.trim().toUpperCase();
+            if (cleanCategory && cleanCategory !== cat) return false;
+        }
+
+        // Cek brand jika didefinisikan
+        if (rule.brand && rule.brand.trim()) {
+            const br = rule.brand.trim().toUpperCase();
+            if (cleanBrand && !cleanBrand.includes(br)) return false;
+        }
+
+        return true;
+    });
 }
 
 // Parse string discount like "10+5" into [10, 5]
@@ -45,13 +131,24 @@ function parseStringDiscount(disc: string): number[] {
  * Hitung harga dengan kenaikan markup kategori:
  * - Kategori LP: +5% (dibulatkan ke ratusan terdekat)
  * - Kategori CP: +10% (dibulatkan ke ratusan terdekat)
+ * Pengecualian diterapkan jika produk memenuhi kriteria MarkupExemptionRule (misal: 3VJ1 Siemens MCCB)
  */
 export function getCategoryMarkedUpPrice(
     price: number,
     category: string | null,
-    categoryMappings: CategoryMapping[]
+    categoryMappings: CategoryMapping[],
+    sku?: string | null,
+    name?: string | null,
+    brand?: string | null,
+    exemptionRules?: MarkupExemptionRule[] | null
 ): number {
     if (!price || price <= 0 || !category) return price;
+
+    // Periksa apakah produk dikecualikan dari markup
+    if (isProductExemptFromMarkup(sku, name, category, brand, exemptionRules)) {
+        return price;
+    }
+
     const mapping = categoryMappings.find(
         (m) => m.categoryName.trim().toLowerCase() === category.trim().toLowerCase()
     );
@@ -75,7 +172,10 @@ export function calculatePriceInfo(
     discountRules: DiscountRule[] = [],
     productBrand: string | null = null,
     hidePriceRules: HidePriceRules | null = null,
-    applyCategoryMarkup: boolean = true
+    applyCategoryMarkup: boolean = true,
+    productSku?: string | null,
+    productName?: string | null,
+    markupExemptions?: MarkupExemptionRule[] | null
 ): PriceInfo {
     const PPN = 1.11;
     let discounts: number[] = [];
@@ -94,13 +194,22 @@ export function calculatePriceInfo(
         }
     }
 
-    // Terapkan kenaikan harga kategori (LP: +5%, CP: +10%)
+    // Terapkan kenaikan harga kategori (LP: +5%, CP: +10%) dengan dukungan pengecualian
     let basePrice = productPrice;
     let isMarkedUp = false;
     let markupPercent = 0;
+    const isExempt = isProductExemptFromMarkup(productSku, productName, productCategory, productBrand, markupExemptions);
 
-    if (applyCategoryMarkup && productPrice > 0 && productCategory) {
-        const markedUp = getCategoryMarkedUpPrice(productPrice, productCategory, categoryMappings);
+    if (applyCategoryMarkup && productPrice > 0 && productCategory && !isExempt) {
+        const markedUp = getCategoryMarkedUpPrice(
+            productPrice,
+            productCategory,
+            categoryMappings,
+            productSku,
+            productName,
+            productBrand,
+            markupExemptions
+        );
         if (markedUp !== productPrice) {
             basePrice = markedUp;
             isMarkedUp = true;
@@ -205,6 +314,7 @@ export function calculatePriceInfo(
         isHidden,
         contactPhone,
         isMarkedUp,
-        markupPercent
+        markupPercent,
+        isMarkupExempt: isExempt
     };
 }

@@ -89,6 +89,28 @@ export default async function CategoryMappingPage() {
                 <SyncCategoryButton />
             </div>
 
+            {/* ── Info Pengecualian Markup ── */}
+            <div className="bg-emerald-50 border border-emerald-200/80 rounded-2xl p-4 flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex items-center gap-3">
+                    <span className="p-2 bg-emerald-100 text-emerald-700 rounded-xl shrink-0">
+                        <Plug2 className="w-4 h-4" />
+                    </span>
+                    <div>
+                        <p className="text-xs font-bold text-emerald-900">
+                            Pengecualian Kenaikan Harga Produk Tertentu (0% Markup)
+                        </p>
+                        <p className="text-xs text-emerald-700 mt-0.5">
+                            Kategori Siemens LP mengalami penyesuaian +5% di shop, namun produk dengan kode <strong>3VJ1 (Siemens MCCB)</strong> telah dikecualikan agar harganya tidak naik 5%.
+                        </p>
+                    </div>
+                </div>
+                <Button asChild size="sm" variant="outline" className="h-8 rounded-xl font-bold text-xs border-emerald-300 text-emerald-800 hover:bg-emerald-100/50 shrink-0">
+                    <Link href="/admin/products/markup-rules">
+                        Aturan Pengecualian Markup →
+                    </Link>
+                </Button>
+            </div>
+
             {/* ── Progress overview ── */}
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
                 <div className="flex items-center justify-between mb-3">

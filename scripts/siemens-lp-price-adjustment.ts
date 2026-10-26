@@ -282,10 +282,18 @@ async function main() {
     if (nonSiemensCount > 0) {
         console.log(`   Non-Siemens diabaikan                : ${nonSiemensCount}`);
     }
-    console.log();
 
-    if (siemensProducts.length === 0) {
-        console.log("⚠️ Tidak ada produk Siemens yang memenuhi kriteria. Script selesai.");
+    // Filter produk yang dikecualikan dari kenaikan harga LP (seperti Siemens MCCB 3VJ1)
+    const exemptSiemensProducts = siemensProducts.filter(p => p.sku.toUpperCase().startsWith("3VJ1"));
+    const eligibleSiemensProducts = siemensProducts.filter(p => !p.sku.toUpperCase().startsWith("3VJ1"));
+
+    if (exemptSiemensProducts.length > 0) {
+        console.log(`   🛡️ Pengecualian Markup (3VJ1 MCCB)   : ${exemptSiemensProducts.length} produk diabaikan (tidak naik 5%)`);
+    }
+    console.log(`   Produk yang akan dinaikkan harganya  : ${eligibleSiemensProducts.length}\n`);
+
+    if (eligibleSiemensProducts.length === 0) {
+        console.log("⚠️ Tidak ada produk Siemens yang memenuhi kriteria kenaikan harga. Script selesai.");
         return;
     }
 
@@ -301,7 +309,7 @@ async function main() {
     );
     console.log("─".repeat(95));
 
-    for (const p of siemensProducts.slice(0, 10)) {
+    for (const p of eligibleSiemensProducts.slice(0, 10)) {
         const oldPrice = p.price;
         const newPrice = roundToNearest(oldPrice * (1 + MARKUP_PERCENT / 100));
         const diff = newPrice - oldPrice;
@@ -313,11 +321,11 @@ async function main() {
             `+Rp ${diff.toLocaleString("id-ID")}`.padStart(16)
         );
     }
-    console.log(`... dan ${siemensProducts.length - 10} produk lainnya.`);
+    console.log(`... dan ${eligibleSiemensProducts.length - 10} produk lainnya.`);
     console.log("─".repeat(95) + "\n");
 
     // 4. Siapkan batch dan submit ke Accurate
-    const allDetailItems: DetailItem[] = siemensProducts.map((p) => ({
+    const allDetailItems: DetailItem[] = eligibleSiemensProducts.map((p) => ({
         itemNo: p.sku,
         price: roundToNearest(p.price * (1 + MARKUP_PERCENT / 100)),
         priceCategoryName: PRICE_CATEGORY_NAME,

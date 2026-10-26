@@ -231,6 +231,7 @@ async function ProductContentWrapper({ product }: { product: any }) {
             initialMappings={pricingData.categoryMappings}
             initialDiscountRules={pricingData.discountRules}
             initialHidePriceRules={hidePriceRules as any}
+            initialMarkupExemptions={pricingData.markupExemptions}
         >
             <ProductDetailClient 
                 product={product} 

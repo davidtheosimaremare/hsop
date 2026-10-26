@@ -22,6 +22,7 @@ const ProductGridSection = dynamic(() => import("@/components/home/ProductGridSe
 
 import { getSiteSetting } from "@/app/actions/settings";
 import { getLatestNews } from "@/app/actions/news";
+import { getMarkupExemptionRules } from "@/app/actions/markup-rules";
 import { db } from "@/lib/db";
 import { memoryCache } from "@/lib/cache";
 import { PricingProvider } from "@/lib/PricingContext";
@@ -195,7 +196,8 @@ export default async function Home() {
     lightingBanner,
     lowVoltageProducts,
     motorProducts,
-    hidePriceRules
+    hidePriceRules,
+    markupExemptionRules
   ] = await Promise.all([
     getSiteSetting("homepage_grid_categories"),
     getClientProjects(),
@@ -235,7 +237,8 @@ export default async function Home() {
       take: 7,
       orderBy: { availableToSell: 'desc' }
     }),
-    getSiteSetting("hide_price_rules")
+    getSiteSetting("hide_price_rules"),
+    getMarkupExemptionRules()
   ]);
 
   // 1. Fetch specific protection products requested by user
@@ -379,7 +382,7 @@ export default async function Home() {
       <HeroSlider banners={activeBanners} />
       <Suspense fallback={<div className="h-64 flex items-center justify-center"><div className="w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin" /></div>}>
         <CategorySection categories={gridCategories} title="Kategori Utama" hideViewAll={false} />
-      <PricingProvider initialCustomer={null} initialMappings={[]} initialHidePriceRules={hidePriceRules as any}>
+      <PricingProvider initialCustomer={null} initialMappings={[]} initialHidePriceRules={hidePriceRules as any} initialMarkupExemptions={markupExemptionRules}>
         <div className="bg-gray-50 pb-12">
             <ProductGridSection 
                 title="Proteksi" 

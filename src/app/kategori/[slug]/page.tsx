@@ -180,6 +180,7 @@ export default async function CategorySlugPage({
                             initialMappings={pricingData.categoryMappings}
                             initialDiscountRules={pricingData.discountRules}
                             initialHidePriceRules={hidePriceRules as any}
+                            initialMarkupExemptions={pricingData.markupExemptions}
                         >
                             <ProductGrid products={products} total={pagination.total} activeFiltersNode={null} />
                         </PricingProvider>

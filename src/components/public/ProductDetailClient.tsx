@@ -53,11 +53,11 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
 
     // Calculate price info
     // Standard price (mixed logic dependent on stock)
-    const priceInfo = getPriceInfo(product.price, product.category || null, product.availableToSell, product.brand || null);
+    const priceInfo = getPriceInfo(product.price, product.category || null, product.availableToSell, product.brand || null, true, product.sku, product.name);
 
     // Explicit prices for split scenario
-    const readyPriceInfo = getPriceInfo(product.price, product.category || null, 100, product.brand || null); // Force ready
-    const indentPriceInfo = getPriceInfo(product.price, product.category || null, 0, product.brand || null); // Force indent
+    const readyPriceInfo = getPriceInfo(product.price, product.category || null, 100, product.brand || null, true, product.sku, product.name); // Force ready
+    const indentPriceInfo = getPriceInfo(product.price, product.category || null, 0, product.brand || null, true, product.sku, product.name); // Force indent
 
     const formatPrice = (price: number) => {
         return new Intl.NumberFormat("id-ID").format(Math.round(price));
@@ -667,7 +667,7 @@ export default function ProductDetailClient({ product, relatedProducts, whatsapp
                         className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide"
                     >
                         {relatedProducts.map((relProduct, index) => {
-                            const relPriceInfo = getPriceInfo(relProduct.price, relProduct.category || null, relProduct.availableToSell);
+                            const relPriceInfo = getPriceInfo(relProduct.price, relProduct.category || null, relProduct.availableToSell, (relProduct as any).brand || null, true, relProduct.sku, relProduct.name);
 
                             return (
                                 <motion.div

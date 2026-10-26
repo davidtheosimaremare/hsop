@@ -3,7 +3,8 @@
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { calculateMarkedUpPrice } from "@/lib/markup-utils";
-import { fetchAdjustedItemSkus } from "@/lib/accurate";
+import { getSiteSetting, updateSiteSetting } from "@/app/actions/settings";
+import { MarkupExemptionRule, DEFAULT_MARKUP_EXEMPTIONS, isProductExemptFromMarkup } from "@/lib/pricing";
 
 export type MarkupType = "PERCENTAGE" | "FIXED_ADDITION";
 export type RuleType = "BRAND" | "CATEGORY";
@@ -146,6 +147,199 @@ export async function clearAllMarkupRulesAndResetPrices() {
     } catch (error) {
         console.error("Failed to clear markup rules and reset prices:", error);
         return { success: false, error: "Gagal mereset aturan markup." };
+    }
+}
+
+// ─── MARKUP EXEMPTIONS (Pengecualian Kenaikan Harga) ──────────────────────────
+
+const SETTING_KEY_EXEMPTIONS = "markup_exemption_rules";
+
+/**
+ * Ambil semua aturan pengecualian markup dari SiteSetting.
+ * Jika belum ada di database, default aturan untuk Siemens MCCB 3VJ1 akan otomatis diberikan.
+ */
+export async function getMarkupExemptionRules(): Promise<MarkupExemptionRule[]> {
+    try {
+        const raw = await getSiteSetting(SETTING_KEY_EXEMPTIONS);
+        if (Array.isArray(raw) && raw.length > 0) {
+            return raw as MarkupExemptionRule[];
+        }
+        return DEFAULT_MARKUP_EXEMPTIONS;
+    } catch (error) {
+        console.error("Failed to get markup exemption rules:", error);
+        return DEFAULT_MARKUP_EXEMPTIONS;
+    }
+}
+
+/**
+ * Simpan atau perbarui satu aturan pengecualian.
+ */
+export async function saveMarkupExemptionRule(ruleData: Omit<MarkupExemptionRule, "id"> & { id?: string }) {
+    try {
+        const currentRules = await getMarkupExemptionRules();
+        let updatedRules: MarkupExemptionRule[];
+
+        if (ruleData.id) {
+            // Update existing
+            updatedRules = currentRules.map((r) =>
+                r.id === ruleData.id
+                    ? {
+                          ...r,
+                          name: ruleData.name,
+                          skuPrefix: ruleData.skuPrefix?.trim() || undefined,
+                          descriptionPrefix: ruleData.descriptionPrefix?.trim() || undefined,
+                          category: ruleData.category?.trim() || undefined,
+                          brand: ruleData.brand?.trim() || undefined,
+                          isActive: ruleData.isActive,
+                          note: ruleData.note?.trim() || undefined,
+                      }
+                    : r
+            );
+        } else {
+            // Create new
+            const newRule: MarkupExemptionRule = {
+                id: `exemption-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+                name: ruleData.name.trim(),
+                skuPrefix: ruleData.skuPrefix?.trim() || undefined,
+                descriptionPrefix: ruleData.descriptionPrefix?.trim() || undefined,
+                category: ruleData.category?.trim() || undefined,
+                brand: ruleData.brand?.trim() || undefined,
+                isActive: ruleData.isActive ?? true,
+                note: ruleData.note?.trim() || undefined,
+                createdAt: new Date().toISOString(),
+            };
+            updatedRules = [...currentRules, newRule];
+        }
+
+        const res = await updateSiteSetting(SETTING_KEY_EXEMPTIONS, updatedRules);
+        if (!res.success) throw new Error(res.error);
+
+        revalidatePath("/admin/products/markup-rules");
+        revalidatePath("/");
+        revalidatePath("/pencarian");
+        revalidatePath("/kategori", "layout");
+        revalidatePath("/pesanan-besar");
+        return { success: true, rules: updatedRules };
+    } catch (error: any) {
+        console.error("Failed to save markup exemption rule:", error);
+        return { success: false, error: error.message || "Gagal menyimpan aturan pengecualian." };
+    }
+}
+
+/**
+ * Toggle status aktif/non-aktif aturan pengecualian.
+ */
+export async function toggleMarkupExemptionRule(id: string, isActive: boolean) {
+    try {
+        const currentRules = await getMarkupExemptionRules();
+        const updatedRules = currentRules.map((r) =>
+            r.id === id ? { ...r, isActive } : r
+        );
+
+        const res = await updateSiteSetting(SETTING_KEY_EXEMPTIONS, updatedRules);
+        if (!res.success) throw new Error(res.error);
+
+        revalidatePath("/admin/products/markup-rules");
+        revalidatePath("/");
+        revalidatePath("/pencarian");
+        revalidatePath("/kategori", "layout");
+        revalidatePath("/pesanan-besar");
+        return { success: true, rules: updatedRules };
+    } catch (error: any) {
+        console.error("Failed to toggle markup exemption rule:", error);
+        return { success: false, error: error.message || "Gagal mengubah status aturan." };
+    }
+}
+
+/**
+ * Hapus aturan pengecualian berdasarkan ID.
+ */
+export async function deleteMarkupExemptionRule(id: string) {
+    try {
+        const currentRules = await getMarkupExemptionRules();
+        const updatedRules = currentRules.filter((r) => r.id !== id);
+
+        const res = await updateSiteSetting(SETTING_KEY_EXEMPTIONS, updatedRules);
+        if (!res.success) throw new Error(res.error);
+
+        revalidatePath("/admin/products/markup-rules");
+        revalidatePath("/");
+        revalidatePath("/pencarian");
+        revalidatePath("/kategori", "layout");
+        revalidatePath("/pesanan-besar");
+        return { success: true, rules: updatedRules };
+    } catch (error: any) {
+        console.error("Failed to delete markup exemption rule:", error);
+        return { success: false, error: error.message || "Gagal menghapus aturan pengecualian." };
+    }
+}
+
+/**
+ * Menghitung dan melihat preview produk yang terdampak oleh aturan pengecualian.
+ */
+export async function previewExemptedProducts(criteria?: {
+    skuPrefix?: string;
+    descriptionPrefix?: string;
+    category?: string;
+    brand?: string;
+}) {
+    try {
+        const whereClause: any = {
+            status: "APPROVED",
+        };
+
+        if (criteria?.skuPrefix && criteria.skuPrefix.trim()) {
+            whereClause.sku = { startsWith: criteria.skuPrefix.trim(), mode: "insensitive" };
+        }
+        if (criteria?.descriptionPrefix && criteria.descriptionPrefix.trim()) {
+            whereClause.OR = [
+                { name: { contains: criteria.descriptionPrefix.trim(), mode: "insensitive" } },
+                { description: { contains: criteria.descriptionPrefix.trim(), mode: "insensitive" } },
+            ];
+        }
+        if (criteria?.category && criteria.category.trim()) {
+            whereClause.category = { equals: criteria.category.trim(), mode: "insensitive" };
+        }
+        if (criteria?.brand && criteria.brand.trim()) {
+            whereClause.brand = { contains: criteria.brand.trim(), mode: "insensitive" };
+        }
+
+        const totalCount = await db.product.count({ where: whereClause });
+        const sampleProducts = await db.product.findMany({
+            where: whereClause,
+            select: {
+                id: true,
+                sku: true,
+                name: true,
+                category: true,
+                brand: true,
+                price: true,
+                availableToSell: true,
+            },
+            take: 20,
+            orderBy: { sku: "asc" },
+        });
+
+        // Ambil pemetaan kategori saat ini
+        const categoryMappings = await db.categoryMapping.findMany();
+
+        return {
+            success: true,
+            totalCount,
+            products: sampleProducts.map((p) => {
+                const mapping = categoryMappings.find(
+                    (m) => m.categoryName.trim().toLowerCase() === (p.category || "").trim().toLowerCase()
+                );
+                return {
+                    ...p,
+                    categoryGroup: mapping?.discountType || null,
+                    normalMarkupPct: mapping?.discountType === "LP" ? 5 : mapping?.discountType === "CP" ? 10 : 0,
+                };
+            }),
+        };
+    } catch (error: any) {
+        console.error("Failed to preview exempted products:", error);
+        return { success: false, totalCount: 0, products: [] };
     }
 }
 

@@ -5,6 +5,8 @@ import { getSession } from "@/lib/auth";
 import { memoryCache } from "@/lib/cache";
 
 import { DiscountRule } from "@prisma/client";
+import { MarkupExemptionRule } from "@/lib/pricing";
+import { getMarkupExemptionRules } from "@/app/actions/markup-rules";
 
 export interface CustomerPricingData {
     customer: {
@@ -26,6 +28,7 @@ export interface CustomerPricingData {
     }[];
     discountRules: DiscountRule[];
     userRole?: string;
+    markupExemptions?: MarkupExemptionRule[];
 }
 
 /**
@@ -98,6 +101,8 @@ export async function getCustomerPricingData(): Promise<CustomerPricingData> {
             600 // 10 minutes
         );
 
+        // Get markup exemption rules (Siemens MCCB 3VJ1, etc.)
+        const markupExemptions = await getMarkupExemptionRules();
 
         const rawRole = session?.user?.role;
         const effectiveRole = (rawRole === 'ADMIN' || session?.user?.email === 'admin@hokiindo.co.id') ? 'SALES' : rawRole;
@@ -107,6 +112,7 @@ export async function getCustomerPricingData(): Promise<CustomerPricingData> {
             categoryMappings: mappings,
             discountRules,
             userRole: effectiveRole,
+            markupExemptions,
         };
     } catch (error) {
         console.error("Failed to get customer pricing data:", error);
@@ -114,6 +120,7 @@ export async function getCustomerPricingData(): Promise<CustomerPricingData> {
             customer: null,
             categoryMappings: [],
             discountRules: [],
+            markupExemptions: [],
         };
     }
 }
@@ -156,10 +163,14 @@ export async function getCustomerPricingDataById(customerId: string): Promise<Cu
         // Get discount rules
         const discountRules = await db.discountRule.findMany();
 
+        // Get markup exemption rules
+        const markupExemptions = await getMarkupExemptionRules();
+
         return {
             customer,
             categoryMappings: mappings,
             discountRules,
+            markupExemptions,
         };
     } catch (error) {
         console.error("Failed to get customer pricing data by ID:", error);
@@ -167,6 +178,7 @@ export async function getCustomerPricingDataById(customerId: string): Promise<Cu
             customer: null,
             categoryMappings: [],
             discountRules: [],
+            markupExemptions: [],
         };
     }
 }

@@ -32,6 +32,7 @@ export default async function BulkOrderPage() {
                         initialDiscountRules={pricingData.discountRules}
                         initialHidePriceRules={hidePriceRules as any}
                         initialUserRole={pricingData.userRole || null}
+                        initialMarkupExemptions={pricingData.markupExemptions}
                     >
                         <BulkOrderClient />
                     </PricingProvider>

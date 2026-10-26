@@ -30,6 +30,7 @@ export default function CartPageClient({ pricingData, hidePriceRules }: { pricin
             initialMappings={pricingData?.categoryMappings || []}
             initialDiscountRules={pricingData?.discountRules || []}
             initialHidePriceRules={hidePriceRules}
+            initialMarkupExemptions={pricingData?.markupExemptions}
         >
             <CartInner />
         </PricingProvider>
@@ -105,8 +106,8 @@ function CartInner() {
         const availableToSell = meta ? meta.availableToSell : item.availableToSell;
 
         // Calculate specific ready and indent prices using context
-        const readyPriceInfo = getPriceInfo(basePrice, category, 1, brand);
-        const indentPriceInfo = getPriceInfo(basePrice, category, 0, brand);
+        const readyPriceInfo = getPriceInfo(basePrice, category, 1, brand, true, item.sku, item.name);
+        const indentPriceInfo = getPriceInfo(basePrice, category, 0, brand, true, item.sku, item.name);
 
         // A split happens if it's a general product (no explicit split stockStatus like READY/INDENT from detail page)
         // and its cart quantity is strictly greater than available ready stock, and there is ready stock available (> 0)

@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { usePricing } from "@/lib/PricingContext";
-import { getCategoryMarkedUpPrice, CategoryMapping } from "@/lib/pricing";
+import { getCategoryMarkedUpPrice, CategoryMapping, isProductExemptFromMarkup } from "@/lib/pricing";
 import { exportQuotationPDF, exportQuotationExcel, QuotationExportData } from "@/lib/export-quotation";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -121,7 +121,7 @@ export default function BulkOrderClient() {
     const debounceRef = useRef<NodeJS.Timeout | null>(null);
     const { addItem } = useCart();
     const router = useRouter();
-    const { getPriceInfo, isLoggedIn, customerDiscount, categoryMappings, discountRules, userRole } = usePricing();
+    const { getPriceInfo, isLoggedIn, customerDiscount, categoryMappings, discountRules, userRole, markupExemptions } = usePricing();
 
     const [isCreatingAccurateSq, setIsCreatingAccurateSq] = useState(false);
     const [nextHsqNo, setNextHsqNo] = useState<string>("");
@@ -130,10 +130,10 @@ export default function BulkOrderClient() {
     const [mergeAll, setMergeAll] = useState(false);
     const [applyPriceMarkup, setApplyPriceMarkup] = useState<boolean>(true);
 
-    const getItemBasePrice = (item: { price: number; category?: string | null; finalPrice?: number }) => {
+    const getItemBasePrice = (item: { price: number; category?: string | null; finalPrice?: number; sku?: string; name?: string }) => {
         if (userRole === 'SALES') {
             const raw = applyPriceMarkup
-                ? getCategoryMarkedUpPrice(item.price, item.category || null, categoryMappings)
+                ? getCategoryMarkedUpPrice(item.price, item.category || null, categoryMappings, item.sku, item.name, null, markupExemptions)
                 : item.price;
             return Math.ceil(raw / 1000) * 1000;
         }
@@ -1848,8 +1848,8 @@ export default function BulkOrderClient() {
                                 </div>
                             )}
                             {!isSearchingSuggestions && suggestions.map((suggestion) => {
-                                const priceInfo = getPriceInfo(suggestion.price, suggestion.category || null, suggestion.availableToSell, null, applyPriceMarkup);
-                                const salesPrice = Math.ceil((applyPriceMarkup ? getCategoryMarkedUpPrice(suggestion.price, suggestion.category || null, categoryMappings) : suggestion.price) / 1000) * 1000;
+                                const priceInfo = getPriceInfo(suggestion.price, suggestion.category || null, suggestion.availableToSell, null, applyPriceMarkup, suggestion.sku, suggestion.name);
+                                const salesPrice = Math.ceil((applyPriceMarkup ? getCategoryMarkedUpPrice(suggestion.price, suggestion.category || null, categoryMappings, suggestion.sku, suggestion.name, null, markupExemptions) : suggestion.price) / 1000) * 1000;
                                 return (
                                     <button
                                         key={suggestion.id}
@@ -1951,6 +1951,7 @@ export default function BulkOrderClient() {
                                                     getItemBasePrice={getItemBasePrice}
                                                     applyPriceMarkup={applyPriceMarkup}
                                                     categoryMappings={categoryMappings}
+                                                    markupExemptions={markupExemptions}
                                                 />
                                             ))}
                                         </tbody>
@@ -2537,7 +2538,7 @@ export default function BulkOrderClient() {
                                                 
                                                 <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-50">
                                                     <p className="text-sm font-bold text-red-600">
-                                                        Rp {(userRole === 'SALES' ? Math.ceil((applyPriceMarkup ? getCategoryMarkedUpPrice(prod.price, prod.category || null, categoryMappings) : prod.price) / 1000) * 1000 : (applyPriceMarkup ? getCategoryMarkedUpPrice(prod.price, prod.category || null, categoryMappings) : prod.price)).toLocaleString('id-ID')}
+                                                        Rp {(userRole === 'SALES' ? Math.ceil((applyPriceMarkup ? getCategoryMarkedUpPrice(prod.price, prod.category || null, categoryMappings, prod.sku, prod.name, null, markupExemptions) : prod.price) / 1000) * 1000 : (applyPriceMarkup ? getCategoryMarkedUpPrice(prod.price, prod.category || null, categoryMappings, prod.sku, prod.name, null, markupExemptions) : prod.price)).toLocaleString('id-ID')}
                                                     </p>
                                                     <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${Number(prod.availableToSell || 0) > 0 ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
                                                         {Number(prod.availableToSell || 0) > 0 ? 'Ready' : 'Indent'}
@@ -2601,9 +2602,10 @@ function SortableRow({ item, updateQty, updateQtyDirect, removeItem, onRequestDe
     userRole: string | null;
     updateItemDiscount: (id: string, field: 'd1' | 'd2', value: number) => void;
     onReplaceClick?: (id: string) => void;
-    getItemBasePrice: (item: { price: number; category?: string | null; finalPrice?: number }) => number;
+    getItemBasePrice: (item: { price: number; category?: string | null; finalPrice?: number; sku?: string; name?: string }) => number;
     applyPriceMarkup: boolean;
     categoryMappings: CategoryMapping[];
+    markupExemptions?: any;
 }) {
     const basePrice = getItemBasePrice(item);
     const d1 = item.salesDiscount1 || 0;
@@ -2614,8 +2616,9 @@ function SortableRow({ item, updateQty, updateQtyDirect, removeItem, onRequestDe
     const mapping = categoryMappings.find(
         (m) => m.categoryName.trim().toLowerCase() === item.category?.trim().toLowerCase()
     );
-    const markupLabel = (applyPriceMarkup && mapping?.discountType === 'LP') ? '+5%' :
-                        (applyPriceMarkup && mapping?.discountType === 'CP') ? '+10%' : null;
+    const isExempt = isProductExemptFromMarkup(item.sku, item.name, item.category, null, markupExemptions);
+    const markupLabel = (applyPriceMarkup && !isExempt && mapping?.discountType === 'LP') ? '+5%' :
+                        (applyPriceMarkup && !isExempt && mapping?.discountType === 'CP') ? '+10%' : null;
 
     const {
         attributes,

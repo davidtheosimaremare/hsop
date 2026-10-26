@@ -28,7 +28,7 @@ export default function ProductListItem({ product }: ProductListItemProps) {
     const [isAdded, setIsAdded] = useState(false);
 
     // Provide product.category and product.brand if they exist, else null
-    const priceInfo = getPriceInfo(product.price, (product as any).category || null, product.availableToSell, product.brand);
+    const priceInfo = getPriceInfo(product.price, (product as any).category || null, product.availableToSell, product.brand, true, product.sku, product.name);
 
     const formatPrice = (price: number) => {
         return new Intl.NumberFormat("id-ID").format(price);
