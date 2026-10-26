@@ -40,6 +40,7 @@ export interface MarkupExemptionRule {
     id: string;
     name: string;
     skuPrefix?: string;
+    skuPattern?: string; // e.g. "3DB, 5DB, 7DB"
     descriptionPrefix?: string;
     category?: string;
     brand?: string;
@@ -51,19 +52,20 @@ export interface MarkupExemptionRule {
 export const DEFAULT_MARKUP_EXEMPTIONS: MarkupExemptionRule[] = [
     {
         id: "exemption-siemens-mccb-3vj1",
-        name: "Siemens MCCB 3VJ1",
+        name: "Siemens MCCB 3VJ1 (3DB, 5DB, 7DB)",
         skuPrefix: "3VJ1",
+        skuPattern: "3DB, 5DB, 7DB",
         descriptionPrefix: "Siemens MCCB",
         category: "MCCB",
         brand: "SIEMENS",
         isActive: true,
-        note: "Produk Siemens MCCB dengan kode 3VJ1 dikecualikan dari kenaikan harga 5%",
+        note: "Produk Siemens MCCB dengan kode 3VJ1 yang diikuti 3DB, 5DB, dan 7DB dikecualikan dari kenaikan harga 5%",
         createdAt: "2026-10-26T00:00:00.000Z",
     },
 ];
 
 /**
- * Memeriksa apakah produk dikecualikan dari kenaikan harga kategori (misal: Siemens MCCB 3VJ1 tidak naik 5%)
+ * Memeriksa apakah produk dikecualikan dari kenaikan harga kategori (misal: Siemens MCCB 3VJ1 dengan kode 3DB, 5DB, 7DB tidak naik 5%)
  */
 export function isProductExemptFromMarkup(
     sku?: string | null,
@@ -81,9 +83,22 @@ export function isProductExemptFromMarkup(
     const cleanCategory = (category || "").trim().toUpperCase();
     const cleanBrand = (brand || "").trim().toUpperCase();
 
-    // Fast check for default 3VJ1 rule if sku starts with 3VJ1
-    if (cleanSku.startsWith("3VJ1") && (!cleanName || cleanName.includes("MCCB") || cleanCategory === "MCCB")) {
-        const matchingRule = rulesToEvaluate.find(r => r.skuPrefix?.toUpperCase() === "3VJ1");
+    // Fast check for 3VJ1: Hanya produk yang diikuti dengan -3DB, -5DB, atau -7DB yang bebas markup 5%
+    if (cleanSku.startsWith("3VJ1")) {
+        const parts = cleanSku.split("-");
+        const middle = parts.length > 1 ? parts[1].slice(0, 3) : "";
+        const isDbVariant = middle === "3DB" || middle === "5DB" || middle === "7DB";
+        
+        // Selain 3DB, 5DB, dan 7DB (misal 3DA, 0DA, dll), produk 3VJ1 TETAP naik 5%
+        if (!isDbVariant) {
+            return false;
+        }
+
+        // Jika termasuk varian 3DB/5DB/7DB, periksa apakah aturan pengecualian aktif
+        const matchingRule = rulesToEvaluate.find(r => 
+            r.skuPrefix?.toUpperCase() === "3VJ1" || 
+            r.id.includes("3vj1")
+        );
         if (matchingRule) {
             return matchingRule.isActive;
         }
@@ -97,6 +112,16 @@ export function isProductExemptFromMarkup(
         if (rule.skuPrefix && rule.skuPrefix.trim()) {
             const prefix = rule.skuPrefix.trim().toUpperCase();
             if (!cleanSku.startsWith(prefix)) return false;
+        }
+
+        // Cek SKU Pattern jika didefinisikan (misal: "3DB, 5DB, 7DB")
+        if (rule.skuPattern && rule.skuPattern.trim()) {
+            const patterns = rule.skuPattern.split(/[,|]/).map(p => p.trim().toUpperCase()).filter(Boolean);
+            const matchesPattern = patterns.some(p => {
+                const cleanP = p.replace(/^-/, "");
+                return cleanSku.includes(`-${cleanP}`) || cleanSku.includes(p);
+            });
+            if (!matchesPattern) return false;
         }
 
         // Cek prefix atau kata kunci nama/deskripsi jika didefinisikan

@@ -92,6 +92,7 @@ export default function MarkupRulesClient({
     // Form state for Exemption rule
     const [exemptionName, setExemptionName] = useState("");
     const [exemptionSkuPrefix, setExemptionSkuPrefix] = useState("");
+    const [exemptionSkuPattern, setExemptionSkuPattern] = useState("");
     const [exemptionDescPrefix, setExemptionDescPrefix] = useState("");
     const [exemptionCategory, setExemptionCategory] = useState<string>("ALL");
     const [exemptionBrand, setExemptionBrand] = useState<string>("ALL");
@@ -140,6 +141,7 @@ export default function MarkupRulesClient({
         setEditingExemption(null);
         setExemptionName("");
         setExemptionSkuPrefix("");
+        setExemptionSkuPattern("");
         setExemptionDescPrefix("");
         setExemptionCategory("ALL");
         setExemptionBrand("ALL");
@@ -152,6 +154,7 @@ export default function MarkupRulesClient({
         setEditingExemption(rule);
         setExemptionName(rule.name);
         setExemptionSkuPrefix(rule.skuPrefix || "");
+        setExemptionSkuPattern(rule.skuPattern || "");
         setExemptionDescPrefix(rule.descriptionPrefix || "");
         setExemptionCategory(rule.category || "ALL");
         setExemptionBrand(rule.brand || "ALL");
@@ -177,6 +180,7 @@ export default function MarkupRulesClient({
             id: editingExemption?.id,
             name: exemptionName.trim(),
             skuPrefix: exemptionSkuPrefix.trim() || undefined,
+            skuPattern: exemptionSkuPattern.trim() || undefined,
             descriptionPrefix: exemptionDescPrefix.trim() || undefined,
             category: exemptionCategory !== "ALL" ? exemptionCategory : undefined,
             brand: exemptionBrand !== "ALL" ? exemptionBrand : undefined,
@@ -224,6 +228,7 @@ export default function MarkupRulesClient({
 
         const res = await previewExemptedProducts({
             skuPrefix: rule.skuPrefix,
+            skuPattern: rule.skuPattern,
             descriptionPrefix: rule.descriptionPrefix,
             category: rule.category,
             brand: rule.brand,
@@ -517,6 +522,12 @@ export default function MarkupRulesClient({
                                                     </span>
                                                 )}
 
+                                                {rule.skuPattern && (
+                                                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-lg inline-flex items-center gap-1">
+                                                        Kode Spesifik: <code className="font-mono bg-white px-1 py-0.2 rounded border border-emerald-100">{rule.skuPattern}</code>
+                                                    </span>
+                                                )}
+
                                                 {rule.descriptionPrefix && (
                                                     <span className="text-[11px] font-bold text-purple-700 bg-purple-50 border border-purple-200/80 px-2 py-0.5 rounded-lg inline-flex items-center gap-1">
                                                         Nama/Deskripsi: &quot;{rule.descriptionPrefix}&quot;
@@ -595,7 +606,7 @@ export default function MarkupRulesClient({
                                 Simulator &amp; Cek Status Harga Produk
                             </CardTitle>
                             <CardDescription>
-                                Ketik SKU produk (contoh: <code className="font-mono font-bold text-slate-700">3VJ1010-0DA12-0AA0</code> atau <code className="font-mono font-bold text-slate-700">3VA1116-6EE36-0AA0</code>) untuk melihat apakah produk tersebut mendapatkan kenaikan harga atau bebas markup.
+                                Ketik SKU produk (contoh: <code className="font-mono font-bold text-slate-700">3VJ1004-3DB32-0AA0</code> [Bebas Markup] atau <code className="font-mono font-bold text-slate-700">3VJ1004-3DA32-0AA0</code> [Naik 5%]) untuk memeriksa status markup harga.
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="p-5 space-y-4">
@@ -603,7 +614,7 @@ export default function MarkupRulesClient({
                                 <div className="relative flex-1">
                                     <Input 
                                         type="text"
-                                        placeholder="Ketik SKU produk (contoh: 3VJ1010-0DA12-0AA0)..."
+                                        placeholder="Ketik SKU produk (contoh: 3VJ1004-3DB32-0AA0)..."
                                         value={simSku}
                                         onChange={(e) => setSimSku(e.target.value)}
                                         className="h-10 rounded-xl pr-9 font-mono text-sm"
@@ -942,7 +953,24 @@ export default function MarkupRulesClient({
                                 className="h-9 rounded-xl font-mono text-xs uppercase"
                             />
                             <p className="text-[10px] text-slate-400">
-                                Contoh: <code className="font-mono font-bold text-slate-600">3VJ1</code> akan mencocokkan <code className="font-mono text-slate-600">3VJ1010-0DA12-0AA0</code>, dll.
+                                Contoh: <code className="font-mono font-bold text-slate-600">3VJ1</code> akan mencocokkan semua produk yang diawali <code className="font-mono text-slate-600">3VJ1...</code>
+                            </p>
+                        </div>
+
+                        {/* Pola / Kode SKU Tertentu */}
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
+                                <span>Pola / Kode SKU Tertentu</span>
+                                <span className="text-[10px] text-slate-400 font-normal">Opsional</span>
+                            </label>
+                            <Input 
+                                placeholder="Contoh: 3DB, 5DB, 7DB"
+                                value={exemptionSkuPattern}
+                                onChange={(e) => setExemptionSkuPattern(e.target.value)}
+                                className="h-9 rounded-xl font-mono text-xs uppercase"
+                            />
+                            <p className="text-[10px] text-slate-400">
+                                Pisahkan dengan koma jika lebih dari satu. Contoh: <code className="font-mono font-bold text-slate-600">3DB, 5DB, 7DB</code> (hanya SKU yang mengandung kode ini setelah tanda strip yang bebas markup).
                             </p>
                         </div>
 

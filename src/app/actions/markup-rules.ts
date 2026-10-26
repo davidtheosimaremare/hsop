@@ -187,6 +187,7 @@ export async function saveMarkupExemptionRule(ruleData: Omit<MarkupExemptionRule
                           ...r,
                           name: ruleData.name,
                           skuPrefix: ruleData.skuPrefix?.trim() || undefined,
+                          skuPattern: ruleData.skuPattern?.trim() || undefined,
                           descriptionPrefix: ruleData.descriptionPrefix?.trim() || undefined,
                           category: ruleData.category?.trim() || undefined,
                           brand: ruleData.brand?.trim() || undefined,
@@ -201,6 +202,7 @@ export async function saveMarkupExemptionRule(ruleData: Omit<MarkupExemptionRule
                 id: `exemption-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
                 name: ruleData.name.trim(),
                 skuPrefix: ruleData.skuPrefix?.trim() || undefined,
+                skuPattern: ruleData.skuPattern?.trim() || undefined,
                 descriptionPrefix: ruleData.descriptionPrefix?.trim() || undefined,
                 category: ruleData.category?.trim() || undefined,
                 brand: ruleData.brand?.trim() || undefined,
@@ -279,6 +281,7 @@ export async function deleteMarkupExemptionRule(id: string) {
  */
 export async function previewExemptedProducts(criteria?: {
     skuPrefix?: string;
+    skuPattern?: string;
     descriptionPrefix?: string;
     category?: string;
     brand?: string;
@@ -304,8 +307,7 @@ export async function previewExemptedProducts(criteria?: {
             whereClause.brand = { contains: criteria.brand.trim(), mode: "insensitive" };
         }
 
-        const totalCount = await db.product.count({ where: whereClause });
-        const sampleProducts = await db.product.findMany({
+        const candidateProducts = await db.product.findMany({
             where: whereClause,
             select: {
                 id: true,
@@ -316,9 +318,26 @@ export async function previewExemptedProducts(criteria?: {
                 price: true,
                 availableToSell: true,
             },
-            take: 20,
             orderBy: { sku: "asc" },
         });
+
+        const ruleToTest: MarkupExemptionRule = {
+            id: "test",
+            name: "Test",
+            skuPrefix: criteria?.skuPrefix,
+            skuPattern: criteria?.skuPattern,
+            descriptionPrefix: criteria?.descriptionPrefix,
+            category: criteria?.category,
+            brand: criteria?.brand,
+            isActive: true,
+        };
+
+        const filteredProducts = candidateProducts.filter((p) =>
+            isProductExemptFromMarkup(p.sku, p.name, p.category, p.brand, [ruleToTest])
+        );
+
+        const totalCount = filteredProducts.length;
+        const sampleProducts = filteredProducts.slice(0, 50);
 
         // Ambil pemetaan kategori saat ini
         const categoryMappings = await db.categoryMapping.findMany();

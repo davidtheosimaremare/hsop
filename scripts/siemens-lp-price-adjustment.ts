@@ -283,12 +283,21 @@ async function main() {
         console.log(`   Non-Siemens diabaikan                : ${nonSiemensCount}`);
     }
 
-    // Filter produk yang dikecualikan dari kenaikan harga LP (seperti Siemens MCCB 3VJ1)
-    const exemptSiemensProducts = siemensProducts.filter(p => p.sku.toUpperCase().startsWith("3VJ1"));
-    const eligibleSiemensProducts = siemensProducts.filter(p => !p.sku.toUpperCase().startsWith("3VJ1"));
+    // Filter produk yang dikecualikan dari kenaikan harga LP (khusus Siemens MCCB 3VJ1 yang diikuti 3DB, 5DB, 7DB)
+    const isExempt3VJ1 = (sku: string) => {
+        const clean = sku.trim().toUpperCase();
+        if (!clean.startsWith("3VJ1")) return false;
+        const parts = clean.split("-");
+        if (parts.length < 2) return false;
+        const middle = parts[1].slice(0, 3);
+        return middle === "3DB" || middle === "5DB" || middle === "7DB";
+    };
+
+    const exemptSiemensProducts = siemensProducts.filter(p => isExempt3VJ1(p.sku));
+    const eligibleSiemensProducts = siemensProducts.filter(p => !isExempt3VJ1(p.sku));
 
     if (exemptSiemensProducts.length > 0) {
-        console.log(`   🛡️ Pengecualian Markup (3VJ1 MCCB)   : ${exemptSiemensProducts.length} produk diabaikan (tidak naik 5%)`);
+        console.log(`   🛡️ Pengecualian Markup (3VJ1 3DB/5DB/7DB): ${exemptSiemensProducts.length} produk diabaikan (tidak naik 5%)`);
     }
     console.log(`   Produk yang akan dinaikkan harganya  : ${eligibleSiemensProducts.length}\n`);
 
