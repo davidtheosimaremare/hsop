@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { usePricing } from "@/lib/PricingContext";
-import { getCategoryMarkedUpPrice, CategoryMapping, isProductExemptFromMarkup } from "@/lib/pricing";
+import { getCategoryMarkedUpPrice, CategoryMapping } from "@/lib/pricing";
 import { exportQuotationPDF, exportQuotationExcel, QuotationExportData } from "@/lib/export-quotation";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -59,6 +59,7 @@ interface BulkItem extends BulkOrderProduct {
     isNotFound?: boolean;
     salesDiscount1?: number;
     salesDiscount2?: number;
+    applyMarkup?: boolean;
 }
 
 
@@ -121,7 +122,7 @@ export default function BulkOrderClient() {
     const debounceRef = useRef<NodeJS.Timeout | null>(null);
     const { addItem } = useCart();
     const router = useRouter();
-    const { getPriceInfo, isLoggedIn, customerDiscount, categoryMappings, discountRules, userRole, markupExemptions } = usePricing();
+    const { getPriceInfo, isLoggedIn, customerDiscount, categoryMappings, discountRules, userRole } = usePricing();
 
     const [isCreatingAccurateSq, setIsCreatingAccurateSq] = useState(false);
     const [nextHsqNo, setNextHsqNo] = useState<string>("");
@@ -130,10 +131,11 @@ export default function BulkOrderClient() {
     const [mergeAll, setMergeAll] = useState(false);
     const [applyPriceMarkup, setApplyPriceMarkup] = useState<boolean>(true);
 
-    const getItemBasePrice = (item: { price: number; category?: string | null; finalPrice?: number; sku?: string; name?: string }) => {
+    const getItemBasePrice = (item: { price: number; category?: string | null; finalPrice?: number; sku?: string; name?: string; applyMarkup?: boolean }) => {
         if (userRole === 'SALES') {
-            const raw = applyPriceMarkup
-                ? getCategoryMarkedUpPrice(item.price, item.category || null, categoryMappings, item.sku, item.name, null, markupExemptions)
+            const isMarkupActive = applyPriceMarkup && (item.applyMarkup !== false);
+            const raw = isMarkupActive
+                ? getCategoryMarkedUpPrice(item.price, item.category || null, categoryMappings)
                 : item.price;
             return Math.ceil(raw / 1000) * 1000;
         }
@@ -254,6 +256,27 @@ export default function BulkOrderClient() {
             }
             return item;
         }));
+    };
+
+    const toggleItemMarkup = (id: string) => {
+        setItems(prev => prev.map(item => {
+            if (item.customId === id) {
+                const current = item.applyMarkup !== false;
+                return {
+                    ...item,
+                    applyMarkup: !current
+                };
+            }
+            return item;
+        }));
+    };
+
+    const handleGlobalMarkupToggle = (checked: boolean) => {
+        setApplyPriceMarkup(checked);
+        setItems(prev => prev.map(item => ({
+            ...item,
+            applyMarkup: checked
+        })));
     };
 
     const updateQtyDirect = (id: string, newQty: number) => {
@@ -596,7 +619,8 @@ export default function BulkOrderClient() {
                     customId: `${product.id}-${type}`,
                     isCustom,
                     salesDiscount1: userRole === 'SALES' ? discounts.d1 : undefined,
-                    salesDiscount2: userRole === 'SALES' ? discounts.d2 : undefined
+                    salesDiscount2: userRole === 'SALES' ? discounts.d2 : undefined,
+                    applyMarkup: applyPriceMarkup
                 };
             };
 
@@ -617,7 +641,8 @@ export default function BulkOrderClient() {
                         isCustom: true,
                         isNotFound,
                         salesDiscount1: userRole === 'SALES' ? customDiscounts.d1 : undefined,
-                        salesDiscount2: userRole === 'SALES' ? customDiscounts.d2 : undefined
+                        salesDiscount2: userRole === 'SALES' ? customDiscounts.d2 : undefined,
+                        applyMarkup: applyPriceMarkup
                     });
                 }
             } else if (mergeAll) {
@@ -641,7 +666,8 @@ export default function BulkOrderClient() {
                         customId: mergeId,
                         isCustom: false,
                         salesDiscount1: userRole === 'SALES' ? discounts.d1 : undefined,
-                        salesDiscount2: userRole === 'SALES' ? discounts.d2 : undefined
+                        salesDiscount2: userRole === 'SALES' ? discounts.d2 : undefined,
+                        applyMarkup: applyPriceMarkup
                     });
                 }
             } else {
@@ -706,7 +732,8 @@ export default function BulkOrderClient() {
                     customId: `${product.id}-${type}`,
                     isCustom: false,
                     salesDiscount1: userRole === 'SALES' ? discounts.d1 : undefined,
-                    salesDiscount2: userRole === 'SALES' ? discounts.d2 : undefined
+                    salesDiscount2: userRole === 'SALES' ? discounts.d2 : undefined,
+                    applyMarkup: applyPriceMarkup
                 };
             };
 
@@ -727,7 +754,8 @@ export default function BulkOrderClient() {
                     customId: mergeId,
                     isCustom: false,
                     salesDiscount1: userRole === 'SALES' ? discounts.d1 : undefined,
-                    salesDiscount2: userRole === 'SALES' ? discounts.d2 : undefined
+                    salesDiscount2: userRole === 'SALES' ? discounts.d2 : undefined,
+                    applyMarkup: applyPriceMarkup
                 });
             } else {
                 let remainingQty = qty;
@@ -1378,7 +1406,7 @@ export default function BulkOrderClient() {
                                     type="checkbox"
                                     id="cmdApplyPriceMarkup"
                                     checked={applyPriceMarkup}
-                                    onChange={(e) => setApplyPriceMarkup(e.target.checked)}
+                                    onChange={(e) => handleGlobalMarkupToggle(e.target.checked)}
                                     className="w-4 h-4 accent-red-600 cursor-pointer rounded"
                                 />
                                 <span className="text-[11px] font-semibold text-white transition-colors whitespace-nowrap">
@@ -1849,7 +1877,7 @@ export default function BulkOrderClient() {
                             )}
                             {!isSearchingSuggestions && suggestions.map((suggestion) => {
                                 const priceInfo = getPriceInfo(suggestion.price, suggestion.category || null, suggestion.availableToSell, null, applyPriceMarkup, suggestion.sku, suggestion.name);
-                                const salesPrice = Math.ceil((applyPriceMarkup ? getCategoryMarkedUpPrice(suggestion.price, suggestion.category || null, categoryMappings, suggestion.sku, suggestion.name, null, markupExemptions) : suggestion.price) / 1000) * 1000;
+                                const salesPrice = Math.ceil((applyPriceMarkup ? getCategoryMarkedUpPrice(suggestion.price, suggestion.category || null, categoryMappings) : suggestion.price) / 1000) * 1000;
                                 return (
                                     <button
                                         key={suggestion.id}
@@ -1951,7 +1979,7 @@ export default function BulkOrderClient() {
                                                     getItemBasePrice={getItemBasePrice}
                                                     applyPriceMarkup={applyPriceMarkup}
                                                     categoryMappings={categoryMappings}
-                                                    markupExemptions={markupExemptions}
+                                                    toggleItemMarkup={toggleItemMarkup}
                                                 />
                                             ))}
                                         </tbody>
@@ -2538,7 +2566,7 @@ export default function BulkOrderClient() {
                                                 
                                                 <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-50">
                                                     <p className="text-sm font-bold text-red-600">
-                                                        Rp {(userRole === 'SALES' ? Math.ceil((applyPriceMarkup ? getCategoryMarkedUpPrice(prod.price, prod.category || null, categoryMappings, prod.sku, prod.name, null, markupExemptions) : prod.price) / 1000) * 1000 : (applyPriceMarkup ? getCategoryMarkedUpPrice(prod.price, prod.category || null, categoryMappings, prod.sku, prod.name, null, markupExemptions) : prod.price)).toLocaleString('id-ID')}
+                                                        Rp {(userRole === 'SALES' ? Math.ceil((applyPriceMarkup ? getCategoryMarkedUpPrice(prod.price, prod.category || null, categoryMappings) : prod.price) / 1000) * 1000 : (applyPriceMarkup ? getCategoryMarkedUpPrice(prod.price, prod.category || null, categoryMappings) : prod.price)).toLocaleString('id-ID')}
                                                     </p>
                                                     <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${Number(prod.availableToSell || 0) > 0 ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
                                                         {Number(prod.availableToSell || 0) > 0 ? 'Ready' : 'Indent'}
@@ -2592,7 +2620,7 @@ export default function BulkOrderClient() {
     );
 }
 
-function SortableRow({ item, updateQty, updateQtyDirect, removeItem, onRequestDelete, isLoggedIn, userRole, updateItemDiscount, onReplaceClick, getItemBasePrice, applyPriceMarkup, categoryMappings, markupExemptions }: {
+function SortableRow({ item, updateQty, updateQtyDirect, removeItem, onRequestDelete, isLoggedIn, userRole, updateItemDiscount, onReplaceClick, getItemBasePrice, applyPriceMarkup, categoryMappings, toggleItemMarkup }: {
     item: BulkItem;
     updateQty: (id: string, delta: number) => void;
     updateQtyDirect: (id: string, qty: number) => void;
@@ -2602,10 +2630,10 @@ function SortableRow({ item, updateQty, updateQtyDirect, removeItem, onRequestDe
     userRole: string | null;
     updateItemDiscount: (id: string, field: 'd1' | 'd2', value: number) => void;
     onReplaceClick?: (id: string) => void;
-    getItemBasePrice: (item: { price: number; category?: string | null; finalPrice?: number; sku?: string; name?: string }) => number;
+    getItemBasePrice: (item: { price: number; category?: string | null; finalPrice?: number; sku?: string; name?: string; applyMarkup?: boolean }) => number;
     applyPriceMarkup: boolean;
     categoryMappings: CategoryMapping[];
-    markupExemptions?: any;
+    toggleItemMarkup?: (id: string) => void;
 }) {
     const basePrice = getItemBasePrice(item);
     const d1 = item.salesDiscount1 || 0;
@@ -2616,9 +2644,9 @@ function SortableRow({ item, updateQty, updateQtyDirect, removeItem, onRequestDe
     const mapping = categoryMappings.find(
         (m) => m.categoryName.trim().toLowerCase() === item.category?.trim().toLowerCase()
     );
-    const isExempt = isProductExemptFromMarkup(item.sku, item.name, item.category, null, markupExemptions);
-    const markupLabel = (applyPriceMarkup && !isExempt && mapping?.discountType === 'LP') ? '+5%' :
-                        (applyPriceMarkup && !isExempt && mapping?.discountType === 'CP') ? '+10%' : null;
+    const hasCategoryMarkup = mapping?.discountType === 'LP' || mapping?.discountType === 'CP';
+    const markupRateLabel = mapping?.discountType === 'LP' ? '+5%' : mapping?.discountType === 'CP' ? '+10%' : null;
+    const isItemMarkupActive = applyPriceMarkup && (item.applyMarkup !== false);
 
     const {
         attributes,
@@ -2665,7 +2693,7 @@ function SortableRow({ item, updateQty, updateQtyDirect, removeItem, onRequestDe
                 </div>
             </td>
             <td className="px-3 py-2.5">
-                <div className="flex flex-col">
+                <div className="flex flex-col gap-0.5">
                     {userRole !== 'SALES' && isLoggedIn && item.hasDiscount && item.isCustomerDiscount && item.originalPrice && (
                         <span className="text-[10px] text-gray-400 line-through leading-tight whitespace-nowrap">
                             Rp {item.originalPrice.toLocaleString("id-ID")}
@@ -2675,10 +2703,28 @@ function SortableRow({ item, updateQty, updateQtyDirect, removeItem, onRequestDe
                         <span className="text-[13px] font-semibold text-red-600 leading-tight whitespace-nowrap">
                             Rp {basePrice.toLocaleString("id-ID")}
                         </span>
-                        {userRole === 'SALES' && markupLabel && (
-                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-300 px-1 py-0.2 rounded" title={`Kenaikan harga ${mapping?.discountType}`}>
-                                {markupLabel}
-                            </span>
+                        {userRole === 'SALES' && hasCategoryMarkup && markupRateLabel && (
+                            <button
+                                type="button"
+                                onClick={() => toggleItemMarkup && toggleItemMarkup(item.customId)}
+                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] transition-all cursor-pointer select-none ${
+                                    isItemMarkupActive
+                                        ? 'font-bold bg-amber-50 text-amber-700 border border-amber-300 hover:bg-amber-100 shadow-2xs'
+                                        : 'font-medium bg-gray-100 text-gray-500 border border-gray-300 hover:bg-gray-200'
+                                }`}
+                                title={
+                                    isItemMarkupActive
+                                        ? `Kenaikan harga ${markupRateLabel} sedang AKTIF. Klik untuk non-aktifkan kenaikan pada produk ini.`
+                                        : `Kenaikan harga ${markupRateLabel} sedang NON-AKTIF (Harga Normal). Klik untuk mengaktifkan kembali.`
+                                }
+                            >
+                                <span className={isItemMarkupActive ? '' : 'line-through opacity-70'}>{markupRateLabel}</span>
+                                <span className={`text-[9px] px-1 py-0.2 rounded font-semibold ${
+                                    isItemMarkupActive ? 'bg-amber-200 text-amber-800' : 'bg-gray-200 text-gray-600'
+                                }`}>
+                                    {isItemMarkupActive ? 'Aktif' : 'Non-aktif'}
+                                </span>
+                            </button>
                         )}
                     </div>
                 </div>
