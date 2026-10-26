@@ -1410,7 +1410,7 @@ export default function BulkOrderClient() {
                                     className="w-4 h-4 accent-red-600 cursor-pointer rounded"
                                 />
                                 <span className="text-[11px] font-semibold text-white transition-colors whitespace-nowrap">
-                                    Kenaikan Harga (LP +5%, CP +10%)
+                                    Kenaikan Harga (LP +4.545%, CP +10%)
                                 </span>
                             </label>
 
@@ -2645,7 +2645,7 @@ function SortableRow({ item, updateQty, updateQtyDirect, removeItem, onRequestDe
         (m) => m.categoryName.trim().toLowerCase() === item.category?.trim().toLowerCase()
     );
     const hasCategoryMarkup = mapping?.discountType === 'LP' || mapping?.discountType === 'CP';
-    const markupRateLabel = mapping?.discountType === 'LP' ? '+5%' : mapping?.discountType === 'CP' ? '+10%' : null;
+    const markupRateLabel = mapping?.discountType === 'LP' ? '+4.545%' : mapping?.discountType === 'CP' ? '+10%' : null;
     const isItemMarkupActive = applyPriceMarkup && (item.applyMarkup !== false);
 
     const {

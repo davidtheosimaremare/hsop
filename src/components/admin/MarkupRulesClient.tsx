@@ -360,7 +360,7 @@ export default function MarkupRulesClient({
                         <h1 className="text-2xl font-black text-slate-900 tracking-tight">Aturan Kenaikan Harga &amp; Pengecualian</h1>
                     </div>
                     <p className="text-sm text-slate-500 mt-1">
-                        Kelola kenaikan harga otomatis kategori (Siemens LP +5%, CP +10%) serta aturan pengecualian produk spesifik (seperti Siemens MCCB 3VJ1).
+                        Kelola kenaikan harga otomatis kategori (Siemens LP +4.545%, CP +10%) serta aturan pengecualian produk spesifik (seperti Siemens MCCB 3VJ1).
                     </p>
                 </div>
                 
@@ -384,7 +384,7 @@ export default function MarkupRulesClient({
                 <div className="bg-gradient-to-br from-amber-50 to-amber-100/50 border border-amber-200/80 rounded-2xl p-4 flex items-center justify-between">
                     <div>
                         <span className="text-xs font-bold text-amber-800 uppercase tracking-wider block">Kategori Siemens LP</span>
-                        <span className="text-2xl font-black text-amber-900 mt-0.5 block">+5% <span className="text-xs font-semibold text-amber-700">di Shop</span></span>
+                        <span className="text-2xl font-black text-amber-900 mt-0.5 block">+4.545% <span className="text-xs font-semibold text-amber-700">di Shop</span></span>
                         <span className="text-[11px] text-amber-700/90 block mt-0.5">MCB, ACB, MCCB non-3VJ1, dll</span>
                     </div>
                     <Badge className="bg-amber-500 text-white font-black text-xs px-2.5 py-1 rounded-lg shadow-xs">
@@ -447,7 +447,7 @@ export default function MarkupRulesClient({
                             <div>
                                 <h3 className="text-sm font-bold text-emerald-950">Aturan Bebas Kenaikan Harga (0% Markup)</h3>
                                 <p className="text-xs text-emerald-800/80 mt-0.5 leading-relaxed">
-                                    Produk yang cocok dengan aturan di bawah ini akan <strong>tetap menggunakan harga dasar asli (0% kenaikan)</strong>, meskipun kategorinya dipetakan ke Siemens LP (+5%) atau Siemens CP (+10%).
+                                    Produk yang cocok dengan aturan di bawah ini akan <strong>tetap menggunakan harga dasar asli (0% kenaikan)</strong>, meskipun kategorinya dipetakan ke Siemens LP (+4.545%) atau Siemens CP (+10%).
                                 </p>
                             </div>
                         </div>
@@ -497,7 +497,7 @@ export default function MarkupRulesClient({
                                                 {rule.isActive ? (
                                                     <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 font-extrabold text-[11px] gap-1 px-2.5 py-0.5">
                                                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                                        Aktif (Bebas Kenaikan 5%)
+                                                        Aktif (Bebas Kenaikan Markup)
                                                     </Badge>
                                                 ) : (
                                                     <Badge variant="outline" className="text-slate-500 border-slate-300 font-semibold text-[11px] gap-1 px-2.5 py-0.5">
@@ -606,7 +606,7 @@ export default function MarkupRulesClient({
                                 Simulator &amp; Cek Status Harga Produk
                             </CardTitle>
                             <CardDescription>
-                                Ketik SKU produk (contoh: <code className="font-mono font-bold text-slate-700">3VJ1004-3DB32-0AA0</code> [Bebas Markup] atau <code className="font-mono font-bold text-slate-700">3VJ1004-3DA32-0AA0</code> [Naik 5%]) untuk memeriksa status markup harga.
+                                Ketik SKU produk (contoh: <code className="font-mono font-bold text-slate-700">3VJ1004-3DB32-0AA0</code> [Bebas Markup] atau <code className="font-mono font-bold text-slate-700">3VJ1004-3DA32-0AA0</code> [Naik Sesuai Kategori]) untuk memeriksa status markup harga.
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="p-5 space-y-4">
@@ -921,7 +921,7 @@ export default function MarkupRulesClient({
                             {editingExemption ? "Edit Aturan Pengecualian" : "Tambah Aturan Pengecualian Baru"}
                         </DialogTitle>
                         <DialogDescription className="text-xs text-slate-500">
-                            Produk yang cocok dengan kriteria aturan ini tidak akan dikenakan markup kategori (LP +5% / CP +10%).
+                            Produk yang cocok dengan kriteria aturan ini tidak akan dikenakan markup kategori (LP +4.545% / CP +10%).
                         </DialogDescription>
                     </DialogHeader>
 
@@ -1031,7 +1031,7 @@ export default function MarkupRulesClient({
                                 <span className="text-[10px] text-slate-400 font-normal">Opsional</span>
                             </label>
                             <Input 
-                                placeholder="Contoh: Kebijakan prinsipal Siemens, seri 3VJ1 tidak naik harga 5%"
+                                placeholder="Contoh: Kebijakan prinsipal Siemens, seri 3VJ1 tidak naik harga 4.545%"
                                 value={exemptionNote}
                                 onChange={(e) => setExemptionNote(e.target.value)}
                                 className="h-9 rounded-xl text-xs"

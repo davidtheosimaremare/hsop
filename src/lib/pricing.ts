@@ -59,13 +59,13 @@ export const DEFAULT_MARKUP_EXEMPTIONS: MarkupExemptionRule[] = [
         category: "MCCB",
         brand: "SIEMENS",
         isActive: true,
-        note: "Produk Siemens MCCB dengan kode 3VJ1 yang diikuti 3DB, 5DB, dan 7DB dikecualikan dari kenaikan harga 5%",
+        note: "Produk Siemens MCCB dengan kode 3VJ1 yang diikuti 3DB, 5DB, dan 7DB dikecualikan dari kenaikan harga 4.545%",
         createdAt: "2026-10-26T00:00:00.000Z",
     },
 ];
 
 /**
- * Memeriksa apakah produk dikecualikan dari kenaikan harga kategori (misal: Siemens MCCB 3VJ1 dengan kode 3DB, 5DB, 7DB tidak naik 5%)
+ * Memeriksa apakah produk dikecualikan dari kenaikan harga kategori (misal: Siemens MCCB 3VJ1 dengan kode 3DB, 5DB, 7DB tidak naik 4.545%)
  */
 export function isProductExemptFromMarkup(
     sku?: string | null,
@@ -83,13 +83,13 @@ export function isProductExemptFromMarkup(
     const cleanCategory = (category || "").trim().toUpperCase();
     const cleanBrand = (brand || "").trim().toUpperCase();
 
-    // Fast check for 3VJ1: Hanya produk yang diikuti dengan -3DB, -5DB, atau -7DB yang bebas markup 5%
+    // Fast check for 3VJ1: Hanya produk yang diikuti dengan -3DB, -5DB, atau -7DB yang bebas markup 4.545%
     if (cleanSku.startsWith("3VJ1")) {
         const parts = cleanSku.split("-");
         const middle = parts.length > 1 ? parts[1].slice(0, 3) : "";
         const isDbVariant = middle === "3DB" || middle === "5DB" || middle === "7DB";
         
-        // Selain 3DB, 5DB, dan 7DB (misal 3DA, 0DA, dll), produk 3VJ1 TETAP naik 5%
+        // Selain 3DB, 5DB, dan 7DB (misal 3DA, 0DA, dll), produk 3VJ1 TETAP naik 4.545%
         if (!isDbVariant) {
             return false;
         }
@@ -154,7 +154,7 @@ function parseStringDiscount(disc: string): number[] {
 
 /**
  * Hitung harga dengan kenaikan markup kategori:
- * - Kategori LP: +5% (dibulatkan ke ratusan terdekat)
+ * - Kategori LP: +4.545% (dibulatkan ke ratusan terdekat)
  * - Kategori CP: +10% (dibulatkan ke ratusan terdekat)
  * Pengecualian diterapkan jika produk memenuhi kriteria MarkupExemptionRule (misal: 3VJ1 Siemens MCCB)
  */
@@ -180,7 +180,7 @@ export function getCategoryMarkedUpPrice(
     if (!mapping) return price;
 
     if (mapping.discountType === "LP") {
-        return Math.round((price * 1.05) / 100) * 100;
+        return Math.round((price * 1.04545) / 100) * 100;
     }
     if (mapping.discountType === "CP") {
         return Math.round((price * 1.10) / 100) * 100;
@@ -219,7 +219,7 @@ export function calculatePriceInfo(
         }
     }
 
-    // Terapkan kenaikan harga kategori (LP: +5%, CP: +10%) dengan dukungan pengecualian
+    // Terapkan kenaikan harga kategori (LP: +4.545%, CP: +10%) dengan dukungan pengecualian
     let basePrice = productPrice;
     let isMarkedUp = false;
     let markupPercent = 0;
@@ -241,7 +241,7 @@ export function calculatePriceInfo(
             const mapping = categoryMappings.find(
                 (m) => m.categoryName.trim().toLowerCase() === productCategory.trim().toLowerCase()
             );
-            markupPercent = mapping?.discountType === "LP" ? 5 : mapping?.discountType === "CP" ? 10 : 0;
+            markupPercent = mapping?.discountType === "LP" ? 4.545 : mapping?.discountType === "CP" ? 10 : 0;
         }
     }
 

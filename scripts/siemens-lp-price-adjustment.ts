@@ -15,7 +15,7 @@
  *   - MONITORING RELAYS
  *
  * Konfigurasi Default:
- *   - Markup: +5% (pembulatan ke ratusan terdekat)
+ *   - Markup: +4.545% (pembulatan ke ratusan terdekat)
  *   - Target: Khusus produk merk Siemens (2.806 produk)
  *   - Tipe Penyesuaian: ITEM_PRICE_TYPE
  *   - Kategori Harga: "Umum"
@@ -45,11 +45,11 @@ const isDryRunArg = args.includes("--dry-run");
 // Default DRY_RUN adalah TRUE kecuali dipanggil dengan --live atau LIVE=true
 const DRY_RUN = isDryRunArg || (!isLiveArg && process.env.DRY_RUN !== "false" && process.env.LIVE !== "true");
 
-// Ambil persen markup dari argumen --percent atau env MARKUP_PERCENT (default: 5)
+// Ambil persen markup dari argumen --percent atau env MARKUP_PERCENT (default: 4.545)
 const percentArgIdx = args.indexOf("--percent");
 const MARKUP_PERCENT = percentArgIdx !== -1 && args[percentArgIdx + 1]
     ? parseFloat(args[percentArgIdx + 1])
-    : (process.env.MARKUP_PERCENT ? parseFloat(process.env.MARKUP_PERCENT) : 5);
+    : (process.env.MARKUP_PERCENT ? parseFloat(process.env.MARKUP_PERCENT) : 4.545);
 
 const PRICE_CATEGORY_NAME = "Umum";
 const ADJUSTMENT_TYPE = "ITEM_PRICE_TYPE";
@@ -297,7 +297,7 @@ async function main() {
     const eligibleSiemensProducts = siemensProducts.filter(p => !isExempt3VJ1(p.sku));
 
     if (exemptSiemensProducts.length > 0) {
-        console.log(`   🛡️ Pengecualian Markup (3VJ1 3DB/5DB/7DB): ${exemptSiemensProducts.length} produk diabaikan (tidak naik 5%)`);
+        console.log(`   🛡️ Pengecualian Markup (3VJ1 3DB/5DB/7DB): ${exemptSiemensProducts.length} produk diabaikan (tidak naik ${MARKUP_PERCENT}%)`);
     }
     console.log(`   Produk yang akan dinaikkan harganya  : ${eligibleSiemensProducts.length}\n`);
 
@@ -308,15 +308,15 @@ async function main() {
 
     // 3. Preview perhitungan harga baru
     console.log("📋 [3/4] Preview 10 Produk Pertama:");
-    console.log("─".repeat(95));
+    console.log("─".repeat(102));
     console.log(
         "SKU".padEnd(25) +
-        "Kategori".padEnd(18) +
-        "Harga Lama".padStart(16) +
-        "Harga Baru (+5%)".padStart(18) +
-        "Kenaikan".padStart(16)
+        "Kategori".padEnd(16) +
+        "Harga Lama".padStart(18) +
+        `Harga Baru (+${MARKUP_PERCENT}%)`.padStart(25) +
+        "Kenaikan".padStart(18)
     );
-    console.log("─".repeat(95));
+    console.log("─".repeat(102));
 
     for (const p of eligibleSiemensProducts.slice(0, 10)) {
         const oldPrice = p.price;
@@ -324,14 +324,14 @@ async function main() {
         const diff = newPrice - oldPrice;
         console.log(
             p.sku.padEnd(25) +
-            (p.category || "-").padEnd(18) +
-            `Rp ${oldPrice.toLocaleString("id-ID")}`.padStart(16) +
-            `Rp ${newPrice.toLocaleString("id-ID")}`.padStart(18) +
-            `+Rp ${diff.toLocaleString("id-ID")}`.padStart(16)
+            (p.category || "-").padEnd(16) +
+            `Rp ${oldPrice.toLocaleString("id-ID")}`.padStart(18) +
+            `Rp ${newPrice.toLocaleString("id-ID")}`.padStart(25) +
+            `+Rp ${diff.toLocaleString("id-ID")}`.padStart(18)
         );
     }
     console.log(`... dan ${eligibleSiemensProducts.length - 10} produk lainnya.`);
-    console.log("─".repeat(95) + "\n");
+    console.log("─".repeat(102) + "\n");
 
     // 4. Siapkan batch dan submit ke Accurate
     const allDetailItems: DetailItem[] = eligibleSiemensProducts.map((p) => ({

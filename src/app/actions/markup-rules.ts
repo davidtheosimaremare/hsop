@@ -162,7 +162,7 @@ export async function getMarkupExemptionRules(): Promise<MarkupExemptionRule[]> 
     try {
         const raw = await getSiteSetting(SETTING_KEY_EXEMPTIONS);
         if (Array.isArray(raw) && raw.length > 0) {
-            return raw as MarkupExemptionRule[];
+            return (raw as unknown) as MarkupExemptionRule[];
         }
         return DEFAULT_MARKUP_EXEMPTIONS;
     } catch (error) {
@@ -352,7 +352,7 @@ export async function previewExemptedProducts(criteria?: {
                 return {
                     ...p,
                     categoryGroup: mapping?.discountType || null,
-                    normalMarkupPct: mapping?.discountType === "LP" ? 5 : mapping?.discountType === "CP" ? 10 : 0,
+                    normalMarkupPct: mapping?.discountType === "LP" ? 4.545 : mapping?.discountType === "CP" ? 10 : 0,
                 };
             }),
         };

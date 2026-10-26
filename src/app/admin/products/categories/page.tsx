@@ -100,7 +100,7 @@ export default async function CategoryMappingPage() {
                             Pengecualian Kenaikan Harga Produk Tertentu (0% Markup)
                         </p>
                         <p className="text-xs text-emerald-700 mt-0.5">
-                            Kategori Siemens LP mengalami penyesuaian +5% di shop, namun produk dengan kode <strong>3VJ1 (Siemens MCCB)</strong> telah dikecualikan agar harganya tidak naik 5%.
+                            Kategori Siemens LP mengalami penyesuaian +4.545% di shop, namun produk dengan kode <strong>3VJ1 (Siemens MCCB)</strong> varian 3DB/5DB/7DB telah dikecualikan agar harganya tidak naik.
                         </p>
                     </div>
                 </div>
