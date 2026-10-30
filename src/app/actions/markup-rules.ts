@@ -352,7 +352,7 @@ export async function previewExemptedProducts(criteria?: {
                 return {
                     ...p,
                     categoryGroup: mapping?.discountType || null,
-                    normalMarkupPct: mapping?.discountType === "LP" ? 4.545 : mapping?.discountType === "CP" ? 10 : 0,
+                    normalMarkupPct: (mapping?.discountType === "LP" || mapping?.discountType === "CP") ? 4.545 : 0,
                 };
             }),
         };

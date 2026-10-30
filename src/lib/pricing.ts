@@ -155,7 +155,7 @@ function parseStringDiscount(disc: string): number[] {
 /**
  * Hitung harga dengan kenaikan markup kategori:
  * - Kategori LP: +4.545% (dibulatkan ke ratusan terdekat)
- * - Kategori CP: +10% (dibulatkan ke ratusan terdekat)
+ * - Kategori CP: +4.545% (dibulatkan ke ratusan terdekat)
  * Pengecualian diterapkan jika produk memenuhi kriteria MarkupExemptionRule (misal: 3VJ1 Siemens MCCB)
  */
 export function getCategoryMarkedUpPrice(
@@ -179,11 +179,8 @@ export function getCategoryMarkedUpPrice(
     );
     if (!mapping) return price;
 
-    if (mapping.discountType === "LP") {
+    if (mapping.discountType === "LP" || mapping.discountType === "CP") {
         return Math.round((price * 1.04545) / 100) * 100;
-    }
-    if (mapping.discountType === "CP") {
-        return Math.round((price * 1.10) / 100) * 100;
     }
     return price;
 }
@@ -219,7 +216,7 @@ export function calculatePriceInfo(
         }
     }
 
-    // Terapkan kenaikan harga kategori (LP: +4.545%, CP: +10%) dengan dukungan pengecualian
+    // Terapkan kenaikan harga kategori (LP & CP: +4.545%) dengan dukungan pengecualian
     let basePrice = productPrice;
     let isMarkedUp = false;
     let markupPercent = 0;
@@ -241,7 +238,7 @@ export function calculatePriceInfo(
             const mapping = categoryMappings.find(
                 (m) => m.categoryName.trim().toLowerCase() === productCategory.trim().toLowerCase()
             );
-            markupPercent = mapping?.discountType === "LP" ? 4.545 : mapping?.discountType === "CP" ? 10 : 0;
+            markupPercent = (mapping?.discountType === "LP" || mapping?.discountType === "CP") ? 4.545 : 0;
         }
     }
 

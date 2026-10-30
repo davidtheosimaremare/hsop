@@ -360,7 +360,7 @@ export default function MarkupRulesClient({
                         <h1 className="text-2xl font-black text-slate-900 tracking-tight">Aturan Kenaikan Harga &amp; Pengecualian</h1>
                     </div>
                     <p className="text-sm text-slate-500 mt-1">
-                        Kelola kenaikan harga otomatis kategori (Siemens LP +4.545%, CP +10%) serta aturan pengecualian produk spesifik (seperti Siemens MCCB 3VJ1).
+                        Kelola kenaikan harga otomatis kategori (Siemens LP &amp; CP +4.545%) serta aturan pengecualian produk spesifik (seperti Siemens MCCB 3VJ1).
                     </p>
                 </div>
                 
@@ -395,7 +395,7 @@ export default function MarkupRulesClient({
                 <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 border border-blue-200/80 rounded-2xl p-4 flex items-center justify-between">
                     <div>
                         <span className="text-xs font-bold text-blue-800 uppercase tracking-wider block">Kategori Siemens CP</span>
-                        <span className="text-2xl font-black text-blue-900 mt-0.5 block">+10% <span className="text-xs font-semibold text-blue-700">di Shop</span></span>
+                        <span className="text-2xl font-black text-blue-900 mt-0.5 block">+4.545% <span className="text-xs font-semibold text-blue-700">di Shop</span></span>
                         <span className="text-[11px] text-blue-700/90 block mt-0.5">Contactor, Overload, Simocode, dll</span>
                     </div>
                     <Badge className="bg-blue-600 text-white font-black text-xs px-2.5 py-1 rounded-lg shadow-xs">
@@ -447,7 +447,7 @@ export default function MarkupRulesClient({
                             <div>
                                 <h3 className="text-sm font-bold text-emerald-950">Aturan Bebas Kenaikan Harga (0% Markup)</h3>
                                 <p className="text-xs text-emerald-800/80 mt-0.5 leading-relaxed">
-                                    Produk yang cocok dengan aturan di bawah ini akan <strong>tetap menggunakan harga dasar asli (0% kenaikan)</strong>, meskipun kategorinya dipetakan ke Siemens LP (+4.545%) atau Siemens CP (+10%).
+                                    Produk yang cocok dengan aturan di bawah ini akan <strong>tetap menggunakan harga dasar asli (0% kenaikan)</strong>, meskipun kategorinya dipetakan ke Siemens LP atau Siemens CP (+4.545%).
                                 </p>
                             </div>
                         </div>
@@ -921,7 +921,7 @@ export default function MarkupRulesClient({
                             {editingExemption ? "Edit Aturan Pengecualian" : "Tambah Aturan Pengecualian Baru"}
                         </DialogTitle>
                         <DialogDescription className="text-xs text-slate-500">
-                            Produk yang cocok dengan kriteria aturan ini tidak akan dikenakan markup kategori (LP +4.545% / CP +10%).
+                            Produk yang cocok dengan kriteria aturan ini tidak akan dikenakan markup kategori (LP &amp; CP +4.545%).
                         </DialogDescription>
                     </DialogHeader>
 
