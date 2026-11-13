@@ -60,7 +60,14 @@ interface BulkItem extends BulkOrderProduct {
     salesDiscount1?: number;
     salesDiscount2?: number;
     applyMarkup?: boolean;
+    customPrice?: number;
 }
+
+const isPlcOrVsd = (category?: string | null): boolean => {
+    if (!category) return false;
+    const u = category.trim().toUpperCase();
+    return u.includes("PLC") || u.includes("VSD");
+};
 
 
 export default function BulkOrderClient() {
@@ -131,8 +138,12 @@ export default function BulkOrderClient() {
     const [mergeAll, setMergeAll] = useState(false);
     const [applyPriceMarkup, setApplyPriceMarkup] = useState<boolean>(true);
 
-    const getItemBasePrice = (item: { price: number; category?: string | null; finalPrice?: number; sku?: string; name?: string; applyMarkup?: boolean }) => {
-        if (userRole === 'SALES') {
+    const getItemBasePrice = (item: { price: number; category?: string | null; finalPrice?: number; sku?: string; name?: string; applyMarkup?: boolean; customPrice?: number }) => {
+        // Jika ada harga kustom yang diinputkan oleh Admin / Sales (khususnya untuk PLC / VSD atau item lainnya)
+        if (item.customPrice !== undefined && item.customPrice !== null && !isNaN(item.customPrice)) {
+            return item.customPrice;
+        }
+        if (userRole === 'SALES' || userRole === 'ADMIN') {
             const isMarkupActive = applyPriceMarkup && (item.applyMarkup !== false);
             const raw = isMarkupActive
                 ? getCategoryMarkedUpPrice(item.price, item.category || null, categoryMappings)
@@ -140,6 +151,18 @@ export default function BulkOrderClient() {
             return Math.ceil(raw / 1000) * 1000;
         }
         return item.finalPrice ?? item.price;
+    };
+
+    const updateItemCustomPrice = (customId: string, newPrice: number) => {
+        setItems(prev => prev.map(item => {
+            if (item.customId === customId) {
+                return {
+                    ...item,
+                    customPrice: Math.max(0, newPrice)
+                };
+            }
+            return item;
+        }));
     };
 
     const [bulkDisc1, setBulkDisc1] = useState<number>(30);
@@ -158,6 +181,11 @@ export default function BulkOrderClient() {
     const [cpIndentDisc2, setCpIndentDisc2] = useState<number>(37);
 
     const getInitialSalesDiscount = (category: string | null, stockStatus: 'READY' | 'INDENT'): { d1: number; d2: number } => {
+        // Untuk kategori PLC dan VSD, diskon awal diset 0% agar harga kustom yang dimasukkan murni menjadi harga Accurate
+        if (isPlcOrVsd(category)) {
+            return { d1: 0, d2: 0 };
+        }
+
         const mapping = categoryMappings.find(m => m.categoryName === category);
         const discountType = mapping?.discountType;
 
@@ -396,7 +424,7 @@ export default function BulkOrderClient() {
         
         let changed = false;
         const updatedItems = items.map(item => {
-            if (item.isCustom) return item; // Custom products keep their manual price
+            if (item.isCustom || item.customPrice !== undefined) return item; // Custom products and custom-priced items keep their manual price
             
             const isReady = item.stockStatus === 'READY';
             const priceInfo = getPriceInfo(item.price, item.category, isReady ? 100 : 0, null, applyPriceMarkup);
@@ -887,6 +915,18 @@ export default function BulkOrderClient() {
                 return;
             }
 
+            // Validasi harga produk: cegah pengiriman produk tanpa harga (Rp 0) ke Accurate
+            const zeroPriceItems = items.filter(i => {
+                const p = getItemBasePrice(i);
+                return !p || p <= 0;
+            });
+            if (zeroPriceItems.length > 0) {
+                const zeroSkus = zeroPriceItems.map(i => i.sku).join(", ");
+                alert(`Harga untuk produk berikut belum diisi (masih Rp 0):\n${zeroSkus}\n\nSilakan masukkan harga kustom terlebih dahulu pada tabel pesanan.`);
+                setIsCreatingAccurateSq(false);
+                return;
+            }
+
             const customerInfo = {
                 name: selectedCustomer.company || selectedCustomer.name,
                 address: selectedCustomer.address || '',
@@ -926,7 +966,7 @@ export default function BulkOrderClient() {
                     productSku: i.sku,
                     productName: i.name,
                     price: discountedPrice,
-                    basePrice: getItemBasePrice(i),
+                    basePrice: basePrice,
                     quantity: i.qty,
                     isAvailable: true, // Send all items
                     detailNotes: i.stockStatus === 'READY' ? 'STOCK' : 'NO STOCK',
@@ -1904,7 +1944,10 @@ export default function BulkOrderClient() {
                                                     </span>
                                                 )}
                                                 <p className="text-xs font-bold text-red-600">
-                                                    Rp {(userRole === 'SALES' ? salesPrice : priceInfo.discountedPriceWithPPN).toLocaleString("id-ID")}
+                                                    {isPlcOrVsd(suggestion.category) && suggestion.price === 0
+                                                        ? "Harga Kustom (input di tabel)"
+                                                        : `Rp ${(userRole === 'SALES' || userRole === 'ADMIN' ? salesPrice : priceInfo.discountedPriceWithPPN).toLocaleString("id-ID")}`
+                                                    }
                                                 </p>
                                             </div>
                                         </div>
@@ -1980,6 +2023,7 @@ export default function BulkOrderClient() {
                                                     applyPriceMarkup={applyPriceMarkup}
                                                     categoryMappings={categoryMappings}
                                                     toggleItemMarkup={toggleItemMarkup}
+                                                    updateItemCustomPrice={updateItemCustomPrice}
                                                 />
                                             ))}
                                         </tbody>
@@ -2566,7 +2610,10 @@ export default function BulkOrderClient() {
                                                 
                                                 <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-50">
                                                     <p className="text-sm font-bold text-red-600">
-                                                        Rp {(userRole === 'SALES' ? Math.ceil((applyPriceMarkup ? getCategoryMarkedUpPrice(prod.price, prod.category || null, categoryMappings) : prod.price) / 1000) * 1000 : (applyPriceMarkup ? getCategoryMarkedUpPrice(prod.price, prod.category || null, categoryMappings) : prod.price)).toLocaleString('id-ID')}
+                                                        {isPlcOrVsd(prod.category) && prod.price === 0
+                                                            ? "Harga Kustom"
+                                                            : `Rp ${(userRole === 'SALES' || userRole === 'ADMIN' ? Math.ceil((applyPriceMarkup ? getCategoryMarkedUpPrice(prod.price, prod.category || null, categoryMappings) : prod.price) / 1000) * 1000 : (applyPriceMarkup ? getCategoryMarkedUpPrice(prod.price, prod.category || null, categoryMappings) : prod.price)).toLocaleString('id-ID')}`
+                                                        }
                                                     </p>
                                                     <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${Number(prod.availableToSell || 0) > 0 ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
                                                         {Number(prod.availableToSell || 0) > 0 ? 'Ready' : 'Indent'}
@@ -2620,7 +2667,7 @@ export default function BulkOrderClient() {
     );
 }
 
-function SortableRow({ item, updateQty, updateQtyDirect, removeItem, onRequestDelete, isLoggedIn, userRole, updateItemDiscount, onReplaceClick, getItemBasePrice, applyPriceMarkup, categoryMappings, toggleItemMarkup }: {
+function SortableRow({ item, updateQty, updateQtyDirect, removeItem, onRequestDelete, isLoggedIn, userRole, updateItemDiscount, onReplaceClick, getItemBasePrice, applyPriceMarkup, categoryMappings, toggleItemMarkup, updateItemCustomPrice }: {
     item: BulkItem;
     updateQty: (id: string, delta: number) => void;
     updateQtyDirect: (id: string, qty: number) => void;
@@ -2630,10 +2677,11 @@ function SortableRow({ item, updateQty, updateQtyDirect, removeItem, onRequestDe
     userRole: string | null;
     updateItemDiscount: (id: string, field: 'd1' | 'd2', value: number) => void;
     onReplaceClick?: (id: string) => void;
-    getItemBasePrice: (item: { price: number; category?: string | null; finalPrice?: number; sku?: string; name?: string; applyMarkup?: boolean }) => number;
+    getItemBasePrice: (item: { price: number; category?: string | null; finalPrice?: number; sku?: string; name?: string; applyMarkup?: boolean; customPrice?: number }) => number;
     applyPriceMarkup: boolean;
     categoryMappings: CategoryMapping[];
     toggleItemMarkup?: (id: string) => void;
+    updateItemCustomPrice?: (id: string, newPrice: number) => void;
 }) {
     const basePrice = getItemBasePrice(item);
     const d1 = item.salesDiscount1 || 0;
@@ -2692,41 +2740,62 @@ function SortableRow({ item, updateQty, updateQtyDirect, removeItem, onRequestDe
                     </div>
                 </div>
             </td>
-            <td className="px-3 py-2.5">
-                <div className="flex flex-col gap-0.5">
-                    {userRole !== 'SALES' && isLoggedIn && item.hasDiscount && item.isCustomerDiscount && item.originalPrice && (
+            <td className="px-2.5 py-2.5">
+                <div className="flex flex-col gap-1">
+                    {userRole !== 'SALES' && userRole !== 'ADMIN' && isLoggedIn && item.hasDiscount && item.isCustomerDiscount && item.originalPrice && (
                         <span className="text-[10px] text-gray-400 line-through leading-tight whitespace-nowrap">
                             Rp {item.originalPrice.toLocaleString("id-ID")}
                         </span>
                     )}
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[13px] font-semibold text-red-600 leading-tight whitespace-nowrap">
-                            Rp {basePrice.toLocaleString("id-ID")}
-                        </span>
-                        {userRole === 'SALES' && hasCategoryMarkup && markupRateLabel && (
-                            <button
-                                type="button"
-                                onClick={() => toggleItemMarkup && toggleItemMarkup(item.customId)}
-                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] transition-all cursor-pointer select-none ${
-                                    isItemMarkupActive
-                                        ? 'font-bold bg-amber-50 text-amber-700 border border-amber-300 hover:bg-amber-100 shadow-2xs'
-                                        : 'font-medium bg-gray-100 text-gray-500 border border-gray-300 hover:bg-gray-200'
-                                }`}
-                                title={
-                                    isItemMarkupActive
-                                        ? `Kenaikan harga ${markupRateLabel} sedang AKTIF. Klik untuk non-aktifkan kenaikan pada produk ini.`
-                                        : `Kenaikan harga ${markupRateLabel} sedang NON-AKTIF (Harga Normal). Klik untuk mengaktifkan kembali.`
-                                }
-                            >
-                                <span className={isItemMarkupActive ? '' : 'line-through opacity-70'}>{markupRateLabel}</span>
-                                <span className={`text-[9px] px-1 py-0.2 rounded font-semibold ${
-                                    isItemMarkupActive ? 'bg-amber-200 text-amber-800' : 'bg-gray-200 text-gray-600'
-                                }`}>
-                                    {isItemMarkupActive ? 'Aktif' : 'Non-aktif'}
-                                </span>
-                            </button>
-                        )}
-                    </div>
+                    {(userRole === 'SALES' || userRole === 'ADMIN') && isPlcOrVsd(item.category) ? (
+                        <div className="flex flex-col gap-1">
+                            <div className="relative flex items-center">
+                                <span className="absolute left-2 text-[11px] font-bold text-gray-400 select-none">Rp</span>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    step={100}
+                                    value={item.customPrice !== undefined ? (item.customPrice === 0 ? '' : item.customPrice) : (item.price === 0 ? '' : item.price)}
+                                    onChange={(e) => updateItemCustomPrice && updateItemCustomPrice(item.customId, e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
+                                    placeholder="Kustom harga..."
+                                    className="w-full pl-7 pr-2 py-1 text-xs font-bold text-red-600 bg-amber-50/70 hover:bg-amber-50 border border-amber-300 rounded-lg focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 tabular-nums shadow-2xs transition-colors"
+                                    title="Kustomisasi harga PLC / VSD khusus Sales & Admin"
+                                />
+                            </div>
+                            <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-amber-800 bg-amber-100/90 px-1.5 py-0.5 rounded w-fit select-none border border-amber-200">
+                                ⚙️ Kustom {item.category || "PLC/VSD"}
+                            </span>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[13px] font-semibold text-red-600 leading-tight whitespace-nowrap">
+                                Rp {basePrice.toLocaleString("id-ID")}
+                            </span>
+                            {(userRole === 'SALES' || userRole === 'ADMIN') && hasCategoryMarkup && markupRateLabel && (
+                                <button
+                                    type="button"
+                                    onClick={() => toggleItemMarkup && toggleItemMarkup(item.customId)}
+                                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] transition-all cursor-pointer select-none ${
+                                        isItemMarkupActive
+                                            ? 'font-bold bg-amber-50 text-amber-700 border border-amber-300 hover:bg-amber-100 shadow-2xs'
+                                            : 'font-medium bg-gray-100 text-gray-500 border border-gray-300 hover:bg-gray-200'
+                                    }`}
+                                    title={
+                                        isItemMarkupActive
+                                            ? `Kenaikan harga ${markupRateLabel} sedang AKTIF. Klik untuk non-aktifkan kenaikan pada produk ini.`
+                                            : `Kenaikan harga ${markupRateLabel} sedang NON-AKTIF (Harga Normal). Klik untuk mengaktifkan kembali.`
+                                    }
+                                >
+                                    <span className={isItemMarkupActive ? '' : 'line-through opacity-70'}>{markupRateLabel}</span>
+                                    <span className={`text-[9px] px-1 py-0.2 rounded font-semibold ${
+                                        isItemMarkupActive ? 'bg-amber-200 text-amber-800' : 'bg-gray-200 text-gray-600'
+                                    }`}>
+                                        {isItemMarkupActive ? 'Aktif' : 'Non-aktif'}
+                                    </span>
+                                </button>
+                            )}
+                        </div>
+                    )}
                 </div>
             </td>
             <td className="px-3 py-2.5">

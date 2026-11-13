@@ -28,6 +28,10 @@ export async function quickSearch(query: string): Promise<QuickSearchResult[]> {
         where: {
             isVisible: true,
             category: hiddenCategoryNames.length > 0 ? { notIn: hiddenCategoryNames } : undefined,
+            NOT: [
+                { category: { contains: "PLC", mode: "insensitive" } },
+                { category: { contains: "VSD", mode: "insensitive" } },
+            ],
             AND: terms.map(term => ({
                 OR: [
                     { name: { contains: term, mode: "insensitive" } },

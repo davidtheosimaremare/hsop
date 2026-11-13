@@ -45,7 +45,10 @@ export async function searchBulkProducts(filters: BulkSearchFilters): Promise<Bu
         where: { isVisible: false },
         select: { name: true }
     });
-    const hiddenCategoryNames = hiddenCategories.map(c => c.name);
+    // Kategori PLC dan VSD dipastikan tetap muncul di Bulky Order
+    const hiddenCategoryNames = hiddenCategories
+        .map(c => c.name)
+        .filter(name => !name.toUpperCase().includes("PLC") && !name.toUpperCase().includes("VSD"));
 
     const where: any = {
         isVisible: true,
@@ -125,7 +128,10 @@ export async function getBulkOrderCategories(): Promise<string[]> {
         where: { isVisible: false },
         select: { name: true }
     });
-    const hiddenCategoryNames = hiddenCategories.map(c => c.name);
+    // Kategori PLC dan VSD dipastikan tetap muncul di Bulky Order
+    const hiddenCategoryNames = hiddenCategories
+        .map(c => c.name)
+        .filter(name => !name.toUpperCase().includes("PLC") && !name.toUpperCase().includes("VSD"));
 
     const rows = await db.product.findMany({
         where: {

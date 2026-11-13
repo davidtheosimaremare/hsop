@@ -33,7 +33,20 @@ async function getCategoriesTreeCached() {
             }
         });
 
-        const rootCategories = categories.filter(c => !c.parentId);
+        // Sembunyikan kategori PLC dan VSD dari navigasi pohon kategori publik di pencarian
+        const isPlcOrVsdCat = (name: string) => {
+            const u = name.toUpperCase();
+            return u.includes("PLC") || u.includes("VSD");
+        };
+
+        const filtered = categories
+            .filter(c => !isPlcOrVsdCat(c.name))
+            .map(c => ({
+                ...c,
+                children: c.children.filter(ch => !isPlcOrVsdCat(ch.name))
+            }));
+
+        const rootCategories = filtered.filter(c => !c.parentId);
         return rootCategories;
     }, 3600);
 }
@@ -127,10 +140,17 @@ export async function getPublicProducts({
         getHiddenBrandNames()
     ]);
 
+    // Sembunyikan produk dengan kategori PLC dan VSD dari tampilan list pencarian
+    const hiddenSearchCategories: Prisma.ProductWhereInput[] = [
+        { category: { contains: "PLC", mode: "insensitive" } },
+        { category: { contains: "VSD", mode: "insensitive" } }
+    ];
+
     const where: Prisma.ProductWhereInput = {
         isVisible: true,
         category: hiddenCategoryNames.length > 0 ? { notIn: hiddenCategoryNames } : undefined,
         brand: hiddenBrandNames.length > 0 ? { notIn: hiddenBrandNames } : undefined,
+        NOT: hiddenSearchCategories,
     };
 
     if (query) {
@@ -487,10 +507,16 @@ export async function getProductSpecFilters(params: {
             getHiddenBrandNames()
         ]);
 
+        const hiddenSearchCategories: Prisma.ProductWhereInput[] = [
+            { category: { contains: "PLC", mode: "insensitive" } },
+            { category: { contains: "VSD", mode: "insensitive" } }
+        ];
+
         const where: Prisma.ProductWhereInput = {
             isVisible: true,
             category: hiddenCategoryNames.length > 0 ? { notIn: hiddenCategoryNames } : undefined,
             brand: hiddenBrandNames.length > 0 ? { notIn: hiddenBrandNames } : undefined,
+            NOT: hiddenSearchCategories,
         };
 
         if (params.query) {
