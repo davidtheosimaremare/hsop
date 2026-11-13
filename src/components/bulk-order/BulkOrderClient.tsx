@@ -139,8 +139,16 @@ export default function BulkOrderClient() {
     const [applyPriceMarkup, setApplyPriceMarkup] = useState<boolean>(true);
 
     const getItemBasePrice = (item: { price: number; category?: string | null; finalPrice?: number; sku?: string; name?: string; applyMarkup?: boolean; customPrice?: number }) => {
-        // Jika ada harga kustom yang diinputkan oleh Admin / Sales (khususnya untuk PLC / VSD atau item lainnya)
-        if (item.customPrice !== undefined && item.customPrice !== null && !isNaN(item.customPrice)) {
+        // Khusus PLC dan VSD, harga dibuat kosong & harus diisi manual oleh sales/admin (tidak memakai item.price dari db)
+        if (isPlcOrVsd(item.category)) {
+            if (item.customPrice !== undefined && item.customPrice !== null && !isNaN(item.customPrice) && item.customPrice > 0) {
+                return item.customPrice;
+            }
+            return 0;
+        }
+
+        // Jika ada harga kustom yang diinputkan oleh Admin / Sales untuk item lain
+        if (item.customPrice !== undefined && item.customPrice !== null && !isNaN(item.customPrice) && item.customPrice > 0) {
             return item.customPrice;
         }
         if (userRole === 'SALES' || userRole === 'ADMIN') {
@@ -156,9 +164,12 @@ export default function BulkOrderClient() {
     const updateItemCustomPrice = (customId: string, newPrice: number) => {
         setItems(prev => prev.map(item => {
             if (item.customId === customId) {
+                const validPrice = Math.max(0, newPrice);
                 return {
                     ...item,
-                    customPrice: Math.max(0, newPrice)
+                    customPrice: validPrice > 0 ? validPrice : undefined,
+                    finalPrice: validPrice,
+                    price: validPrice
                 };
             }
             return item;
@@ -349,17 +360,19 @@ export default function BulkOrderClient() {
                     const readyIdx = newList.findIndex(i => i.customId === id);
                     const indentPriceInfo = getPriceInfo(item.price, item.category, 0, null, applyPriceMarkup);
                     const indentDiscounts = getInitialSalesDiscount(item.category, 'INDENT');
+                    const isPlcVsd = isPlcOrVsd(item.category);
                     const indentItem: BulkItem = {
                         ...item,
                         qty: indentQty,
-                        finalPrice: indentPriceInfo.discountedPriceWithPPN,
-                        originalPrice: indentPriceInfo.hasDiscount ? indentPriceInfo.originalPriceWithPPN : undefined,
-                        hasDiscount: indentPriceInfo.hasDiscount,
-                        isCustomerDiscount: indentPriceInfo.isCustomerDiscount,
+                        finalPrice: isPlcVsd ? (item.customPrice || 0) : indentPriceInfo.discountedPriceWithPPN,
+                        originalPrice: isPlcVsd ? undefined : (indentPriceInfo.hasDiscount ? indentPriceInfo.originalPriceWithPPN : undefined),
+                        hasDiscount: isPlcVsd ? false : indentPriceInfo.hasDiscount,
+                        isCustomerDiscount: isPlcVsd ? false : indentPriceInfo.isCustomerDiscount,
                         stockStatus: 'INDENT',
                         customId: indentId,
                         salesDiscount1: userRole === 'SALES' ? indentDiscounts.d1 : undefined,
-                        salesDiscount2: userRole === 'SALES' ? indentDiscounts.d2 : undefined
+                        salesDiscount2: userRole === 'SALES' ? indentDiscounts.d2 : undefined,
+                        customPrice: item.customPrice
                     };
                     newList.splice(readyIdx + 1, 0, indentItem);
                     toast.info(`Pesanan total ${qty} melebihi stok Ready (${stock}). Sisa ${indentQty} otomatis dialihkan ke status Indent.`);
@@ -424,7 +437,7 @@ export default function BulkOrderClient() {
         
         let changed = false;
         const updatedItems = items.map(item => {
-            if (item.isCustom || item.customPrice !== undefined) return item; // Custom products and custom-priced items keep their manual price
+            if (item.isCustom || item.customPrice !== undefined || isPlcOrVsd(item.category)) return item; // Custom products and PLC/VSD items keep their manual price
             
             const isReady = item.stockStatus === 'READY';
             const priceInfo = getPriceInfo(item.price, item.category, isReady ? 100 : 0, null, applyPriceMarkup);
@@ -636,19 +649,21 @@ export default function BulkOrderClient() {
                 pInfo: ReturnType<typeof getPriceInfo>
             ): BulkItem => {
                 const discounts = getInitialSalesDiscount(product.category, type);
+                const isPlcVsd = isPlcOrVsd(product.category);
                 return {
                     ...product,
                     qty: quantity,
-                    finalPrice: pInfo.discountedPriceWithPPN,
-                    originalPrice: pInfo.hasDiscount ? pInfo.originalPriceWithPPN : undefined,
-                    hasDiscount: pInfo.hasDiscount,
-                    isCustomerDiscount: pInfo.isCustomerDiscount,
+                    finalPrice: isPlcVsd ? 0 : pInfo.discountedPriceWithPPN,
+                    originalPrice: isPlcVsd ? undefined : (pInfo.hasDiscount ? pInfo.originalPriceWithPPN : undefined),
+                    hasDiscount: isPlcVsd ? false : pInfo.hasDiscount,
+                    isCustomerDiscount: isPlcVsd ? false : pInfo.isCustomerDiscount,
                     stockStatus: type,
                     customId: `${product.id}-${type}`,
                     isCustom,
                     salesDiscount1: userRole === 'SALES' ? discounts.d1 : undefined,
                     salesDiscount2: userRole === 'SALES' ? discounts.d2 : undefined,
-                    applyMarkup: applyPriceMarkup
+                    applyMarkup: applyPriceMarkup,
+                    customPrice: undefined
                 };
             };
 
@@ -682,20 +697,22 @@ export default function BulkOrderClient() {
                 } else {
                     // Hapus baris READY/INDENT lama jika ada (ketika user toggle merge saat sudah ada item)
                     const discounts = getInitialSalesDiscount(product.category, 'INDENT');
+                    const isPlcVsd = isPlcOrVsd(product.category);
                     const pInfo = stock > 0 ? readyPriceInfo : indentPriceInfo;
                     itemsToAdd.push({
                         ...product,
                         qty,
-                        finalPrice: pInfo.discountedPriceWithPPN,
-                        originalPrice: pInfo.hasDiscount ? pInfo.originalPriceWithPPN : undefined,
-                        hasDiscount: pInfo.hasDiscount,
-                        isCustomerDiscount: pInfo.isCustomerDiscount,
+                        finalPrice: isPlcVsd ? 0 : pInfo.discountedPriceWithPPN,
+                        originalPrice: isPlcVsd ? undefined : (pInfo.hasDiscount ? pInfo.originalPriceWithPPN : undefined),
+                        hasDiscount: isPlcVsd ? false : pInfo.hasDiscount,
+                        isCustomerDiscount: isPlcVsd ? false : pInfo.isCustomerDiscount,
                         stockStatus: stock > 0 ? 'READY' : 'INDENT',
                         customId: mergeId,
                         isCustom: false,
                         salesDiscount1: userRole === 'SALES' ? discounts.d1 : undefined,
                         salesDiscount2: userRole === 'SALES' ? discounts.d2 : undefined,
-                        applyMarkup: applyPriceMarkup
+                        applyMarkup: applyPriceMarkup,
+                        customPrice: undefined
                     });
                 }
             } else {
@@ -749,19 +766,21 @@ export default function BulkOrderClient() {
                 pInfo: ReturnType<typeof getPriceInfo>
             ): BulkItem => {
                 const discounts = getInitialSalesDiscount(product.category, type);
+                const isPlcVsd = isPlcOrVsd(product.category);
                 return {
                     ...product,
                     qty: quantity,
-                    finalPrice: pInfo.discountedPriceWithPPN,
-                    originalPrice: pInfo.hasDiscount ? pInfo.originalPriceWithPPN : undefined,
-                    hasDiscount: pInfo.hasDiscount,
-                    isCustomerDiscount: pInfo.isCustomerDiscount,
+                    finalPrice: isPlcVsd ? 0 : pInfo.discountedPriceWithPPN,
+                    originalPrice: isPlcVsd ? undefined : (pInfo.hasDiscount ? pInfo.originalPriceWithPPN : undefined),
+                    hasDiscount: isPlcVsd ? false : pInfo.hasDiscount,
+                    isCustomerDiscount: isPlcVsd ? false : pInfo.isCustomerDiscount,
                     stockStatus: type,
                     customId: `${product.id}-${type}`,
                     isCustom: false,
                     salesDiscount1: userRole === 'SALES' ? discounts.d1 : undefined,
                     salesDiscount2: userRole === 'SALES' ? discounts.d2 : undefined,
-                    applyMarkup: applyPriceMarkup
+                    applyMarkup: applyPriceMarkup,
+                    customPrice: undefined
                 };
             };
 
@@ -770,20 +789,22 @@ export default function BulkOrderClient() {
             if (mergeAll) {
                 const mergeId = `${product.id}-MERGE`;
                 const discounts = getInitialSalesDiscount(product.category, 'INDENT');
+                const isPlcVsd = isPlcOrVsd(product.category);
                 const pInfo = stock > 0 ? readyPriceInfo : indentPriceInfo;
                 replacementItems.push({
                     ...product,
                     qty,
-                    finalPrice: pInfo.discountedPriceWithPPN,
-                    originalPrice: pInfo.hasDiscount ? pInfo.originalPriceWithPPN : undefined,
-                    hasDiscount: pInfo.hasDiscount,
-                    isCustomerDiscount: pInfo.isCustomerDiscount,
+                    finalPrice: isPlcVsd ? 0 : pInfo.discountedPriceWithPPN,
+                    originalPrice: isPlcVsd ? undefined : (pInfo.hasDiscount ? pInfo.originalPriceWithPPN : undefined),
+                    hasDiscount: isPlcVsd ? false : pInfo.hasDiscount,
+                    isCustomerDiscount: isPlcVsd ? false : pInfo.isCustomerDiscount,
                     stockStatus: stock > 0 ? 'READY' : 'INDENT',
                     customId: mergeId,
                     isCustom: false,
                     salesDiscount1: userRole === 'SALES' ? discounts.d1 : undefined,
                     salesDiscount2: userRole === 'SALES' ? discounts.d2 : undefined,
-                    applyMarkup: applyPriceMarkup
+                    applyMarkup: applyPriceMarkup,
+                    customPrice: undefined
                 });
             } else {
                 let remainingQty = qty;
@@ -915,14 +936,14 @@ export default function BulkOrderClient() {
                 return;
             }
 
-            // Validasi harga produk: cegah pengiriman produk tanpa harga (Rp 0) ke Accurate
+            // Validasi harga produk: cegah pengiriman produk tanpa harga (masih kosong / Rp 0) ke Accurate
             const zeroPriceItems = items.filter(i => {
                 const p = getItemBasePrice(i);
                 return !p || p <= 0;
             });
             if (zeroPriceItems.length > 0) {
                 const zeroSkus = zeroPriceItems.map(i => i.sku).join(", ");
-                alert(`Harga untuk produk berikut belum diisi (masih Rp 0):\n${zeroSkus}\n\nSilakan masukkan harga kustom terlebih dahulu pada tabel pesanan.`);
+                alert(`Harga untuk produk berikut belum diisi (masih kosong / Rp 0):\n${zeroSkus}\n\nSilakan masukkan harga terlebih dahulu pada tabel pesanan.`);
                 setIsCreatingAccurateSq(false);
                 return;
             }
@@ -1193,17 +1214,19 @@ export default function BulkOrderClient() {
                 } else {
                     const readyPriceInfo = getPriceInfo(item.price, item.category, 100, null, applyPriceMarkup);
                     const readyDiscounts = getInitialSalesDiscount(item.category, 'READY');
+                    const isPlcVsd = isPlcOrVsd(item.category);
                     const newItem: BulkItem = {
                         ...item,
                         qty: newReadyQty,
-                        finalPrice: readyPriceInfo.discountedPriceWithPPN,
-                        originalPrice: readyPriceInfo.hasDiscount ? readyPriceInfo.originalPriceWithPPN : undefined,
-                        hasDiscount: readyPriceInfo.hasDiscount,
-                        isCustomerDiscount: readyPriceInfo.isCustomerDiscount,
+                        finalPrice: isPlcVsd ? (item.customPrice || 0) : readyPriceInfo.discountedPriceWithPPN,
+                        originalPrice: isPlcVsd ? undefined : (readyPriceInfo.hasDiscount ? readyPriceInfo.originalPriceWithPPN : undefined),
+                        hasDiscount: isPlcVsd ? false : readyPriceInfo.hasDiscount,
+                        isCustomerDiscount: isPlcVsd ? false : readyPriceInfo.isCustomerDiscount,
                         stockStatus: 'READY',
                         customId: readyId,
                         salesDiscount1: userRole === 'SALES' ? readyDiscounts.d1 : undefined,
-                        salesDiscount2: userRole === 'SALES' ? readyDiscounts.d2 : undefined
+                        salesDiscount2: userRole === 'SALES' ? readyDiscounts.d2 : undefined,
+                        customPrice: item.customPrice
                     };
                     const insertIdx = newItems.findIndex(i => i.id === baseId);
                     newItems.splice(insertIdx > -1 ? insertIdx : newItems.length, 0, newItem);
@@ -1220,17 +1243,19 @@ export default function BulkOrderClient() {
                 } else {
                     const indentPriceInfo = getPriceInfo(item.price, item.category, 0, null, applyPriceMarkup);
                     const indentDiscounts = getInitialSalesDiscount(item.category, 'INDENT');
+                    const isPlcVsd = isPlcOrVsd(item.category);
                     const newItem: BulkItem = {
                         ...item,
                         qty: newIndentQty,
-                        finalPrice: indentPriceInfo.discountedPriceWithPPN,
-                        originalPrice: indentPriceInfo.hasDiscount ? indentPriceInfo.originalPriceWithPPN : undefined,
-                        hasDiscount: indentPriceInfo.hasDiscount,
-                        isCustomerDiscount: indentPriceInfo.isCustomerDiscount,
+                        finalPrice: isPlcVsd ? (item.customPrice || 0) : indentPriceInfo.discountedPriceWithPPN,
+                        originalPrice: isPlcVsd ? undefined : (indentPriceInfo.hasDiscount ? indentPriceInfo.originalPriceWithPPN : undefined),
+                        hasDiscount: isPlcVsd ? false : indentPriceInfo.hasDiscount,
+                        isCustomerDiscount: isPlcVsd ? false : indentPriceInfo.isCustomerDiscount,
                         stockStatus: 'INDENT',
                         customId: indentId,
                         salesDiscount1: userRole === 'SALES' ? indentDiscounts.d1 : undefined,
-                        salesDiscount2: userRole === 'SALES' ? indentDiscounts.d2 : undefined
+                        salesDiscount2: userRole === 'SALES' ? indentDiscounts.d2 : undefined,
+                        customPrice: item.customPrice
                     };
                     const rIdx = newItems.findIndex(i => i.customId === readyId);
                     newItems.splice(rIdx > -1 ? rIdx + 1 : newItems.length, 0, newItem);
@@ -1313,16 +1338,34 @@ export default function BulkOrderClient() {
     };
 
     const downloadPDF = async () => {
+        const zeroPriceItems = items.filter(i => !i.isNotFound && (!getItemBasePrice(i) || getItemBasePrice(i) <= 0));
+        if (zeroPriceItems.length > 0) {
+            const zeroSkus = zeroPriceItems.map(i => i.sku).join(", ");
+            alert(`Harga untuk produk berikut belum diisi (masih kosong / Rp 0):\n${zeroSkus}\n\nSilakan masukkan harga terlebih dahulu pada tabel pesanan sebelum mengunduh PDF.`);
+            return;
+        }
         const data = prepareQuotationExportData();
         await exportQuotationPDF(data);
     };
 
     const downloadExcel = async () => {
+        const zeroPriceItems = items.filter(i => !i.isNotFound && (!getItemBasePrice(i) || getItemBasePrice(i) <= 0));
+        if (zeroPriceItems.length > 0) {
+            const zeroSkus = zeroPriceItems.map(i => i.sku).join(", ");
+            alert(`Harga untuk produk berikut belum diisi (masih kosong / Rp 0):\n${zeroSkus}\n\nSilakan masukkan harga terlebih dahulu pada tabel pesanan sebelum mengunduh Excel.`);
+            return;
+        }
         const data = prepareQuotationExportData();
         await exportQuotationExcel(data);
     };
 
     const handleAddToCart = () => {
+        const zeroPriceItems = items.filter(i => !i.isNotFound && (!getItemBasePrice(i) || getItemBasePrice(i) <= 0));
+        if (zeroPriceItems.length > 0) {
+            const zeroSkus = zeroPriceItems.map(i => i.sku).join(", ");
+            alert(`Harga untuk produk berikut belum diisi:\n${zeroSkus}\n\nProduk PLC/VSD memerlukan pengisian harga oleh Sales/Admin terlebih dahulu.`);
+            return;
+        }
         items.filter(i => !i.isNotFound).forEach(item => {
             let itemName = item.name;
             if (item.isCustom) {
@@ -1944,8 +1987,8 @@ export default function BulkOrderClient() {
                                                     </span>
                                                 )}
                                                 <p className="text-xs font-bold text-red-600">
-                                                    {isPlcOrVsd(suggestion.category) && suggestion.price === 0
-                                                        ? "Harga Kustom (input di tabel)"
+                                                    {isPlcOrVsd(suggestion.category)
+                                                        ? "Harga Kustom (wajib input di tabel)"
                                                         : `Rp ${(userRole === 'SALES' || userRole === 'ADMIN' ? salesPrice : priceInfo.discountedPriceWithPPN).toLocaleString("id-ID")}`
                                                     }
                                                 </p>
@@ -2342,6 +2385,12 @@ export default function BulkOrderClient() {
                     </div>
 
                     <div className="space-y-2 pt-1 border-t border-gray-100">
+                        {items.some(i => !i.isNotFound && (!getItemBasePrice(i) || getItemBasePrice(i) <= 0)) && (
+                            <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg text-[10px] text-amber-800 flex items-start gap-1.5">
+                                <span className="text-xs">⚠️</span>
+                                <span>Terdapat produk PLC/VSD yang harganya belum diisi. Silakan lengkapi harga pada tabel pesanan.</span>
+                            </div>
+                        )}
                         {/* SALES: Accurate - Primary Action */}
                         {userRole === 'SALES' && (
                             <>
@@ -2610,8 +2659,8 @@ export default function BulkOrderClient() {
                                                 
                                                 <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-50">
                                                     <p className="text-sm font-bold text-red-600">
-                                                        {isPlcOrVsd(prod.category) && prod.price === 0
-                                                            ? "Harga Kustom"
+                                                        {isPlcOrVsd(prod.category)
+                                                            ? "Harga Kustom (wajib input di tabel)"
                                                             : `Rp ${(userRole === 'SALES' || userRole === 'ADMIN' ? Math.ceil((applyPriceMarkup ? getCategoryMarkedUpPrice(prod.price, prod.category || null, categoryMappings) : prod.price) / 1000) * 1000 : (applyPriceMarkup ? getCategoryMarkedUpPrice(prod.price, prod.category || null, categoryMappings) : prod.price)).toLocaleString('id-ID')}`
                                                         }
                                                     </p>
@@ -2755,15 +2804,31 @@ function SortableRow({ item, updateQty, updateQtyDirect, removeItem, onRequestDe
                                     type="number"
                                     min={0}
                                     step={100}
-                                    value={item.customPrice !== undefined ? (item.customPrice === 0 ? '' : item.customPrice) : (item.price === 0 ? '' : item.price)}
+                                    value={item.customPrice ? item.customPrice : ''}
                                     onChange={(e) => updateItemCustomPrice && updateItemCustomPrice(item.customId, e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
-                                    placeholder="Kustom harga..."
-                                    className="w-full pl-7 pr-2 py-1 text-xs font-bold text-red-600 bg-amber-50/70 hover:bg-amber-50 border border-amber-300 rounded-lg focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 tabular-nums shadow-2xs transition-colors"
-                                    title="Kustomisasi harga PLC / VSD khusus Sales & Admin"
+                                    placeholder="Wajib isi harga..."
+                                    className={`w-full pl-7 pr-2 py-1 text-xs font-bold rounded-lg focus:bg-white focus:outline-none focus:ring-2 tabular-nums transition-all ${
+                                        (!item.customPrice || item.customPrice <= 0)
+                                            ? 'text-amber-800 bg-amber-50/80 border-2 border-amber-400 focus:ring-amber-500 focus:border-amber-500 shadow-sm'
+                                            : 'text-red-600 bg-white border border-amber-300 focus:ring-amber-500 focus:border-amber-500 shadow-2xs'
+                                    }`}
+                                    title="Kustomisasi harga PLC / VSD (Wajib diisi oleh Sales & Admin)"
                                 />
                             </div>
-                            <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-amber-800 bg-amber-100/90 px-1.5 py-0.5 rounded w-fit select-none border border-amber-200">
-                                ⚙️ Kustom {item.category || "PLC/VSD"}
+                            {(!item.customPrice || item.customPrice <= 0) ? (
+                                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded w-fit select-none border border-amber-300">
+                                    ⚠️ Wajib Isi Harga
+                                </span>
+                            ) : (
+                                <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded w-fit select-none border border-emerald-200">
+                                    ✓ Kustom {item.category || "PLC/VSD"}
+                                </span>
+                            )}
+                        </div>
+                    ) : isPlcOrVsd(item.category) ? (
+                        <div className="flex flex-col gap-0.5">
+                            <span className="text-[11px] font-medium text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded w-fit">
+                                Hubungi Sales (Harga Khusus)
                             </span>
                         </div>
                     ) : (
@@ -2879,7 +2944,7 @@ function SortableRow({ item, updateQty, updateQtyDirect, removeItem, onRequestDe
             )}
             <td className="px-2 py-2.5 text-right">
                 <span className="text-[13px] font-bold text-gray-900 tabular-nums whitespace-nowrap">
-                    Rp {(discountedPrice * item.qty).toLocaleString("id-ID")}
+                    {basePrice > 0 ? `Rp ${(discountedPrice * item.qty).toLocaleString("id-ID")}` : '-'}
                 </span>
             </td>
             <td className="px-1.5 py-2.5 text-center">
