@@ -358,7 +358,10 @@ export async function createSalesQuotationAccurate(items: any[], customerInfo: a
             quotationNo,
             clientName: customerInfo.name || 'CASH',
             shippingAddress: customerInfo.address || '',
-            items: validItems,
+            items: validItems.map(item => ({
+                ...item,
+                useTax1: true
+            })),
             specialDiscount,
             notes: notes || '',
             customer: customerInfo.customer

@@ -971,7 +971,8 @@ export default function BulkOrderClient() {
                         quantity: i.qty,
                         isAvailable: true, // Send all items
                         detailNotes: i.stockStatus === 'READY' ? 'STOCK' : 'NO STOCK',
-                        discountStr: undefined
+                        discountStr: undefined,
+                        useTax1: true
                     };
                 }
 
@@ -991,7 +992,8 @@ export default function BulkOrderClient() {
                     quantity: i.qty,
                     isAvailable: true, // Send all items
                     detailNotes: i.stockStatus === 'READY' ? 'STOCK' : 'NO STOCK',
-                    discountStr: itemDiscStr
+                    discountStr: itemDiscStr,
+                    useTax1: true
                 };
             }), customerInfo, 0, notes);
 

@@ -659,6 +659,7 @@ export async function createAccurateHSQ(quotation: any) {
                     itemDiscPercent: item.discountStr || itemDiscPercent,
                     detailName: item.productName,
                     detailNotes: item.detailNotes,
+                    useTax1: true,
                     tax1Name: "PPN" // Automatically apply PPN
                 };
             }) || []
@@ -707,7 +708,9 @@ export async function updateAccurateHSQ(accurateHsqId: number, quotation: any) {
                     unitPrice: basePrice,
                     quantity: item.quantity,
                     itemDiscPercent: item.discountStr || itemDiscPercent,
-                    detailName: item.productName
+                    detailName: item.productName,
+                    useTax1: true,
+                    tax1Name: "PPN"
                 });
             }
         }
@@ -715,6 +718,8 @@ export async function updateAccurateHSQ(accurateHsqId: number, quotation: any) {
         const payload: any = {
             id: accurateHsqId,
             useReplacement: true,
+            taxable: true,
+            inclusiveTax: false,
             detailItem,
         };
 
