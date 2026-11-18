@@ -598,6 +598,86 @@ export async function fetchAccurateSODetail(soId: number): Promise<{
     }
 }
 
+const DEFAULT_ACCURATE_TAX_NAME = "PPN 11%";
+const taxVerifiedCache = new Map<string, number>();
+const CACHE_TTL_TAX_VERIFIED = 1000 * 60 * 30; // 30 minutes
+
+/**
+ * Ensure every item SKU has default PPN (tax1) configured on its Accurate master record.
+ * Accurate's sales-quotation/save.do strictly inherits tax1 from the Item Master:
+ * if an item master has tax1Id == null, Accurate ignores useTax1: true on the quotation line.
+ */
+export async function ensureAccurateItemsHaveTax(skus: string[]): Promise<void> {
+    const uniqueSkus = Array.from(new Set(skus.map(s => s?.trim()).filter(Boolean))) as string[];
+    if (uniqueSkus.length === 0) return;
+
+    const now = Date.now();
+    const skusToCheck = uniqueSkus.filter(sku => {
+        const exp = taxVerifiedCache.get(sku.toUpperCase());
+        return !exp || exp <= now;
+    });
+
+    if (skusToCheck.length === 0) return;
+
+    const host = process.env.ACCURATE_API_HOST || "https://zeus.accurate.id";
+    const BATCH_SIZE = 5;
+
+    for (let i = 0; i < skusToCheck.length; i += BATCH_SIZE) {
+        const batch = skusToCheck.slice(i, i + BATCH_SIZE);
+        await Promise.all(batch.map(async (sku) => {
+            try {
+                const headers = await generateAccurateAuthHeaders();
+                if (!headers) return;
+
+                const detailUrl = new URL(`${host}/accurate/api/item/detail.do`);
+                detailUrl.searchParams.append('no', sku);
+
+                const detailRes = await fetch(detailUrl.toString(), {
+                    method: 'GET',
+                    headers: headers as HeadersInit,
+                    cache: 'no-store'
+                });
+                if (!detailRes.ok) return;
+
+                const detailData = await detailRes.json();
+                if (!detailData.s || !detailData.d) return;
+
+                const item = detailData.d;
+                if (item.tax1Id) {
+                    taxVerifiedCache.set(sku.toUpperCase(), Date.now() + CACHE_TTL_TAX_VERIFIED);
+                    return;
+                }
+
+                // Item master has no default PPN -> update master item to set default PPN 11%
+                const saveHeaders = await generateAccurateAuthHeaders();
+                if (!saveHeaders) return;
+
+                const saveRes = await fetch(`${host}/accurate/api/item/save.do`, {
+                    method: 'POST',
+                    headers: saveHeaders as HeadersInit,
+                    body: JSON.stringify({
+                        id: item.id,
+                        no: item.no,
+                        name: item.name,
+                        itemType: item.itemType || "INVENTORY",
+                        tax1Name: DEFAULT_ACCURATE_TAX_NAME,
+                    })
+                });
+
+                const saveData = await saveRes.json();
+                if (saveData.s) {
+                    console.log(`[Accurate] Auto-set default tax (${DEFAULT_ACCURATE_TAX_NAME}) on item ${sku} (id: ${item.id})`);
+                    taxVerifiedCache.set(sku.toUpperCase(), Date.now() + CACHE_TTL_TAX_VERIFIED);
+                } else {
+                    console.error(`[Accurate] Failed to set default tax on item ${sku}:`, JSON.stringify(saveData));
+                }
+            } catch (err) {
+                console.error(`[Accurate] Error ensuring tax on item ${sku}:`, err);
+            }
+        }));
+    }
+}
+
 export async function createAccurateHSQ(quotation: any) {
     const host = process.env.ACCURATE_API_HOST || "https://zeus.accurate.id";
     const endpoint = `${host}/accurate/api/sales-quotation/save.do`;
@@ -605,6 +685,10 @@ export async function createAccurateHSQ(quotation: any) {
     try {
         const headers = await generateAccurateAuthHeaders();
         if (!headers) return { r: { id: Date.now(), number: `MOCK-HRSQ-${Date.now()}` } };
+
+        // Ensure all items have default PPN configured in Accurate master data so useTax1 applies
+        const itemSkus = (quotation.items || []).map((item: any) => item.productSku).filter(Boolean);
+        await ensureAccurateItemsHaveTax(itemSkus);
 
         let resolvedCustomerNo = quotation.customer?.accurateNo || quotation.customer?.accurateCustomerCode;
 
@@ -660,14 +744,15 @@ export async function createAccurateHSQ(quotation: any) {
                     detailName: item.productName,
                     detailNotes: item.detailNotes,
                     useTax1: true,
-                    tax1Name: "PPN" // Automatically apply PPN
+                    tax1Name: DEFAULT_ACCURATE_TAX_NAME // Automatically apply PPN 11%
                 };
             }) || []
         };
 
+        const saveHeaders = await generateAccurateAuthHeaders();
         const response = await fetch(endpoint, {
             method: 'POST',
-            headers: headers as HeadersInit,
+            headers: (saveHeaders || headers) as HeadersInit,
             body: JSON.stringify(payload)
         });
 
@@ -692,8 +777,12 @@ export async function updateAccurateHSQ(accurateHsqId: number, quotation: any) {
         const headers = await generateAccurateAuthHeaders();
         if (!headers) return null;
 
+        const availableItems = (quotation.items || []).filter((item: any) => item.isAvailable !== false);
+        const itemSkus = availableItems.map((item: any) => item.productSku).filter(Boolean);
+        await ensureAccurateItemsHaveTax(itemSkus);
+
         const detailItem: any[] = [];
-        for (const item of (quotation.items || [])) {
+        for (const item of availableItems) {
             const basePrice = item.basePrice || item.price;
             const netPrice = item.price;
             let itemDiscPercent = undefined;
@@ -702,17 +791,15 @@ export async function updateAccurateHSQ(accurateHsqId: number, quotation: any) {
                 if (disc > 0) itemDiscPercent = parseFloat(disc.toFixed(2)).toString();
             }
 
-            if (item.isAvailable !== false) {
-                detailItem.push({
-                    itemNo: item.productSku,
-                    unitPrice: basePrice,
-                    quantity: item.quantity,
-                    itemDiscPercent: item.discountStr || itemDiscPercent,
-                    detailName: item.productName,
-                    useTax1: true,
-                    tax1Name: "PPN"
-                });
-            }
+            detailItem.push({
+                itemNo: item.productSku,
+                unitPrice: basePrice,
+                quantity: item.quantity,
+                itemDiscPercent: item.discountStr || itemDiscPercent,
+                detailName: item.productName,
+                useTax1: true,
+                tax1Name: DEFAULT_ACCURATE_TAX_NAME
+            });
         }
 
         const payload: any = {
@@ -727,9 +814,10 @@ export async function updateAccurateHSQ(accurateHsqId: number, quotation: any) {
             payload.discountPercent = parseFloat(quotation.specialDiscount.toFixed(2)).toString();
         }
 
+        const saveHeaders = await generateAccurateAuthHeaders();
         const response = await fetch(endpoint, {
             method: 'POST',
-            headers: headers as HeadersInit,
+            headers: (saveHeaders || headers) as HeadersInit,
             body: JSON.stringify(payload)
         });
 
